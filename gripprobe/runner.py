@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import time
+from datetime import datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 from gripprobe.adapters.base import AdapterError
 from gripprobe.adapters.continue_cli import ContinueCliAdapter
@@ -24,6 +26,15 @@ def _find_one(items, attr: str, value: str):
         if getattr(item, attr) == value or getattr(item, "label", None) == value:
             return item
     raise ValueError(f"Could not find {attr}={value}")
+
+
+def _timestamp() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def _emit(progress: Callable[[str], None] | None, message: str) -> None:
+    if progress is not None:
+        progress(f"[{_timestamp()}] {message}")
 
 
 def _collect_shell_runtime_metadata(executable: str) -> dict[str, str]:
@@ -132,6 +143,7 @@ def run(
     container_image: str | None = None,
     keep_system_messages: bool = False,
     run_metadata: dict[str, str] | None = None,
+    progress: Callable[[str], None] | None = None,
 ) -> tuple[Path, list[CaseResult]]:
     tests = load_test_specs(root)
     models = load_model_specs(root)
@@ -144,6 +156,14 @@ def run(
     run_paths = create_run_paths(root, run_id=run_id)
     runtime_metadata = _collect_shell_runtime_metadata(shell_spec.executable)
     merged_run_metadata = {**runtime_metadata, **(run_metadata or {})}
+    _emit(
+        progress,
+        "START "
+        f"shell={shell_spec.id} "
+        f"model={model_spec.label} "
+        f"backend={backend.id} "
+        f"report={run_paths.reports_dir / 'summary.html'}",
+    )
 
     results: list[CaseResult] = []
     tests = _filter_tests(tests, tests_filter)
@@ -151,12 +171,32 @@ def run(
     formats = _filter_formats(formats, formats_filter)
 
     for tool_format in formats:
+        format_started_at = time.monotonic()
+        _emit(
+            progress,
+            "START "
+            f"model={model_spec.label} "
+            f"backend={backend.id} "
+            f"format={tool_format}",
+        )
+        format_cases = 0
         for test_spec in tests:
             if test_spec.supported_shells and shell_spec.id not in test_spec.supported_shells:
                 continue
             if test_spec.supported_formats and tool_format not in test_spec.supported_formats:
                 continue
+            format_cases += 1
             case_id = f"{shell_spec.id}__{model_spec.id}__{backend.id}__{tool_format}__{test_spec.id}"
+            case_started_at = time.monotonic()
+            _emit(
+                progress,
+                "START "
+                f"model={model_spec.label} "
+                f"backend={backend.id} "
+                f"format={tool_format} "
+                f"test={test_spec.id} "
+                f"case={case_id}",
+            )
             case_dir = run_paths.cases_dir / case_id
             workspace_dir = case_dir / "workspace"
             _prepare_workspace(workspace_dir, test_spec.id)
@@ -190,6 +230,26 @@ def run(
             result.metadata = {**merged_run_metadata, **result.metadata}
             write_json(case_dir / "case.json", result.model_dump())
             results.append(result)
+            _emit(
+                progress,
+                "DONE "
+                f"model={model_spec.label} "
+                f"backend={backend.id} "
+                f"format={tool_format} "
+                f"test={test_spec.id} "
+                f"case={case_id} "
+                f"status={result.status} "
+                f"seconds={time.monotonic() - case_started_at:.3f}",
+            )
+        _emit(
+            progress,
+            "DONE "
+            f"model={model_spec.label} "
+            f"backend={backend.id} "
+            f"format={tool_format} "
+            f"cases={format_cases} "
+            f"seconds={time.monotonic() - format_started_at:.3f}",
+        )
 
     write_markdown_summary(results, run_paths.reports_dir / "summary.md")
     write_html_summary(results, run_paths.reports_dir / "summary.html")
@@ -208,5 +268,14 @@ def run(
             "keep_system_messages": keep_system_messages,
             "run_metadata": merged_run_metadata,
         },
+    )
+    _emit(
+        progress,
+        "DONE "
+        f"shell={shell_spec.id} "
+        f"model={model_spec.label} "
+        f"backend={backend.id} "
+        f"cases={len(results)} "
+        f"report={run_paths.reports_dir / 'summary.html'}",
     )
     return run_paths.run_dir, results

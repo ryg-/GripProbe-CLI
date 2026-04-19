@@ -52,6 +52,7 @@ def cmd_run(
         container_image=container_image,
         keep_system_messages=keep_system_messages,
         run_metadata=metadata,
+        progress=lambda line: print(line, flush=True),
     )
     print(run_dir)
     print(f"cases={len(results)}")
