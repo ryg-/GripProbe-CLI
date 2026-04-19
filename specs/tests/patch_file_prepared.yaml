@@ -1,0 +1,29 @@
+id: patch_file_prepared
+title: Patch File From Prepared Patch
+category: patch
+prompt: |
+  Use the read tool to inspect prepared.patch in the current workspace.
+  Then use the patch tool to apply that exact patch to patch-target.txt in the current workspace.
+  Do not retry on error.
+  If the edit fails, reply only with FAIL.
+  If the edit succeeds, reply only with DONE.
+allowed_tools:
+  - read
+  - patch
+artifacts:
+  - path: prepared.patch
+    kind: text
+  - path: patch-target.txt
+    kind: text
+validators:
+  - type: patch_applied
+    target_file: patch-target.txt
+    expected_line: STATUS=new
+supported_shells:
+  - gptme
+  - continue-cli
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - mvp

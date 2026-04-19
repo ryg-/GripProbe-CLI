@@ -200,7 +200,7 @@ section{{margin:1.5rem 0}}
 <p><a href='{summary_rel}'>Back to summary</a></p>
 <h1>{escape(result.title)}</h1>
 <p><strong>Case:</strong> <code>{escape(result.case_id)}</code></p>
-<p><span class='badge {status_class}'>{escape(result.status)}</span> <strong>Invoked:</strong> {escape(result.invoked)} | <strong>Match:</strong> {result.match_percent}%</p>
+    <p><span class='badge {status_class}'>{escape(result.status)}</span> <strong>Trajectory:</strong> {escape(result.trajectory)} | <strong>Invoked:</strong> {escape(result.invoked)} | <strong>Match:</strong> {result.match_percent}%</p>
 {('<div class="grid">' + top_panels + '</div>') if top_panels else ''}
 <section>
 <h2>Expected vs Observed</h2>
@@ -237,6 +237,7 @@ def write_html_summary(results: list[CaseResult], path: Path) -> None:
             f"<td>{escape(item.format)}</td>"
             f"<td>{escape(item.title)}</td>"
             f"<td><span class='badge {status_class}'>{escape(item.status)}</span></td>"
+            f"<td>{escape(item.trajectory)}</td>"
             f"<td>{escape(item.invoked)}</td>"
             f"<td>{item.match_percent}</td>"
             f"<td>{item.timings.warmup_seconds}</td>"
@@ -263,7 +264,7 @@ a{{color:#0b57d0}}
 </style></head><body>
 <h1>GripProbe Run Summary</h1>
 <table>
-<thead><tr><th>Shell</th><th>Model</th><th>Backend</th><th>Hash</th><th>Format</th><th>Test</th><th>Status</th><th>Invoked</th><th>Match</th><th>Warmup (s)</th><th>Measured (s)</th><th>Details</th></tr></thead>
+<thead><tr><th>Shell</th><th>Model</th><th>Backend</th><th>Hash</th><th>Format</th><th>Test</th><th>Status</th><th>Trajectory</th><th>Invoked</th><th>Match</th><th>Warmup (s)</th><th>Measured (s)</th><th>Details</th></tr></thead>
 <tbody>
 {''.join(rows)}
 </tbody></table></body></html>"""

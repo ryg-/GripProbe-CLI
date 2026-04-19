@@ -16,6 +16,7 @@ CaseStatus = Literal[
     "SKIPPED",
 ]
 ToolInvocation = Literal["yes", "no", "maybe"]
+Trajectory = Literal["clean", "recovered", "violated"]
 
 
 DEFAULT_LOGS = CaseLogs(
@@ -51,6 +52,7 @@ def build_case_result(
     model_spec: ModelSpec,
     test_spec: TestSpec,
     status: CaseStatus,
+    trajectory: Trajectory = "clean",
     invoked: ToolInvocation,
     match_percent: int,
     warmup_seconds: float,
@@ -66,6 +68,7 @@ def build_case_result(
         test=case.test_id,
         title=test_spec.title,
         status=status,
+        trajectory=trajectory,
         invoked=invoked,
         match_percent=match_percent,
         timings=CaseTimings(

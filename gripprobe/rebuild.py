@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Literal
 
 from gripprobe.case_result import CaseStatus, ToolInvocation
 from gripprobe.models import CaseLogs, CaseModelInfo, CaseResult, CaseTimings, ModelSpec
@@ -9,6 +10,8 @@ from gripprobe.reporters.html_report import write_html_summary
 from gripprobe.reporters.markdown import write_markdown_summary
 from gripprobe.results import strip_system_messages_from_transcripts, write_json
 from gripprobe.spec_loader import load_model_specs
+
+Trajectory = Literal["clean", "recovered", "violated"]
 
 
 def _infer_root_from_run_dir(run_dir: Path) -> Path:
@@ -37,6 +40,21 @@ def _fallback_status(case_dir: Path) -> tuple[CaseStatus, ToolInvocation]:
     return "HARNESS_ERROR", "no"
 
 
+def _fallback_trajectory(case_dir: Path, status: CaseStatus) -> Trajectory:
+    measured_stdout = (case_dir / "measured.stdout").read_text(encoding="utf-8", errors="replace") if (case_dir / "measured.stdout").exists() else ""
+    measured_stderr = (case_dir / "measured.stderr").read_text(encoding="utf-8", errors="replace") if (case_dir / "measured.stderr").exists() else ""
+    prompt = (case_dir / "prompt.txt").read_text(encoding="utf-8", errors="replace") if (case_dir / "prompt.txt").exists() else ""
+    combined = f"{measured_stdout}\n{measured_stderr}"
+    had_error = any(marker in combined for marker in ("Error during execution:", "Shell error:", "Invalid patch:"))
+    if not had_error:
+        return "clean"
+    if status == "PASS" and "Do not retry on error." in prompt:
+        after_error = combined.split("Error during execution:", 1)[1] if "Error during execution:" in combined else combined
+        if any(marker in after_error for marker in ("@shell(", "@patch(", "@read(", "@save(")):
+            return "violated"
+    return "recovered"
+
+
 def _fallback_title(test_id: str) -> str:
     return test_id.replace("_", " ").title()
 
@@ -57,6 +75,7 @@ def _load_case_result(case_dir: Path, model_index: dict[str, ModelSpec]) -> Case
     status: CaseStatus
     invoked: ToolInvocation
     status, invoked = _fallback_status(case_dir)
+    trajectory: Trajectory = _fallback_trajectory(case_dir, status)
     expected = (case_dir / "expected.txt").read_text(encoding="utf-8", errors="replace").strip() if (case_dir / "expected.txt").exists() else ""
     observed = (case_dir / "observed.txt").read_text(encoding="utf-8", errors="replace").strip() if (case_dir / "observed.txt").exists() else ""
     match_percent = 100 if expected and observed and expected == observed else 0
@@ -91,6 +110,7 @@ def _load_case_result(case_dir: Path, model_index: dict[str, ModelSpec]) -> Case
         test=test_id,
         title=_fallback_title(test_id),
         status=status,
+        trajectory=trajectory,
         invoked=invoked,
         match_percent=match_percent,
         timings=CaseTimings(warmup_seconds=0.0, measured_seconds=0.0),

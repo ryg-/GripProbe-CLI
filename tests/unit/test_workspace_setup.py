@@ -1,0 +1,24 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from gripprobe.runner import _prepare_workspace
+
+
+def test_prepare_workspace_seeds_patch_target_for_patch_file(tmp_path: Path) -> None:
+    _prepare_workspace(tmp_path, "patch_file")
+
+    assert (tmp_path / "patch-target.txt").read_text(encoding="utf-8") == "STATUS=old\n"
+
+
+def test_prepare_workspace_seeds_patch_target_and_patch_file_for_prepared_patch_case(tmp_path: Path) -> None:
+    _prepare_workspace(tmp_path, "patch_file_prepared")
+
+    assert (tmp_path / "patch-target.txt").read_text(encoding="utf-8") == "STATUS=old\n"
+    assert (tmp_path / "prepared.patch").read_text(encoding="utf-8") == (
+        "<<<<<<< ORIGINAL\n"
+        "STATUS=old\n"
+        "=======\n"
+        "STATUS=new\n"
+        ">>>>>>> UPDATED\n"
+    )

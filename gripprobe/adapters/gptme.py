@@ -2,12 +2,35 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Literal
 
 from gripprobe.adapters.base import ShellAdapter
 from gripprobe.case_result import CaseStatus, ToolInvocation, build_case_result
 from gripprobe.models import CaseDefinition, ModelSpec, TestSpec
 from gripprobe.results import remove_transient_files, strip_system_messages_from_transcripts
 from gripprobe.validator_runner import evaluate_validators
+
+
+Trajectory = Literal["clean", "recovered", "violated"]
+
+
+def _derive_trajectory(test_spec: TestSpec, stdout: str, stderr: str, status: CaseStatus) -> Trajectory:
+    combined = f"{stdout}\n{stderr}"
+    error_markers = (
+        "Error during execution:",
+        "Shell error:",
+        "Invalid patch:",
+    )
+    had_error = any(marker in combined for marker in error_markers)
+    if not had_error:
+        return "clean"
+    if status != "PASS":
+        return "recovered"
+    if "Do not retry on error." in test_spec.prompt:
+        after_error = combined.split("Error during execution:", 1)[1] if "Error during execution:" in combined else combined
+        if any(marker in after_error for marker in ("@shell(", "@patch(", "@read(", "@save(")):
+            return "violated"
+    return "recovered"
 
 
 class GptmeAdapter(ShellAdapter):
@@ -85,10 +108,12 @@ class GptmeAdapter(ShellAdapter):
 
         status: CaseStatus
         invoked: ToolInvocation
+        trajectory: Trajectory = "clean"
         if measured_rc == 124:
             status, invoked, match_percent, expected, observed = "TIMEOUT", "no", 0, "", ""
         else:
             status, invoked, match_percent, expected, observed = self._classify(test_spec, case.workspace_dir, stdout_text, stderr_text)
+            trajectory = _derive_trajectory(test_spec, stdout_text, stderr_text, status)
 
         (case.case_dir / "expected.txt").write_text(expected + ("\n" if expected else ""), encoding="utf-8")
         (case.case_dir / "observed.txt").write_text(observed + ("\n" if observed else ""), encoding="utf-8")
@@ -101,6 +126,7 @@ class GptmeAdapter(ShellAdapter):
             model_spec=model_spec,
             test_spec=test_spec,
             status=status,
+            trajectory=trajectory,
             invoked=invoked,
             match_percent=match_percent,
             warmup_seconds=warmup_s,

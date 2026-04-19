@@ -25,6 +25,7 @@ def test_case_result_serializes_backend_and_model_hash(tmp_path: Path) -> None:
         test="shell_pwd",
         title="Shell PWD",
         status="PASS",
+        trajectory="clean",
         invoked="yes",
         match_percent=100,
         timings=CaseTimings(warmup_seconds=1.0, measured_seconds=2.0),
