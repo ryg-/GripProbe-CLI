@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from gripprobe.rebuild import rebuild_reports
 from gripprobe.runner import DEFAULT_BACKEND, run
 from gripprobe.spec_loader import load_model_specs, load_shell_specs, load_test_specs
 
@@ -41,6 +42,14 @@ def cmd_run(
 
 
 
+
+
+def cmd_rebuild_reports(run_dir: Path) -> int:
+    rebuilt_dir, results = rebuild_reports(run_dir)
+    print(rebuilt_dir)
+    print(f"cases={len(results)}")
+    return 0
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="gripprobe")
     parser.add_argument("--root", default=".")
@@ -54,6 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--tests", nargs="*")
     run_p.add_argument("--formats", nargs="*")
     run_p.add_argument("--container-image")
+    rebuild_p = sub.add_parser("rebuild-reports")
+    rebuild_p.add_argument("--run-dir", required=True)
     return parser
 
 
@@ -74,6 +85,8 @@ def main() -> int:
             formats=ns.formats,
             container_image=ns.container_image,
         )
+    if ns.cmd == "rebuild-reports":
+        return cmd_rebuild_reports(Path(ns.run_dir).resolve())
     parser.error("unknown command")
 
 

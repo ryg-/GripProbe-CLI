@@ -57,8 +57,12 @@ def test_run_timeout_persists_timeout_case(monkeypatch, specs_root: Path) -> Non
     case_path = run_dir / "cases" / "gptme__local_qwen2_5_7b__ollama__markdown__shell_pwd" / "case.json"
     case = json.loads(case_path.read_text(encoding="utf-8"))
     summary_html = (run_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+    detail_html = (run_dir / "reports" / "cases" / "gptme__local_qwen2_5_7b__ollama__markdown__shell_pwd.html").read_text(encoding="utf-8")
 
     assert case["status"] == "TIMEOUT"
     assert case["invoked"] == "no"
     assert case["metadata"]["measured_exit_code"] == 124
-    assert "<td>TIMEOUT</td>" in summary_html
+    assert "TIMEOUT" in summary_html
+    assert "badge timeout" in summary_html
+    assert "details</a>" in summary_html
+    assert "Tool / Process Output" in detail_html

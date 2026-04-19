@@ -67,6 +67,15 @@ GRIPPROBE_RUN_REAL_E2E=1 python -m pytest tests/e2e/test_real_model.py -q
 
 You can override the target with environment variables such as `GRIPPROBE_REAL_MODEL`, `GRIPPROBE_REAL_SHELL`, `GRIPPROBE_REAL_BACKEND`, `GRIPPROBE_REAL_TIMEOUT_SECONDS`, and `GRIPPROBE_OPENAI_BASE_URL`. No local endpoint is stored in the repository. Shell binaries are expected to be available on `PATH`.
 
+
+If a benchmark session crashes mid-run but the case artifacts already exist, you can rebuild summaries and HTML case pages from the run directory:
+
+```bash
+python -m gripprobe.cli rebuild-reports --run-dir results/runs/<run_id>
+```
+
+This command recreates `summary.md`, `summary.html`, and per-case HTML detail pages from the saved artifacts.
+
 ## Current Limitations
 
 - `continue-cli` adapter is scaffolded but not yet implemented end-to-end
