@@ -34,6 +34,34 @@ def write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def strip_system_messages_from_transcripts(root: Path) -> None:
+    if not root.exists():
+        return
+    for path in root.rglob("conversation.jsonl"):
+        if not path.is_file():
+            continue
+        kept_lines: list[str] = []
+        changed = False
+        for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                kept_lines.append(raw_line)
+                continue
+            if str(payload.get("role", "")).lower() == "system":
+                changed = True
+                continue
+            kept_lines.append(raw_line)
+        if changed:
+            path.write_text(
+                ("\n".join(kept_lines) + "\n") if kept_lines else "",
+                encoding="utf-8",
+            )
+
+
 def remove_transient_files(root: Path, names: tuple[str, ...] = (".lock",)) -> None:
     if not root.exists():
         return

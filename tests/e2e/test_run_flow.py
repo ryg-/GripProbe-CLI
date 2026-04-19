@@ -10,6 +10,15 @@ from tests.conftest import FakeSuccessAdapter, FakeTimeoutAdapter
 
 def test_run_writes_case_and_manifest(monkeypatch, specs_root: Path) -> None:
     monkeypatch.setattr("gripprobe.runner._adapter_for", lambda shell_spec: FakeSuccessAdapter(shell_spec))
+    monkeypatch.setattr(
+        "gripprobe.runner._collect_shell_runtime_metadata",
+        lambda executable: {
+            "shell_executable": executable,
+            "shell_executable_path": f"/fake/bin/{executable}",
+            "shell_version": "gptme vtest",
+            "shell_version_exit_code": "0",
+        },
+    )
 
     run_dir, results = run(
         specs_root,
@@ -19,6 +28,7 @@ def test_run_writes_case_and_manifest(monkeypatch, specs_root: Path) -> None:
         tests_filter=["shell_pwd"],
         formats_filter=["markdown"],
         run_id="run-success",
+        run_metadata={"venv": "/tmp/fake-venv"},
     )
 
     assert len(results) == 1
@@ -31,9 +41,15 @@ def test_run_writes_case_and_manifest(monkeypatch, specs_root: Path) -> None:
 
     assert manifest["backend"] == "ollama"
     assert manifest["model_hash"] == "845dbda0ea48"
+    assert manifest["run_metadata"]["shell_executable"] == "gptme"
+    assert manifest["run_metadata"]["shell_executable_path"] == "/fake/bin/gptme"
+    assert manifest["run_metadata"]["shell_version"] == "gptme vtest"
+    assert manifest["run_metadata"]["venv"] == "/tmp/fake-venv"
     assert case["status"] == "PASS"
     assert case["model"]["backend"] == "ollama"
     assert case["model"]["model_hash"] == "845dbda0ea48"
+    assert case["metadata"]["shell_version"] == "gptme vtest"
+    assert case["metadata"]["venv"] == "/tmp/fake-venv"
     assert "| gptme | local/qwen2.5:7b | ollama | 845dbda0ea48 | markdown | Shell PWD | PASS |" in summary_md
 
 

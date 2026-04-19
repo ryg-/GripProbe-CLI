@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Iterable
 
@@ -25,6 +26,30 @@ def _find_one(items, attr: str, value: str):
     raise ValueError(f"Could not find {attr}={value}")
 
 
+def _collect_shell_runtime_metadata(executable: str) -> dict[str, str]:
+    executable_name: str = executable
+    metadata: dict[str, str] = {"shell_executable": executable_name}
+    resolved = shutil.which(executable_name)
+    if resolved:
+        home = str(Path.home())
+        metadata["shell_executable_path"] = resolved.replace(home, "$HOME", 1) if resolved.startswith(home) else resolved
+    try:
+        probe = subprocess.run(
+            [executable_name, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return metadata
+    version_output = (probe.stdout or probe.stderr or "").strip()
+    if version_output:
+        metadata["shell_version"] = version_output.splitlines()[0]
+    metadata["shell_version_exit_code"] = str(probe.returncode)
+    return metadata
+
+
 def _prepare_workspace(path: Path, test_id: str) -> None:
     path.mkdir(parents=True, exist_ok=True)
     for file in path.iterdir():
@@ -34,6 +59,16 @@ def _prepare_workspace(path: Path, test_id: str) -> None:
             shutil.rmtree(file)
     if test_id == "patch_file":
         (path / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
+    if test_id == "patch_file_prepared":
+        (path / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
+        (path / "prepared.patch").write_text(
+            "<<<<<<< ORIGINAL\n"
+            "STATUS=old\n"
+            "=======\n"
+            "STATUS=new\n"
+            ">>>>>>> UPDATED\n",
+            encoding="utf-8",
+        )
 
 
 def _adapter_for(shell_spec: ShellSpec):
@@ -78,7 +113,11 @@ def _harness_error_result(case: CaseDefinition, model_spec: ModelSpec, test_spec
         match_percent=0,
         warmup_seconds=0.0,
         measured_seconds=0.0,
-        metadata={"error": message, "model_hash": case.model_hash},
+        metadata={
+            "error": message,
+            "model_hash": case.model_hash,
+            **case.run_metadata,
+        },
     )
 
 
@@ -91,6 +130,8 @@ def run(
     tests_filter: list[str] | None = None,
     formats_filter: list[str] | None = None,
     container_image: str | None = None,
+    keep_system_messages: bool = False,
+    run_metadata: dict[str, str] | None = None,
 ) -> tuple[Path, list[CaseResult]]:
     tests = load_test_specs(root)
     models = load_model_specs(root)
@@ -101,6 +142,8 @@ def run(
     backend = _select_backend(model_spec, backend_name)
     adapter = _adapter_for(shell_spec)
     run_paths = create_run_paths(root, run_id=run_id)
+    runtime_metadata = _collect_shell_runtime_metadata(shell_spec.executable)
+    merged_run_metadata = {**runtime_metadata, **(run_metadata or {})}
 
     results: list[CaseResult] = []
     tests = _filter_tests(tests, tests_filter)
@@ -137,11 +180,14 @@ def run(
                 case_dir=case_dir,
                 allowed_tools=test_spec.allowed_tools,
                 container_image=container_image or shell_spec.container_image,
+                keep_system_messages=keep_system_messages,
+                run_metadata=merged_run_metadata,
             )
             try:
                 result = adapter.run_case(case, model_spec, test_spec)
             except AdapterError as exc:
                 result = _harness_error_result(case, model_spec, test_spec, str(exc))
+            result.metadata = {**merged_run_metadata, **result.metadata}
             write_json(case_dir / "case.json", result.model_dump())
             results.append(result)
 
@@ -159,6 +205,8 @@ def run(
             "formats": formats,
             "tests": [test.id for test in tests],
             "container_image": container_image or shell_spec.container_image,
+            "keep_system_messages": keep_system_messages,
+            "run_metadata": merged_run_metadata,
         },
     )
     return run_paths.run_dir, results

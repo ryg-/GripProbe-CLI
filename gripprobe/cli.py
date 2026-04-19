@@ -17,6 +17,19 @@ def cmd_validate(root: Path) -> int:
     return 0
 
 
+def _parse_metadata(items: list[str] | None) -> dict[str, str]:
+    metadata: dict[str, str] = {}
+    for item in items or []:
+        if "=" not in item:
+            raise ValueError(f"Invalid metadata entry {item!r}; expected key=value")
+        key, value = item.split("=", 1)
+        key = key.strip()
+        if not key:
+            raise ValueError(f"Invalid metadata entry {item!r}; key cannot be empty")
+        metadata[key] = value
+    return metadata
+
+
 
 def cmd_run(
     root: Path,
@@ -26,6 +39,8 @@ def cmd_run(
     tests: list[str] | None,
     formats: list[str] | None,
     container_image: str | None,
+    keep_system_messages: bool,
+    metadata: dict[str, str],
 ) -> int:
     run_dir, results = run(
         root,
@@ -35,6 +50,8 @@ def cmd_run(
         tests_filter=tests,
         formats_filter=formats,
         container_image=container_image,
+        keep_system_messages=keep_system_messages,
+        run_metadata=metadata,
     )
     print(run_dir)
     print(f"cases={len(results)}")
@@ -44,8 +61,8 @@ def cmd_run(
 
 
 
-def cmd_rebuild_reports(run_dir: Path) -> int:
-    rebuilt_dir, results = rebuild_reports(run_dir)
+def cmd_rebuild_reports(run_dir: Path, keep_system_messages: bool) -> int:
+    rebuilt_dir, results = rebuild_reports(run_dir, keep_system_messages=keep_system_messages)
     print(rebuilt_dir)
     print(f"cases={len(results)}")
     return 0
@@ -63,8 +80,11 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--tests", nargs="*")
     run_p.add_argument("--formats", nargs="*")
     run_p.add_argument("--container-image")
+    run_p.add_argument("--keep-system-messages", action="store_true")
+    run_p.add_argument("--metadata", action="append", help="Attach run metadata as key=value; may be passed multiple times")
     rebuild_p = sub.add_parser("rebuild-reports")
     rebuild_p.add_argument("--run-dir", required=True)
+    rebuild_p.add_argument("--keep-system-messages", action="store_true")
     return parser
 
 
@@ -76,6 +96,10 @@ def main() -> int:
     if ns.cmd == "validate":
         return cmd_validate(root)
     if ns.cmd == "run":
+        try:
+            metadata = _parse_metadata(ns.metadata)
+        except ValueError as exc:
+            parser.error(str(exc))
         return cmd_run(
             root,
             shell=ns.shell,
@@ -84,9 +108,14 @@ def main() -> int:
             tests=ns.tests,
             formats=ns.formats,
             container_image=ns.container_image,
+            keep_system_messages=ns.keep_system_messages,
+            metadata=metadata,
         )
     if ns.cmd == "rebuild-reports":
-        return cmd_rebuild_reports(Path(ns.run_dir).resolve())
+        return cmd_rebuild_reports(
+            Path(ns.run_dir).resolve(),
+            keep_system_messages=ns.keep_system_messages,
+        )
     parser.error("unknown command")
 
 

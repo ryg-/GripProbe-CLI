@@ -6,20 +6,37 @@ from pathlib import Path
 from gripprobe.adapters.base import ShellAdapter
 from gripprobe.case_result import CaseStatus, ToolInvocation, build_case_result
 from gripprobe.models import CaseDefinition, ModelSpec, TestSpec
-from gripprobe.results import remove_transient_files
+from gripprobe.results import remove_transient_files, strip_system_messages_from_transcripts
 from gripprobe.validator_runner import evaluate_validators
 
 
 class GptmeAdapter(ShellAdapter):
+    @staticmethod
+    def _saw_tool_activity(stdout: str, stderr: str) -> bool:
+        haystacks = (stdout, stderr)
+        markers = (
+            "@patch(",
+            "@shell(",
+            "@read(",
+            "@save(",
+            "Error during execution:",
+            "Ran command:",
+            "Preview",
+        )
+        return any(marker in text for text in haystacks for marker in markers)
+
     def _classify(self, test_spec: TestSpec, workspace: Path, stdout: str, stderr: str) -> tuple[CaseStatus, ToolInvocation, int, str, str]:
         if "does not support tools" in stdout or "does not support tools" in stderr:
             return "TOOL_UNSUPPORTED", "no", 0, "", ""
         ok, expected, observed = evaluate_validators(test_spec, workspace)
         if ok:
             return "PASS", "yes", 100, expected, observed
+        saw_tool_activity = self._saw_tool_activity(stdout, stderr)
         if "No tool call detected in last message" in stdout or "No tool call detected in last message" in stderr:
+            if saw_tool_activity:
+                return "FAIL", "yes", 0, expected, observed
             return "NO_TOOL_CALL", "no", 0, expected, observed
-        if "System:" in stdout or "Ran command:" in stdout or "Preview" in stdout:
+        if saw_tool_activity or "System:" in stdout:
             return "FAIL", "maybe", 0, expected, observed
         return "FAIL", "no", 0, expected, observed
 
@@ -75,6 +92,8 @@ class GptmeAdapter(ShellAdapter):
 
         (case.case_dir / "expected.txt").write_text(expected + ("\n" if expected else ""), encoding="utf-8")
         (case.case_dir / "observed.txt").write_text(observed + ("\n" if observed else ""), encoding="utf-8")
+        if not case.keep_system_messages:
+            strip_system_messages_from_transcripts(case.case_dir)
         remove_transient_files(case.case_dir)
 
         return build_case_result(
@@ -86,10 +105,11 @@ class GptmeAdapter(ShellAdapter):
             match_percent=match_percent,
             warmup_seconds=warmup_s,
             measured_seconds=measured_s,
-            metadata={
-                "warmup_exit_code": warmup_rc,
-                "measured_exit_code": measured_rc,
-                "tool_format": case.tool_format,
-                "allowed_tools": case.allowed_tools,
-            },
+                metadata={
+                    "warmup_exit_code": warmup_rc,
+                    "measured_exit_code": measured_rc,
+                    "tool_format": case.tool_format,
+                    "allowed_tools": case.allowed_tools,
+                    **case.run_metadata,
+                },
         )

@@ -7,7 +7,7 @@ from gripprobe.case_result import CaseStatus, ToolInvocation
 from gripprobe.models import CaseLogs, CaseModelInfo, CaseResult, CaseTimings, ModelSpec
 from gripprobe.reporters.html_report import write_html_summary
 from gripprobe.reporters.markdown import write_markdown_summary
-from gripprobe.results import write_json
+from gripprobe.results import strip_system_messages_from_transcripts, write_json
 from gripprobe.spec_loader import load_model_specs
 
 
@@ -107,13 +107,15 @@ def _load_case_result(case_dir: Path, model_index: dict[str, ModelSpec]) -> Case
     return result
 
 
-def rebuild_reports(run_dir: Path) -> tuple[Path, list[CaseResult]]:
+def rebuild_reports(run_dir: Path, keep_system_messages: bool = False) -> tuple[Path, list[CaseResult]]:
     run_dir = run_dir.resolve()
     root = _infer_root_from_run_dir(run_dir)
     model_index = _load_model_index(root)
     cases_dir = run_dir / "cases"
     reports_dir = run_dir / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
+    if not keep_system_messages:
+        strip_system_messages_from_transcripts(cases_dir)
 
     results: list[CaseResult] = []
     for case_dir in sorted(path for path in cases_dir.iterdir() if path.is_dir()):

@@ -121,6 +121,23 @@ def _pre_block(text: str) -> str:
     return f"<pre>{escape(text)}</pre>"
 
 
+def _render_case_json_panel_text(case_dir: Path) -> str:
+    case_json_path = case_dir / "case.json"
+    raw = _read_text(case_json_path)
+    if not raw.strip():
+        return ""
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return raw
+    metadata = payload.get("metadata")
+    if isinstance(metadata, dict) and "shell_executable_path" in metadata:
+        metadata = dict(metadata)
+        metadata["shell_executable_path"] = "[hidden in HTML]"
+        payload["metadata"] = metadata
+    return json.dumps(payload, indent=2, ensure_ascii=False)
+
+
 def _write_case_detail(result: CaseResult, reports_dir: Path, case_dir: Path) -> str:
     details_dir = reports_dir / "cases"
     details_dir.mkdir(parents=True, exist_ok=True)
@@ -132,7 +149,7 @@ def _write_case_detail(result: CaseResult, reports_dir: Path, case_dir: Path) ->
     measured_stderr_raw = _read_text(case_dir / "measured.stderr")
     expected_raw = _read_text(case_dir / "expected.txt")
     observed_raw = _read_text(case_dir / "observed.txt")
-    case_json_raw = _read_text(case_dir / "case.json")
+    case_json_raw = _render_case_json_panel_text(case_dir)
     transcript_html = _render_transcript(case_dir)
     artifact_links = _render_artifact_links(case_dir, detail_path)
     summary_rel = escape(os.path.relpath(reports_dir / "summary.html", detail_path.parent))
