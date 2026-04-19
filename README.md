@@ -26,6 +26,27 @@ python -m gripprobe.cli --root . run --shell gptme --model local/qwen2.5:7b --ba
 `--backend` is selected explicitly at runtime and defaults to `ollama`.
 This avoids ambiguous backend choice when a model spec defines multiple backends.
 
+## Execution Model
+
+GripProbe executes benchmarks as many short isolated case sessions, not as one long shared agent conversation.
+
+Short form:
+
+```text
+run()
+  -> matrix point
+  -> case workspace
+  -> warmup subprocess
+  -> measured subprocess
+  -> validators
+  -> case.json
+```
+
+In practice, one matrix point is usually two short shell sessions: `warmup` and `measured`, each with separate `stdout` and `stderr` logs.
+
+Full execution-flow document:
+- `docs_execution_flow.md`
+
 ## Real E2E Test
 
 A live end-to-end test is available in `tests/e2e/test_real_model.py`.
