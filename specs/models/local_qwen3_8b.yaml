@@ -1,0 +1,19 @@
+id: local_qwen3_8b
+label: local/qwen3:8b
+family: qwen
+size_class: small
+parameters_b: 8
+quantization: null
+backends:
+  - id: ollama
+    model_id: qwen3:8b
+    shell_model_id: local/qwen3:8b
+    model_hash: 500a1f067a9f
+tags:
+  - local
+  - small
+  - tool-capable
+supported_formats:
+  - markdown
+  - tool
+policy_overrides: {}

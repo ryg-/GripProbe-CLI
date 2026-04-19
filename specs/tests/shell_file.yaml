@@ -1,0 +1,25 @@
+id: shell_file
+title: Shell File
+category: shell
+prompt: |
+  Use the shell tool. Run exactly this command: printf 'SHELL_OK\n' > shell-output.txt.
+  Do not retry on error.
+  If the command fails, reply only with FAIL.
+  If the command succeeds, reply only with DONE.
+allowed_tools:
+  - shell
+artifacts:
+  - path: shell-output.txt
+    kind: text
+validators:
+  - type: file_equals
+    target: shell-output.txt
+    expected: SHELL_OK
+supported_shells:
+  - gptme
+  - continue-cli
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - mvp

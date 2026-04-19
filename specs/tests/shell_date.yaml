@@ -1,0 +1,25 @@
+id: shell_date
+title: Shell Date
+category: shell
+prompt: |
+  Use the shell tool. Run exactly this command: date +%F > date-output.txt.
+  Do not retry on error.
+  If the command fails, reply only with FAIL.
+  If the command succeeds, reply only with DONE.
+allowed_tools:
+  - shell
+artifacts:
+  - path: date-output.txt
+    kind: text
+validators:
+  - type: file_equals
+    target: date-output.txt
+    expected_from: today
+supported_shells:
+  - gptme
+  - continue-cli
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - mvp

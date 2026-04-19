@@ -1,0 +1,15 @@
+id: gptme
+label: gptme
+executable: gptme
+default_args:
+  - --non-interactive
+  - --no-confirm
+supported_formats:
+  - markdown
+  - tool
+env: {}
+default_tools:
+  - shell
+  - patch
+  - read
+  - save

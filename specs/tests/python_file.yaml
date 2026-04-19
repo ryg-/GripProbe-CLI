@@ -1,0 +1,25 @@
+id: python_file
+title: Python File
+category: python
+prompt: |
+  Use the shell tool. Run exactly this command: python3 -c "from pathlib import Path; Path('python-output.txt').write_text('PYTHON_OK\\n')".
+  Do not retry on error.
+  If the command fails, reply only with FAIL.
+  If the command succeeds, reply only with DONE.
+allowed_tools:
+  - shell
+artifacts:
+  - path: python-output.txt
+    kind: text
+validators:
+  - type: file_equals
+    target: python-output.txt
+    expected: PYTHON_OK
+supported_shells:
+  - gptme
+  - continue-cli
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - mvp

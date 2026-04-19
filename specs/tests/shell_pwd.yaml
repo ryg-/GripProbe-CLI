@@ -1,0 +1,25 @@
+id: shell_pwd
+title: Shell PWD
+category: shell
+prompt: |
+  Use the shell tool. Run exactly this command: pwd > pwd-output.txt.
+  Do not retry on error.
+  If the command fails, reply only with FAIL.
+  If the command succeeds, reply only with DONE.
+allowed_tools:
+  - shell
+artifacts:
+  - path: pwd-output.txt
+    kind: text
+validators:
+  - type: file_equals
+    target: pwd-output.txt
+    expected_from: workspace_path
+supported_shells:
+  - gptme
+  - continue-cli
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - mvp

@@ -1,0 +1,19 @@
+id: local_qwen2_5_7b
+label: local/qwen2.5:7b
+family: qwen
+size_class: small
+parameters_b: 7
+quantization: null
+backends:
+  - id: ollama
+    model_id: qwen2.5:7b
+    shell_model_id: local/qwen2.5:7b
+    model_hash: 845dbda0ea48
+tags:
+  - local
+  - small
+  - tool-capable
+supported_formats:
+  - markdown
+  - tool
+policy_overrides: {}

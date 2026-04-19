@@ -1,0 +1,25 @@
+id: save_file
+title: Save File
+category: save
+prompt: |
+  Use the save tool to create saved-by-gptme.txt in the current workspace with exactly this content and nothing else: TOOL_SAVE_OK.
+  Do not retry on error.
+  If the save fails, reply only with FAIL.
+  If the save succeeds, reply only with DONE.
+allowed_tools:
+  - save
+artifacts:
+  - path: saved-by-gptme.txt
+    kind: text
+validators:
+  - type: file_equals
+    target: saved-by-gptme.txt
+    expected: TOOL_SAVE_OK
+supported_shells:
+  - gptme
+  - continue-cli
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - mvp
