@@ -32,3 +32,12 @@ def create_run_paths(root: Path, run_id: str | None = None) -> RunPaths:
 def write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def remove_transient_files(root: Path, names: tuple[str, ...] = (".lock",)) -> None:
+    if not root.exists():
+        return
+    for name in names:
+        for path in root.rglob(name):
+            if path.is_file() or path.is_symlink():
+                path.unlink(missing_ok=True)

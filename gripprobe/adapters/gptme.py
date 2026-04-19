@@ -6,6 +6,7 @@ from pathlib import Path
 from gripprobe.adapters.base import ShellAdapter
 from gripprobe.case_result import CaseStatus, ToolInvocation, build_case_result
 from gripprobe.models import CaseDefinition, ModelSpec, TestSpec
+from gripprobe.results import remove_transient_files
 from gripprobe.validator_runner import evaluate_validators
 
 
@@ -74,6 +75,7 @@ class GptmeAdapter(ShellAdapter):
 
         (case.case_dir / "expected.txt").write_text(expected + ("\n" if expected else ""), encoding="utf-8")
         (case.case_dir / "observed.txt").write_text(observed + ("\n" if observed else ""), encoding="utf-8")
+        remove_transient_files(case.case_dir)
 
         return build_case_result(
             case=case,
