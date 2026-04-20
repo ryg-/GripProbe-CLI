@@ -19,13 +19,11 @@ def model_spec() -> ModelSpec:
                     "id": "ollama",
                     "model_id": "qwen2.5:7b",
                     "shell_model_id": "local/qwen2.5:7b",
-                    "model_hash": "845dbda0ea48",
                 },
                 {
                     "id": "vllm",
                     "model_id": "qwen2.5-7b-instruct",
                     "shell_model_id": "openai/qwen2.5-7b-instruct",
-                    "model_hash": "alt-hash",
                 },
             ],
             "supported_formats": ["markdown", "tool"],

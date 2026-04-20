@@ -1,0 +1,30 @@
+id: python_file_de
+title: Python File Quoted DE
+category: python
+language: de
+prompt: |
+  Verwende das Shell-Tool. Fuehre genau diesen Befehl aus: python3 -c "from pathlib import Path; Path('python-output.txt').write_text('PYTHON_OK\\n')".
+  Wiederhole den Vorgang bei einem Fehler nicht.
+  Wenn der Befehl fehlschlaegt, antworte nur mit FAIL.
+  Wenn der Befehl erfolgreich ist, antworte nur mit DONE.
+allowed_tools:
+  - shell
+artifacts:
+  - path: python-output.txt
+    kind: text
+rules:
+  no_retry_on_error: true
+  require_exact_command: true
+validators:
+  - type: file_equals
+    target: python-output.txt
+    expected: PYTHON_OK
+supported_shells:
+  - gptme
+  - continue-cli
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - multilingual
+  - de

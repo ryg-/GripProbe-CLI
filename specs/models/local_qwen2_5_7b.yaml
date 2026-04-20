@@ -8,7 +8,6 @@ backends:
   - id: ollama
     model_id: qwen2.5:7b
     shell_model_id: local/qwen2.5:7b
-    model_hash: 845dbda0ea48
 tags:
   - local
   - small

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from gripprobe.aggregate import aggregate_reports
 from gripprobe.rebuild import rebuild_reports
 from gripprobe.runner import DEFAULT_BACKEND, run
 from gripprobe.spec_loader import load_model_specs, load_shell_specs, load_test_specs
@@ -40,6 +41,7 @@ def cmd_run(
     formats: list[str] | None,
     container_image: str | None,
     keep_system_messages: bool,
+    model_hash: str | None,
     metadata: dict[str, str],
 ) -> int:
     run_dir, results = run(
@@ -51,6 +53,7 @@ def cmd_run(
         formats_filter=formats,
         container_image=container_image,
         keep_system_messages=keep_system_messages,
+        model_hash=model_hash,
         run_metadata=metadata,
         progress=lambda line: print(line, flush=True),
     )
@@ -62,9 +65,20 @@ def cmd_run(
 
 
 
-def cmd_rebuild_reports(run_dir: Path, keep_system_messages: bool) -> int:
-    rebuilt_dir, results = rebuild_reports(run_dir, keep_system_messages=keep_system_messages)
+def cmd_rebuild_reports(run_dir: Path, keep_system_messages: bool, recompute_case_json: bool) -> int:
+    rebuilt_dir, results = rebuild_reports(
+        run_dir,
+        keep_system_messages=keep_system_messages,
+        recompute_case_json=recompute_case_json,
+    )
     print(rebuilt_dir)
+    print(f"cases={len(results)}")
+    return 0
+
+
+def cmd_aggregate_reports(run_dirs: list[Path], output_dir: Path) -> int:
+    aggregate_dir, results = aggregate_reports(run_dirs, output_dir)
+    print(aggregate_dir)
     print(f"cases={len(results)}")
     return 0
 
@@ -82,10 +96,15 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--formats", nargs="*")
     run_p.add_argument("--container-image")
     run_p.add_argument("--keep-system-messages", action="store_true")
+    run_p.add_argument("--model-hash")
     run_p.add_argument("--metadata", action="append", help="Attach run metadata as key=value; may be passed multiple times")
     rebuild_p = sub.add_parser("rebuild-reports")
     rebuild_p.add_argument("--run-dir", required=True)
     rebuild_p.add_argument("--keep-system-messages", action="store_true")
+    rebuild_p.add_argument("--recompute-case-json", action="store_true")
+    aggregate_p = sub.add_parser("aggregate-reports")
+    aggregate_p.add_argument("--run-dirs", nargs="+", required=True)
+    aggregate_p.add_argument("--output-dir", required=True)
     return parser
 
 
@@ -110,12 +129,19 @@ def main() -> int:
             formats=ns.formats,
             container_image=ns.container_image,
             keep_system_messages=ns.keep_system_messages,
+            model_hash=ns.model_hash,
             metadata=metadata,
         )
     if ns.cmd == "rebuild-reports":
         return cmd_rebuild_reports(
             Path(ns.run_dir).resolve(),
             keep_system_messages=ns.keep_system_messages,
+            recompute_case_json=ns.recompute_case_json,
+        )
+    if ns.cmd == "aggregate-reports":
+        return cmd_aggregate_reports(
+            [Path(item).resolve() for item in ns.run_dirs],
+            Path(ns.output_dir).resolve(),
         )
     parser.error("unknown command")
 

@@ -36,6 +36,7 @@ class FakeSuccessAdapter:
             model_spec=model_spec,
             test_spec=test_spec,
             status="PASS",
+            trajectory="clean",
             invoked="yes",
             match_percent=100,
             warmup_seconds=0.01,
@@ -63,11 +64,51 @@ class FakeTimeoutAdapter:
             model_spec=model_spec,
             test_spec=test_spec,
             status="TIMEOUT",
+            trajectory="clean",
             invoked="no",
             match_percent=0,
             warmup_seconds=0.5,
             measured_seconds=1.0,
-            metadata={"tool_format": case.tool_format, "measured_exit_code": 124},
+            metadata={
+                "tool_format": case.tool_format,
+                "measured_exit_code": 124,
+                "artifact_reached_before_timeout": False,
+            },
+        )
+
+
+class FakeTimeoutWithArtifactAdapter:
+    def __init__(self, shell_spec):
+        self.shell_spec = shell_spec
+
+    def run_case(self, case, model_spec, test_spec):
+        case.case_dir.mkdir(parents=True, exist_ok=True)
+        (case.case_dir / "prompt.txt").write_text(case.prompt, encoding="utf-8")
+        (case.case_dir / "warmup.stdout").write_text("warmup timeout after work\n", encoding="utf-8")
+        (case.case_dir / "warmup.stderr").write_text("", encoding="utf-8")
+        (case.case_dir / "measured.stdout").write_text("timed out after artifact creation\n", encoding="utf-8")
+        (case.case_dir / "measured.stderr").write_text("", encoding="utf-8")
+        expected = str(case.workspace_dir)
+        observed = str(case.workspace_dir)
+        (case.case_dir / "expected.txt").write_text(expected + "\n", encoding="utf-8")
+        (case.case_dir / "observed.txt").write_text(observed + "\n", encoding="utf-8")
+        (case.workspace_dir / "pwd-output.txt").write_text(observed + "\n", encoding="utf-8")
+
+        return build_case_result(
+            case=case,
+            model_spec=model_spec,
+            test_spec=test_spec,
+            status="TIMEOUT",
+            trajectory="clean",
+            invoked="yes",
+            match_percent=100,
+            warmup_seconds=0.5,
+            measured_seconds=1.0,
+            metadata={
+                "tool_format": case.tool_format,
+                "measured_exit_code": 124,
+                "artifact_reached_before_timeout": True,
+            },
         )
 
 

@@ -18,6 +18,12 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
                 "metadata": {
                     "shell_executable_path": "$HOME/.local/bin/gptme",
                     "shell_version": "gptme v0.31.0",
+                    "run_consistency": "strongly_diverged",
+                    "run_1_status": "NO_TOOL_CALL",
+                    "run_2_status": "TIMEOUT",
+                    "run_1_profile": {"invoked": "maybe", "tool_attempt_count": 0},
+                    "run_2_profile": {"invoked": "yes", "tool_attempt_count": 5, "loop_detected": True},
+                    "trajectory_reasons": ["contradictory completion text detected (both DONE and FAIL)"],
                 }
             }
         ),
@@ -62,3 +68,6 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     detail_html = (reports_dir / "cases" / "case-1.html").read_text(encoding="utf-8")
     assert "$HOME/.local/bin/gptme" not in detail_html
     assert "[hidden in HTML]" in detail_html
+    assert "Trajectory Hints" in detail_html
+    assert "Run Comparison" in detail_html
+    assert "strongly_diverged" in detail_html

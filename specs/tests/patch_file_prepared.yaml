@@ -3,6 +3,7 @@ title: Patch File From Prepared Patch
 category: patch
 prompt: |
   Use the read tool to inspect prepared.patch in the current workspace.
+  Use the read tool to inspect patch-target.txt in the current workspace.
   Then use the patch tool to apply that exact patch to patch-target.txt in the current workspace.
   Do not retry on error.
   If the edit fails, reply only with FAIL.

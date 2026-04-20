@@ -2,11 +2,13 @@ id: patch_file
 title: Patch File
 category: patch
 prompt: |
-  Use the patch tool to replace the exact line STATUS=old with STATUS=new in patch-target.txt in the current workspace.
+  Use the read tool to inspect patch-target.txt in the current workspace.
+  Then use the patch tool to replace the exact line STATUS=old with STATUS=new in patch-target.txt in the current workspace.
   Do not retry on error.
   If the edit fails, reply only with FAIL.
   If the edit succeeds, reply only with DONE.
 allowed_tools:
+  - read
   - patch
 validators:
   - type: patch_applied

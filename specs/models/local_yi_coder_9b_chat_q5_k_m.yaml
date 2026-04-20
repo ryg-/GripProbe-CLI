@@ -1,0 +1,18 @@
+id: local_yi_coder_9b_chat_q5_k_m
+label: local/yi-coder:9b-chat-q5_K_M
+family: yi
+size_class: small
+parameters_b: 9
+quantization: q5_K_M
+backends:
+  - id: ollama
+    model_id: yi-coder:9b-chat-q5_K_M
+    shell_model_id: local/yi-coder:9b-chat-q5_K_M
+tags:
+  - local
+  - small
+  - tool-capable
+supported_formats:
+  - markdown
+  - tool
+policy_overrides: {}

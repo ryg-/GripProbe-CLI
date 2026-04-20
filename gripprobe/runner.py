@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Callable, Iterable, cast
 
 from gripprobe.adapters.base import AdapterError
 from gripprobe.adapters.continue_cli import ContinueCliAdapter
@@ -38,9 +39,9 @@ def _emit(progress: Callable[[str], None] | None, message: str) -> None:
 
 
 def _collect_shell_runtime_metadata(executable: str) -> dict[str, str]:
-    executable_name: str = executable
+    executable_name = str(executable)
     metadata: dict[str, str] = {"shell_executable": executable_name}
-    resolved = shutil.which(executable_name)
+    resolved = shutil.which(cast(str, executable_name))
     if resolved:
         home = str(Path.home())
         metadata["shell_executable_path"] = resolved.replace(home, "$HOME", 1) if resolved.startswith(home) else resolved
@@ -58,6 +59,15 @@ def _collect_shell_runtime_metadata(executable: str) -> dict[str, str]:
     if version_output:
         metadata["shell_version"] = version_output.splitlines()[0]
     metadata["shell_version_exit_code"] = str(probe.returncode)
+    for key in (
+        "OLLAMA_CONTEXT_LENGTH",
+        "OLLAMA_NUM_PARALLEL",
+        "OLLAMA_FLASH_ATTENTION",
+        "OLLAMA_KV_CACHE_TYPE",
+    ):
+        value = os.environ.get(key)
+        if value:
+            metadata[key.lower()] = value
     return metadata
 
 
@@ -142,6 +152,7 @@ def run(
     formats_filter: list[str] | None = None,
     container_image: str | None = None,
     keep_system_messages: bool = False,
+    model_hash: str | None = None,
     run_metadata: dict[str, str] | None = None,
     progress: Callable[[str], None] | None = None,
 ) -> tuple[Path, list[CaseResult]]:
@@ -152,6 +163,7 @@ def run(
     model_spec: ModelSpec = _find_one(models, "label", model_name)
     shell_spec: ShellSpec = _find_one(shells, "id", shell_name)
     backend = _select_backend(model_spec, backend_name)
+    resolved_model_hash = backend.model_hash or model_hash or "unknown"
     adapter = _adapter_for(shell_spec)
     run_paths = create_run_paths(root, run_id=run_id)
     runtime_metadata = _collect_shell_runtime_metadata(shell_spec.executable)
@@ -198,7 +210,9 @@ def run(
                 f"case={case_id}",
             )
             case_dir = run_paths.cases_dir / case_id
+            warmup_workspace_dir = case_dir / "workspace-warmup"
             workspace_dir = case_dir / "workspace"
+            _prepare_workspace(warmup_workspace_dir, test_spec.id)
             _prepare_workspace(workspace_dir, test_spec.id)
             case = CaseDefinition(
                 case_id=case_id,
@@ -210,12 +224,13 @@ def run(
                 backend_id=backend.id,
                 backend_model_id=backend.model_id,
                 shell_model_id=backend.shell_model_id,
-                model_hash=backend.model_hash,
+                model_hash=resolved_model_hash,
                 quantization=model_spec.quantization,
                 tool_format=tool_format,
                 test_id=test_spec.id,
                 test_title=test_spec.title,
                 prompt=test_spec.prompt,
+                warmup_workspace_dir=warmup_workspace_dir,
                 workspace_dir=workspace_dir,
                 case_dir=case_dir,
                 allowed_tools=test_spec.allowed_tools,
@@ -260,7 +275,7 @@ def run(
             "shell": shell_spec.id,
             "model": model_spec.id,
             "backend": backend.id,
-            "model_hash": backend.model_hash,
+            "model_hash": resolved_model_hash,
             "cases": len(results),
             "formats": formats,
             "tests": [test.id for test in tests],

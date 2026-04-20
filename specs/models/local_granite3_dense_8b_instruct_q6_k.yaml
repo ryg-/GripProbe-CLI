@@ -1,0 +1,18 @@
+id: local_granite3_dense_8b_instruct_q6_k
+label: local/granite3-dense:8b-instruct-q6_K
+family: granite
+size_class: small
+parameters_b: 8
+quantization: q6_K
+backends:
+  - id: ollama
+    model_id: granite3-dense:8b-instruct-q6_K
+    shell_model_id: local/granite3-dense:8b-instruct-q6_K
+tags:
+  - local
+  - small
+  - tool-capable
+supported_formats:
+  - markdown
+  - tool
+policy_overrides: {}

@@ -29,6 +29,36 @@ STATUS_CLASS = {
     "HARNESS_ERROR": "fail",
     "SKIPPED": "skipped",
 }
+TRAJECTORY_CLASS = {
+    "clean": "traj-clean",
+    "recovered": "traj-recovered",
+    "violated": "traj-violated",
+}
+INVOKED_CLASS = {
+    "yes": "invoked-yes",
+    "no": "invoked-no",
+    "maybe": "invoked-maybe",
+}
+
+
+def _match_class(match_percent: int) -> str:
+    if match_percent >= 100:
+        return "match-full"
+    if match_percent > 0:
+        return "match-partial"
+    return "match-none"
+
+
+def _timeout_artifact_reached(result: CaseResult) -> bool:
+    return result.status == "TIMEOUT" and bool(result.metadata.get("artifact_reached_before_timeout"))
+
+
+def _status_badges(result: CaseResult) -> str:
+    status_class = STATUS_CLASS.get(result.status, "unknown")
+    badges = [f"<span class='badge {status_class}'>{escape(result.status)}</span>"]
+    if _timeout_artifact_reached(result):
+        badges.append("<span class='badge timeout-artifact'>artifact reached</span>")
+    return " ".join(badges)
 
 
 def _read_text(path: Path) -> str:
@@ -138,6 +168,79 @@ def _render_case_json_panel_text(case_dir: Path) -> str:
     return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
+def _render_run_comparison(case_json_raw: str) -> str:
+    if not case_json_raw.strip():
+        return ""
+    try:
+        payload = json.loads(case_json_raw)
+    except json.JSONDecodeError:
+        return ""
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        return ""
+    run_consistency = metadata.get("run_consistency")
+    run_1_status = metadata.get("run_1_status")
+    run_2_status = metadata.get("run_2_status")
+    run_1_profile = metadata.get("run_1_profile")
+    run_2_profile = metadata.get("run_2_profile")
+    if not any((run_consistency, run_1_status, run_2_status, run_1_profile, run_2_profile)):
+        return ""
+    blocks: list[str] = []
+    if run_consistency:
+        blocks.append(f"<p><strong>Consistency:</strong> {escape(str(run_consistency))}</p>")
+    for label, status, profile in (
+        ("Run 1", run_1_status, run_1_profile),
+        ("Run 2", run_2_status, run_2_profile),
+    ):
+        if not status and not isinstance(profile, dict):
+            continue
+        rows = []
+        if status:
+            rows.append(f"<li><strong>Status:</strong> {escape(str(status))}</li>")
+        if isinstance(profile, dict):
+            for key in (
+                "invoked",
+                "tool_attempt_count",
+                "error_count",
+                "repeated_error_count",
+                "loop_detected",
+                "markdown_tool_imitation",
+                "no_tool_call_after_completion",
+                "dominant_error",
+            ):
+                if key in profile:
+                    rows.append(f"<li><strong>{escape(key)}:</strong> {escape(str(profile[key]))}</li>")
+        blocks.append(f"<div class='panel'><h3>{escape(label)}</h3><ul>{''.join(rows)}</ul></div>")
+    if not blocks:
+        return ""
+    return "<div class='grid'>" + "".join(blocks) + "</div>"
+
+
+def _render_trajectory_hints(case_json_raw: str) -> str:
+    if not case_json_raw.strip():
+        return ""
+    try:
+        payload = json.loads(case_json_raw)
+    except json.JSONDecodeError:
+        return ""
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        return ""
+    reasons = metadata.get("trajectory_reasons")
+    reason_items = ""
+    if isinstance(reasons, list):
+        reason_items = "".join(f"<li>{escape(str(reason))}</li>" for reason in reasons)
+    legend = (
+        "<ul>"
+        "<li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li>"
+        "<li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li>"
+        "<li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li>"
+        "</ul>"
+    )
+    current = f"<h3>Current Case</h3><ul>{reason_items}</ul>" if reason_items else ""
+    return legend + current
+
+
 def _write_case_detail(result: CaseResult, reports_dir: Path, case_dir: Path) -> str:
     details_dir = reports_dir / "cases"
     details_dir.mkdir(parents=True, exist_ok=True)
@@ -150,10 +253,14 @@ def _write_case_detail(result: CaseResult, reports_dir: Path, case_dir: Path) ->
     expected_raw = _read_text(case_dir / "expected.txt")
     observed_raw = _read_text(case_dir / "observed.txt")
     case_json_raw = _render_case_json_panel_text(case_dir)
+    run_comparison_html = _render_run_comparison(case_json_raw)
+    trajectory_hints_html = _render_trajectory_hints(case_json_raw)
     transcript_html = _render_transcript(case_dir)
     artifact_links = _render_artifact_links(case_dir, detail_path)
     summary_rel = escape(os.path.relpath(reports_dir / "summary.html", detail_path.parent))
-    status_class = STATUS_CLASS.get(result.status, "unknown")
+    trajectory_class = TRAJECTORY_CLASS.get(result.trajectory, "unknown")
+    invoked_class = INVOKED_CLASS.get(result.invoked, "unknown")
+    match_class = _match_class(result.match_percent)
 
     top_panels = "".join(
         panel for panel in [
@@ -191,16 +298,29 @@ section{{margin:1.5rem 0}}
 .pass{{background:#d9f2df;color:#115c23}}
 .fail{{background:#f9d7d7;color:#7a1520}}
 .timeout{{background:#fde6c8;color:#7d4b00}}
+.timeout-artifact{{background:#d8f0e1;color:#165a30}}
 .notool{{background:#e6e1ff;color:#44318d}}
 .unsupported{{background:#e6eefb;color:#1f4c8f}}
 .skipped{{background:#ececec;color:#555}}
 .unknown{{background:#eee;color:#333}}
+.traj-clean{{background:#dff3e4;color:#1f6b33}}
+.traj-recovered{{background:#fff0cc;color:#8a5a00}}
+.traj-violated{{background:#f7d6db;color:#8a1f2d}}
+.invoked-yes{{background:#d9ecff;color:#0b4f92}}
+.invoked-no{{background:#ececec;color:#555}}
+.invoked-maybe{{background:#efe3ff;color:#5b2f8f}}
+.match-full{{background:#d9f2df;color:#115c23}}
+.match-partial{{background:#fff0cc;color:#8a5a00}}
+.match-none{{background:#f9d7d7;color:#7a1520}}
 .ok{{color:#115c23;font-weight:600}}
 </style></head><body>
 <p><a href='{summary_rel}'>Back to summary</a></p>
 <h1>{escape(result.title)}</h1>
 <p><strong>Case:</strong> <code>{escape(result.case_id)}</code></p>
-    <p><span class='badge {status_class}'>{escape(result.status)}</span> <strong>Trajectory:</strong> {escape(result.trajectory)} | <strong>Invoked:</strong> {escape(result.invoked)} | <strong>Match:</strong> {result.match_percent}%</p>
+    <p>{_status_badges(result)} <strong>Trajectory:</strong> <span class='badge {trajectory_class}'>{escape(result.trajectory)}</span> | <strong>Invoked:</strong> <span class='badge {invoked_class}'>{escape(result.invoked)}</span> | <strong>Match:</strong> <span class='badge {match_class}'>{result.match_percent}%</span></p>
+    {("<p class='ok'>The expected workspace artifact was present before the harness timeout elapsed.</p>") if _timeout_artifact_reached(result) else ''}
+    {('<section><h2>Trajectory Hints</h2>' + trajectory_hints_html + '</section>') if trajectory_hints_html else ''}
+    {('<section><h2>Run Comparison</h2>' + run_comparison_html + '</section>') if run_comparison_html else ''}
 {('<div class="grid">' + top_panels + '</div>') if top_panels else ''}
 <section>
 <h2>Expected vs Observed</h2>
@@ -227,7 +347,9 @@ def write_html_summary(results: list[CaseResult], path: Path) -> None:
     for item in results:
         case_dir = cases_dir / item.case_id
         detail_rel = _write_case_detail(item, reports_dir, case_dir)
-        status_class = STATUS_CLASS.get(item.status, "unknown")
+        trajectory_class = TRAJECTORY_CLASS.get(item.trajectory, "unknown")
+        invoked_class = INVOKED_CLASS.get(item.invoked, "unknown")
+        match_class = _match_class(item.match_percent)
         rows.append(
             "<tr>"
             f"<td>{escape(item.shell)}</td>"
@@ -236,10 +358,10 @@ def write_html_summary(results: list[CaseResult], path: Path) -> None:
             f"<td>{escape(item.model.model_hash)}</td>"
             f"<td>{escape(item.format)}</td>"
             f"<td>{escape(item.title)}</td>"
-            f"<td><span class='badge {status_class}'>{escape(item.status)}</span></td>"
-            f"<td>{escape(item.trajectory)}</td>"
-            f"<td>{escape(item.invoked)}</td>"
-            f"<td>{item.match_percent}</td>"
+            f"<td>{_status_badges(item)}</td>"
+            f"<td><span class='badge {trajectory_class}'>{escape(item.trajectory)}</span></td>"
+            f"<td><span class='badge {invoked_class}'>{escape(item.invoked)}</span></td>"
+            f"<td><span class='badge {match_class}'>{item.match_percent}%</span></td>"
             f"<td>{item.timings.warmup_seconds}</td>"
             f"<td>{item.timings.measured_seconds}</td>"
             f"<td><a href='{escape(detail_rel)}'>details</a></td>"
@@ -257,10 +379,20 @@ a{{color:#0b57d0}}
 .pass{{background:#d9f2df;color:#115c23}}
 .fail{{background:#f9d7d7;color:#7a1520}}
 .timeout{{background:#fde6c8;color:#7d4b00}}
+.timeout-artifact{{background:#d8f0e1;color:#165a30}}
 .notool{{background:#e6e1ff;color:#44318d}}
 .unsupported{{background:#e6eefb;color:#1f4c8f}}
 .skipped{{background:#ececec;color:#555}}
 .unknown{{background:#eee;color:#333}}
+.traj-clean{{background:#dff3e4;color:#1f6b33}}
+.traj-recovered{{background:#fff0cc;color:#8a5a00}}
+.traj-violated{{background:#f7d6db;color:#8a1f2d}}
+.invoked-yes{{background:#d9ecff;color:#0b4f92}}
+.invoked-no{{background:#ececec;color:#555}}
+.invoked-maybe{{background:#efe3ff;color:#5b2f8f}}
+.match-full{{background:#d9f2df;color:#115c23}}
+.match-partial{{background:#fff0cc;color:#8a5a00}}
+.match-none{{background:#f9d7d7;color:#7a1520}}
 </style></head><body>
 <h1>GripProbe Run Summary</h1>
 <table>

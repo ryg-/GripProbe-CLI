@@ -1,0 +1,16 @@
+name: gripprobe-local-ollama
+version: 0.0.1
+schema: v1
+
+defaultCompletionOptions:
+  contextLength: 2048
+
+models:
+  - name: Qwen2.5 7B
+    provider: ollama
+    model: qwen2.5:7b
+    apiBase: http://127.0.0.1:11434
+    roles:
+      - chat
+      - edit
+      - apply

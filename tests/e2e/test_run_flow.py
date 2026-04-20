@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from gripprobe.runner import run
-from tests.conftest import FakeSuccessAdapter, FakeTimeoutAdapter
+from tests.conftest import FakeSuccessAdapter, FakeTimeoutAdapter, FakeTimeoutWithArtifactAdapter
 
 
 
@@ -17,6 +17,7 @@ def test_run_writes_case_and_manifest(monkeypatch, specs_root: Path) -> None:
             "shell_executable_path": f"/fake/bin/{executable}",
             "shell_version": "gptme vtest",
             "shell_version_exit_code": "0",
+            "ollama_context_length": "32768",
         },
     )
 
@@ -28,6 +29,7 @@ def test_run_writes_case_and_manifest(monkeypatch, specs_root: Path) -> None:
         tests_filter=["shell_pwd"],
         formats_filter=["markdown"],
         run_id="run-success",
+        model_hash="845dbda0ea48",
         run_metadata={"venv": "/tmp/fake-venv"},
     )
 
@@ -38,18 +40,25 @@ def test_run_writes_case_and_manifest(monkeypatch, specs_root: Path) -> None:
     case_path = run_dir / "cases" / "gptme__local_qwen2_5_7b__ollama__markdown__shell_pwd" / "case.json"
     case = json.loads(case_path.read_text(encoding="utf-8"))
     summary_md = (run_dir / "reports" / "summary.md").read_text(encoding="utf-8")
+    warmup_workspace = run_dir / "cases" / "gptme__local_qwen2_5_7b__ollama__markdown__shell_pwd" / "workspace-warmup"
+    measured_workspace = run_dir / "cases" / "gptme__local_qwen2_5_7b__ollama__markdown__shell_pwd" / "workspace"
 
     assert manifest["backend"] == "ollama"
     assert manifest["model_hash"] == "845dbda0ea48"
     assert manifest["run_metadata"]["shell_executable"] == "gptme"
     assert manifest["run_metadata"]["shell_executable_path"] == "/fake/bin/gptme"
     assert manifest["run_metadata"]["shell_version"] == "gptme vtest"
+    assert manifest["run_metadata"]["ollama_context_length"] == "32768"
     assert manifest["run_metadata"]["venv"] == "/tmp/fake-venv"
     assert case["status"] == "PASS"
     assert case["model"]["backend"] == "ollama"
     assert case["model"]["model_hash"] == "845dbda0ea48"
     assert case["metadata"]["shell_version"] == "gptme vtest"
+    assert case["metadata"]["ollama_context_length"] == "32768"
     assert case["metadata"]["venv"] == "/tmp/fake-venv"
+    assert warmup_workspace.exists()
+    assert measured_workspace.exists()
+    assert warmup_workspace != measured_workspace
     assert "| gptme | local/qwen2.5:7b | ollama | 845dbda0ea48 | markdown | Shell PWD | PASS |" in summary_md
 
 
@@ -90,6 +99,7 @@ def test_run_timeout_persists_timeout_case(monkeypatch, specs_root: Path) -> Non
         tests_filter=["shell_pwd"],
         formats_filter=["markdown"],
         run_id="run-timeout",
+        model_hash="845dbda0ea48",
     )
 
     assert len(results) == 1
@@ -103,7 +113,65 @@ def test_run_timeout_persists_timeout_case(monkeypatch, specs_root: Path) -> Non
     assert case["status"] == "TIMEOUT"
     assert case["invoked"] == "no"
     assert case["metadata"]["measured_exit_code"] == 124
+    assert case["metadata"]["artifact_reached_before_timeout"] is False
     assert "TIMEOUT" in summary_html
     assert "badge timeout" in summary_html
     assert "details</a>" in summary_html
     assert "Tool / Process Output" in detail_html
+
+
+def test_run_timeout_with_artifact_marks_timeout_as_reached(monkeypatch, specs_root: Path) -> None:
+    monkeypatch.setattr("gripprobe.runner._adapter_for", lambda shell_spec: FakeTimeoutWithArtifactAdapter(shell_spec))
+
+    run_dir, results = run(
+        specs_root,
+        shell_name="gptme",
+        model_name="local/qwen2.5:7b",
+        backend_name="ollama",
+        tests_filter=["shell_pwd"],
+        formats_filter=["markdown"],
+        run_id="run-timeout-artifact",
+        model_hash="845dbda0ea48",
+    )
+
+    assert len(results) == 1
+    assert results[0].status == "TIMEOUT"
+    assert results[0].invoked == "yes"
+    assert results[0].match_percent == 100
+
+    case_path = run_dir / "cases" / "gptme__local_qwen2_5_7b__ollama__markdown__shell_pwd" / "case.json"
+    case = json.loads(case_path.read_text(encoding="utf-8"))
+    summary_html = (run_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+    detail_html = (run_dir / "reports" / "cases" / "gptme__local_qwen2_5_7b__ollama__markdown__shell_pwd.html").read_text(encoding="utf-8")
+
+    assert case["status"] == "TIMEOUT"
+    assert case["metadata"]["artifact_reached_before_timeout"] is True
+    assert case["match_percent"] == 100
+    assert "artifact reached" in summary_html
+    assert "artifact reached" in detail_html
+    assert "expected workspace artifact was present before the harness timeout elapsed" in detail_html
+
+
+def test_run_uses_unknown_model_hash_when_not_in_spec_or_cli(monkeypatch, specs_root: Path) -> None:
+    monkeypatch.setattr("gripprobe.runner._adapter_for", lambda shell_spec: FakeSuccessAdapter(shell_spec))
+    monkeypatch.setattr("gripprobe.runner._collect_shell_runtime_metadata", lambda executable: {})
+
+    run_dir, results = run(
+        specs_root,
+        shell_name="gptme",
+        model_name="local/qwen2.5:7b",
+        backend_name="ollama",
+        tests_filter=["shell_pwd"],
+        formats_filter=["markdown"],
+        run_id="run-unknown-hash",
+    )
+
+    assert len(results) == 1
+    assert results[0].model.model_hash == "unknown"
+
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    case_path = run_dir / "cases" / "gptme__local_qwen2_5_7b__ollama__markdown__shell_pwd" / "case.json"
+    case = json.loads(case_path.read_text(encoding="utf-8"))
+
+    assert manifest["model_hash"] == "unknown"
+    assert case["model"]["model_hash"] == "unknown"

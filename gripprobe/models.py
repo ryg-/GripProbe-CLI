@@ -36,6 +36,13 @@ class ValidatorSpec(BaseModel):
         return self
 
 
+class RuleSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    no_retry_on_error: bool = False
+    require_exact_command: bool = False
+
+
 class TestSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -43,8 +50,10 @@ class TestSpec(BaseModel):
     title: str
     category: str
     prompt: str
+    language: Literal["en", "de", "ru"] = "en"
     allowed_tools: list[str] | None = None
     artifacts: list[ArtifactSpec] = Field(default_factory=list)
+    rules: RuleSpec = Field(default_factory=RuleSpec)
     validators: list[ValidatorSpec]
     supported_shells: list[str] = Field(default_factory=list)
     supported_formats: list[str] = Field(default_factory=list)
@@ -57,7 +66,7 @@ class BackendSpec(BaseModel):
     id: str
     model_id: str
     shell_model_id: str
-    model_hash: str
+    model_hash: str | None = None
     env: dict[str, str] = Field(default_factory=dict)
 
 
@@ -109,6 +118,7 @@ class CaseDefinition(BaseModel):
     test_id: str
     test_title: str
     prompt: str
+    warmup_workspace_dir: Path
     workspace_dir: Path
     case_dir: Path
     allowed_tools: list[str] | None = None

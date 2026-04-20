@@ -19,6 +19,7 @@ def test_run_persists_harness_error(monkeypatch, specs_root: Path) -> None:
         tests_filter=["shell_pwd"],
         formats_filter=["markdown"],
         run_id="run-harness-error",
+        model_hash="845dbda0ea48",
     )
 
     assert len(results) == 1
