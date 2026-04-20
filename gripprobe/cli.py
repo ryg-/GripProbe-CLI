@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from gripprobe.aggregate import aggregate_reports
+from gripprobe.aggregate import aggregate_reports, discover_run_dirs
 from gripprobe.rebuild import rebuild_reports
 from gripprobe.runner import DEFAULT_BACKEND, run
 from gripprobe.spec_loader import load_model_specs, load_shell_specs, load_test_specs
@@ -103,7 +103,8 @@ def build_parser() -> argparse.ArgumentParser:
     rebuild_p.add_argument("--keep-system-messages", action="store_true")
     rebuild_p.add_argument("--recompute-case-json", action="store_true")
     aggregate_p = sub.add_parser("aggregate-reports")
-    aggregate_p.add_argument("--run-dirs", nargs="+", required=True)
+    aggregate_p.add_argument("--run-dirs", nargs="+")
+    aggregate_p.add_argument("--runs-root")
     aggregate_p.add_argument("--output-dir", required=True)
     return parser
 
@@ -139,8 +140,15 @@ def main() -> int:
             recompute_case_json=ns.recompute_case_json,
         )
     if ns.cmd == "aggregate-reports":
+        if bool(ns.run_dirs) == bool(ns.runs_root):
+            parser.error("aggregate-reports requires exactly one of --run-dirs or --runs-root")
+        run_dirs = (
+            [Path(item).resolve() for item in ns.run_dirs]
+            if ns.run_dirs
+            else discover_run_dirs(Path(ns.runs_root).resolve())
+        )
         return cmd_aggregate_reports(
-            [Path(item).resolve() for item in ns.run_dirs],
+            run_dirs,
             Path(ns.output_dir).resolve(),
         )
     parser.error("unknown command")

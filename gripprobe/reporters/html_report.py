@@ -340,13 +340,20 @@ section{{margin:1.5rem 0}}
     return str(detail_path.relative_to(reports_dir))
 
 
+def write_case_detail_pages(results: list[CaseResult], reports_dir: Path, cases_dir: Path) -> dict[str, str]:
+    return {
+        item.case_id: _write_case_detail(item, reports_dir, cases_dir / item.case_id)
+        for item in results
+    }
+
+
 def write_html_summary(results: list[CaseResult], path: Path) -> None:
     reports_dir = path.parent
     cases_dir = reports_dir.parent / "cases"
+    detail_links = write_case_detail_pages(results, reports_dir, cases_dir)
     rows = []
     for item in results:
-        case_dir = cases_dir / item.case_id
-        detail_rel = _write_case_detail(item, reports_dir, case_dir)
+        detail_rel = detail_links[item.case_id]
         trajectory_class = TRAJECTORY_CLASS.get(item.trajectory, "unknown")
         invoked_class = INVOKED_CLASS.get(item.invoked, "unknown")
         match_class = _match_class(item.match_percent)

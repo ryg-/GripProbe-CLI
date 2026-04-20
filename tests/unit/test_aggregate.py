@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from gripprobe.aggregate import aggregate_reports
+import pytest
+
+from gripprobe.aggregate import aggregate_reports, discover_run_dirs
+from gripprobe.cli import build_parser
 
 
 def _write_case(run_dir: Path, case_id: str, title: str, status: str) -> None:
@@ -72,8 +75,56 @@ def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     case_a = json.loads((output_dir / "cases" / "run-a__case-1" / "case.json").read_text(encoding="utf-8"))
     case_b = json.loads((output_dir / "cases" / "run-b__case-1" / "case.json").read_text(encoding="utf-8"))
     manifest = json.loads((output_dir / "aggregate_manifest.json").read_text(encoding="utf-8"))
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
 
     assert case_a["case_id"] == "run-a__case-1"
     assert case_a["metadata"]["source_case_id"] == "case-1"
     assert case_b["case_id"] == "run-b__case-1"
     assert manifest["cases"] == 2
+    assert summary_html.count("<tr>") == 2
+    assert "source_reports/run-b/summary.html" in summary_html
+    assert "cases/run-a__case-1.html" in summary_html
+    assert "Case One" in summary_html
+    assert "Case Two" in summary_html
+
+
+def test_discover_run_dirs_finds_case_directories(tmp_path: Path) -> None:
+    runs_root = tmp_path / "runs"
+    run_a = runs_root / "run-a"
+    run_b = runs_root / "run-b"
+    ignored = runs_root / "not-a-run"
+    _write_case(run_a, "case-1", "Case One", "PASS")
+    _write_case(run_b, "case-2", "Case Two", "FAIL")
+    ignored.mkdir(parents=True, exist_ok=True)
+
+    discovered = discover_run_dirs(runs_root)
+
+    assert discovered == [run_a.resolve(), run_b.resolve()]
+
+
+def test_discover_run_dirs_rejects_missing_root(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Runs root does not exist"):
+        discover_run_dirs(tmp_path / "missing")
+
+
+def test_aggregate_reports_cli_accepts_runs_root(tmp_path: Path) -> None:
+    runs_root = tmp_path / "runs"
+    run_a = runs_root / "run-a"
+    run_b = runs_root / "run-b"
+    _write_case(run_a, "case-1", "Case One", "PASS")
+    _write_case(run_b, "case-1", "Case Two", "FAIL")
+
+    parser = build_parser()
+    ns = parser.parse_args(
+        [
+            "aggregate-reports",
+            "--runs-root",
+            str(runs_root),
+            "--output-dir",
+            str(tmp_path / "aggregate"),
+        ]
+    )
+
+    assert ns.cmd == "aggregate-reports"
+    assert ns.runs_root == str(runs_root)
+    assert ns.run_dirs is None
