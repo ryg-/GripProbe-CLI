@@ -1,0 +1,19 @@
+id: local_mfdoom_deepseek_r1_tool_calling_8b
+label: local/MFDoom/deepseek-r1-tool-calling:8b
+family: deepseek
+size_class: small
+parameters_b: 8
+quantization: null
+backends:
+  - id: ollama
+    model_id: MFDoom/deepseek-r1-tool-calling:8b
+    shell_model_id: local/MFDoom/deepseek-r1-tool-calling:8b
+tags:
+  - local
+  - small
+  - tool-capable
+supported_formats:
+  - tool
+policy_overrides:
+  shell_timeout_seconds:
+    continue-cli: 600

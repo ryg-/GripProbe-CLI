@@ -1,17 +1,16 @@
-id: local_qwen3_8b
-label: local/qwen3:8b
-family: qwen
+id: local_ministral_3_8b
+label: local/ministral-3:8b
+family: mistral
 size_class: small
 parameters_b: 8
 quantization: null
 backends:
   - id: ollama
-    model_id: qwen3:8b
-    shell_model_id: local/qwen3:8b
+    model_id: ministral-3:8b
+    shell_model_id: local/ministral-3:8b
 tags:
   - local
   - small
-  - tool-capable
 supported_formats:
   - markdown
   - tool

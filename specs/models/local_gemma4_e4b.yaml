@@ -1,0 +1,19 @@
+id: local_gemma4_e4b
+label: local/gemma4:e4b
+family: gemma
+size_class: medium
+parameters_b: null
+quantization: null
+backends:
+  - id: ollama
+    model_id: gemma4:e4b
+    shell_model_id: local/gemma4:e4b
+tags:
+  - local
+  - medium
+supported_formats:
+  - markdown
+  - tool
+policy_overrides:
+  shell_timeout_seconds:
+    continue-cli: 600

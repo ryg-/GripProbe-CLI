@@ -1,17 +1,16 @@
-id: local_qwen3_8b
-label: local/qwen3:8b
-family: qwen
+id: local_phi3_5_latest
+label: local/phi3.5:latest
+family: phi
 size_class: small
-parameters_b: 8
+parameters_b: 4
 quantization: null
 backends:
   - id: ollama
-    model_id: qwen3:8b
-    shell_model_id: local/qwen3:8b
+    model_id: phi3.5:latest
+    shell_model_id: local/phi3.5:latest
 tags:
   - local
   - small
-  - tool-capable
 supported_formats:
   - markdown
   - tool

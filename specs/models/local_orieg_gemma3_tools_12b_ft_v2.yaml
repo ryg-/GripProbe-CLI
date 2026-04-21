@@ -1,0 +1,20 @@
+id: local_orieg_gemma3_tools_12b_ft_v2
+label: local/orieg/gemma3-tools:12b-ft-v2
+family: gemma
+size_class: medium
+parameters_b: 12
+quantization: null
+backends:
+  - id: ollama
+    model_id: orieg/gemma3-tools:12b-ft-v2
+    shell_model_id: local/orieg/gemma3-tools:12b-ft-v2
+tags:
+  - local
+  - medium
+  - tool-capable
+supported_formats:
+  - markdown
+  - tool
+policy_overrides:
+  shell_timeout_seconds:
+    continue-cli: 600

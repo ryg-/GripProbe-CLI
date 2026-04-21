@@ -1,17 +1,16 @@
-id: local_qwen3_8b
-label: local/qwen3:8b
-family: qwen
+id: local_nemotron_3_nano_4b
+label: local/nemotron-3-nano:4b
+family: nemotron
 size_class: small
-parameters_b: 8
+parameters_b: 4
 quantization: null
 backends:
   - id: ollama
-    model_id: qwen3:8b
-    shell_model_id: local/qwen3:8b
+    model_id: nemotron-3-nano:4b
+    shell_model_id: local/nemotron-3-nano:4b
 tags:
   - local
   - small
-  - tool-capable
 supported_formats:
   - markdown
   - tool

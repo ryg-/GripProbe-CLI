@@ -1,0 +1,19 @@
+id: local_gemma3_12b
+label: local/gemma3:12b
+family: gemma
+size_class: medium
+parameters_b: 12
+quantization: null
+backends:
+  - id: ollama
+    model_id: gemma3:12b
+    shell_model_id: local/gemma3:12b
+tags:
+  - local
+  - medium
+supported_formats:
+  - markdown
+  - tool
+policy_overrides:
+  shell_timeout_seconds:
+    continue-cli: 600

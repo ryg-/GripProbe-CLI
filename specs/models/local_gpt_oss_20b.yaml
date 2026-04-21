@@ -1,16 +1,16 @@
-id: local_qwen3_8b
-label: local/qwen3:8b
-family: qwen
-size_class: small
-parameters_b: 8
+id: local_gpt_oss_20b
+label: local/gpt-oss:20b
+family: gptoss
+size_class: medium
+parameters_b: 20
 quantization: null
 backends:
   - id: ollama
-    model_id: qwen3:8b
-    shell_model_id: local/qwen3:8b
+    model_id: gpt-oss:20b
+    shell_model_id: local/gpt-oss:20b
 tags:
   - local
-  - small
+  - medium
   - tool-capable
 supported_formats:
   - markdown
