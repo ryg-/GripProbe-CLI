@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 from collections import defaultdict
+from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 
@@ -64,19 +65,40 @@ def _source_summary_relpath(output_dir: Path, run_id: str) -> str:
     return escape(os.path.relpath(target, output_dir / "reports"))
 
 
+def _format_run_id_time(run_id: str) -> str:
+    try:
+        parsed = datetime.strptime(run_id, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return run_id
+    return parsed.strftime("%Y-%m-%d %H:%M UTC")
+
+
+def _format_duration(seconds: float) -> str:
+    return f"{seconds:.1f}s"
+
+
+def _test_sort_key(title: str, results: list[CaseResult]) -> tuple[int, str]:
+    for item in results:
+        if item.title == title:
+            tags = item.metadata.get("test_tags", [])
+            if isinstance(tags, list) and "sanity" in tags:
+                return (0, title)
+    return (1, title)
+
+
 def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) -> None:
     reports_dir = output_dir / "reports"
     cases_dir = output_dir / "cases"
     detail_links = write_case_detail_pages(results, reports_dir, cases_dir)
 
-    tests = sorted({item.title for item in results})
-    grouped: dict[tuple[str, str, str, str], list[CaseResult]] = defaultdict(list)
+    tests = sorted({item.title for item in results}, key=lambda title: _test_sort_key(title, results))
+    grouped: dict[tuple[str, str, str, str, str], list[CaseResult]] = defaultdict(list)
     for item in results:
-        grouped[(item.shell, item.model.label, item.model.backend, item.model.model_hash)].append(item)
+        grouped[(item.shell, item.model.label, item.model.backend, item.model.model_hash, item.format)].append(item)
 
     rows: list[str] = []
     for group_key in sorted(grouped):
-        shell, model_label, backend, model_hash = group_key
+        shell, model_label, backend, model_hash, tool_format = group_key
         items = grouped[group_key]
         by_test: dict[str, list[CaseResult]] = defaultdict(list)
         for item in items:
@@ -85,7 +107,7 @@ def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) ->
         primary_run_id = run_ids[-1]
         group_link = _source_summary_relpath(output_dir, primary_run_id)
         run_links = ", ".join(
-            f"<a href='{_source_summary_relpath(output_dir, run_id)}'>{escape(run_id)}</a>"
+            f"<a href='{_source_summary_relpath(output_dir, run_id)}'>{escape(_format_run_id_time(run_id))}</a>"
             for run_id in run_ids
         )
         cells = []
@@ -98,13 +120,20 @@ def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) ->
             detail_rel = escape(detail_links[primary_item.case_id])
             cell_class = _aggregate_cell_class(test_items)
             label = _aggregate_cell_label(test_items)
+            pass_time_html = (
+                f"<span class='cell-time'>{escape(_format_duration(primary_item.timings.measured_seconds))}</span>"
+                if label == "PASS"
+                else ""
+            )
             tooltip = " | ".join(
-                f"{item.run_id}: {item.status}, {item.trajectory}, invoked={item.invoked}, match={item.match_percent}%"
+                f"{item.run_id} ({_format_run_id_time(str(item.run_id))}): {item.status}, "
+                f"reason={item.metadata.get('failure_reason', '-')}, {item.trajectory}, "
+                f"invoked={item.invoked}, match={item.match_percent}%, measured={_format_duration(item.timings.measured_seconds)}"
                 for item in test_items
             )
             cells.append(
                 f"<td class='{cell_class}' title='{escape(tooltip)}'>"
-                f"<a href='{detail_rel}'>{label}</a>"
+                f"<a href='{detail_rel}'>{label}{pass_time_html}</a>"
                 "</td>"
             )
         rows.append(
@@ -113,6 +142,7 @@ def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) ->
             f"<td><a href='{group_link}'>{escape(model_label)}</a></td>"
             f"<td>{escape(backend)}</td>"
             f"<td>{escape(model_hash)}</td>"
+            f"<td>{escape(tool_format)}</td>"
             f"<td>{run_links}</td>"
             f"{''.join(cells)}"
             "</tr>"
@@ -128,16 +158,17 @@ th,td{{border:1px solid #ccc;padding:.45rem;text-align:left;vertical-align:top}}
 th{{background:#ece8dc;position:sticky;top:0}}
 a{{color:#0b57d0;text-decoration:none;font-weight:600}}
 a:hover{{text-decoration:underline}}
-.agg-all-pass{{background:#d9f2df}}
+.agg-all-pass{{background:#b9e8c2}}
 .agg-mixed{{background:#fff0cc}}
 .agg-none-pass{{background:#f9d7d7}}
 .empty{{background:#f3f1eb;color:#777;text-align:center}}
 .meta{{color:#555;margin-bottom:1rem}}
+.cell-time{{display:block;font-size:.8rem;font-weight:500;color:#26492d;margin-top:.15rem}}
 </style></head><body>
 <h1>GripProbe Aggregate Summary</h1>
-<p class='meta'>One row per shell/model/backend/hash group. Test cells link to a concrete case detail page. Group links open the source run summary.</p>
+<p class='meta'>One row per shell/model/backend/hash/format group. Test cells link to a concrete case detail page. Group links open the source run summary.</p>
 <table>
-<thead><tr><th>Shell</th><th>Model</th><th>Backend</th><th>Hash</th><th>Runs</th>{header_tests}</tr></thead>
+<thead><tr><th>Shell</th><th>Model</th><th>Backend</th><th>Hash</th><th>Format</th><th>Runs</th>{header_tests}</tr></thead>
 <tbody>
 {''.join(rows)}
 </tbody></table></body></html>"""

@@ -44,7 +44,9 @@ def _write_case(run_dir: Path, case_id: str, title: str, status: str) -> None:
             "measured_stdout": "measured.stdout",
             "measured_stderr": "measured.stderr",
         },
-        "metadata": {},
+        "metadata": {
+            "test_tags": ["sanity"] if title == "Case One" else [],
+        },
     }
     (case_dir / "case.json").write_text(json.dumps(payload), encoding="utf-8")
     (case_dir / "prompt.txt").write_text("prompt\n", encoding="utf-8")
@@ -128,3 +130,52 @@ def test_aggregate_reports_cli_accepts_runs_root(tmp_path: Path) -> None:
     assert ns.cmd == "aggregate-reports"
     assert ns.runs_root == str(runs_root)
     assert ns.run_dirs is None
+
+
+def test_aggregate_reports_formats_run_time_and_pass_cell_time(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "20260420T202823Z"
+    _write_case(run_dir, "case-1", "Case One", "PASS")
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+
+    assert "2026-04-20 20:28 UTC" in summary_html
+    assert "<span class='cell-time'>2.0s</span>" in summary_html
+
+
+def test_aggregate_reports_places_sanity_tests_first(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "PASS")
+    _write_case(run_dir, "case-2", "Case Two", "PASS")
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+
+    assert summary_html.index("<th>Case One</th>") < summary_html.index("<th>Case Two</th>")
+
+
+def test_aggregate_reports_keeps_different_formats_on_separate_rows(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "PASS")
+    payload = json.loads((run_dir / "cases" / "case-1" / "case.json").read_text(encoding="utf-8"))
+    payload["case_id"] = "case-2"
+    payload["format"] = "tool"
+    payload["title"] = "Case Two"
+    payload["test"] = "case_two"
+    case_dir = run_dir / "cases" / "case-2"
+    case_dir.mkdir(parents=True, exist_ok=True)
+    (case_dir / "case.json").write_text(json.dumps(payload), encoding="utf-8")
+    (case_dir / "prompt.txt").write_text("prompt\n", encoding="utf-8")
+    (case_dir / "expected.txt").write_text("ok\n", encoding="utf-8")
+    (case_dir / "observed.txt").write_text("ok\n", encoding="utf-8")
+    reports_cases_dir = run_dir / "reports" / "cases"
+    reports_cases_dir.mkdir(parents=True, exist_ok=True)
+    (reports_cases_dir / "case-2.html").write_text("<html>detail</html>", encoding="utf-8")
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+
+    assert "<th>Format</th>" in summary_html
+    assert summary_html.count("<tr>") == 3
+    assert ">markdown</td>" in summary_html
+    assert ">tool</td>" in summary_html
