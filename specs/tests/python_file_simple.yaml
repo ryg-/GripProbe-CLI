@@ -18,9 +18,11 @@ validators:
 supported_shells:
   - gptme
   - continue-cli
+  - opencode
 supported_formats:
   - markdown
   - tool
 tags:
   - mvp
   - simple
+  - sanity

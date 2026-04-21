@@ -18,6 +18,7 @@ validators:
 supported_shells:
   - gptme
   - continue-cli
+  - opencode
 supported_formats:
   - markdown
   - tool

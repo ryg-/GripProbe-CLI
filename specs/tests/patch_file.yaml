@@ -15,10 +15,13 @@ validators:
     target_file: patch-target.txt
     expected_line: STATUS=new
 supported_shells:
+  - aider
   - gptme
   - continue-cli
+  - opencode
 supported_formats:
   - markdown
   - tool
 tags:
   - mvp
+  - sanity
