@@ -4,8 +4,11 @@ category: shell
 prompt: |
   Use the shell tool. Run exactly this command: pwd > pwd-output.txt.
   Do not retry on error.
-  If the command fails, reply only with FAIL.
-  If the command succeeds, reply only with DONE.
+  If the command fails, reply only with FAIL and stop.
+  If the command succeeds, reply only with DONE and stop.
+  Do not continue reasoning after DONE.
+  Do not call any additional tools after DONE.
+  End your response immediately after DONE.
 allowed_tools:
   - shell
 artifacts:
@@ -18,8 +21,10 @@ validators:
 supported_shells:
   - gptme
   - continue-cli
+  - opencode
 supported_formats:
   - markdown
   - tool
 tags:
   - mvp
+  - sanity

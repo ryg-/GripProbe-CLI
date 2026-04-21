@@ -16,8 +16,10 @@ validators:
     target: saved-by-gptme.txt
     expected: TOOL_SAVE_OK
 supported_shells:
+  - aider
   - gptme
   - continue-cli
+  - opencode
 supported_formats:
   - markdown
   - tool
