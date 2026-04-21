@@ -10,6 +10,7 @@ from tests.conftest import FakeSuccessAdapter, FakeTimeoutAdapter, FakeTimeoutWi
 
 def test_run_writes_case_and_manifest(monkeypatch, specs_root: Path) -> None:
     monkeypatch.setattr("gripprobe.runner._adapter_for", lambda shell_spec: FakeSuccessAdapter(shell_spec))
+    monkeypatch.setattr("gripprobe.runner._fetch_ollama_model_digest", lambda model_id: "845dbda0ea48")
     monkeypatch.setattr(
         "gripprobe.runner._collect_shell_runtime_metadata",
         lambda executable: {
@@ -18,6 +19,16 @@ def test_run_writes_case_and_manifest(monkeypatch, specs_root: Path) -> None:
             "shell_version": "gptme vtest",
             "shell_version_exit_code": "0",
             "ollama_context_length": "32768",
+        },
+    )
+    monkeypatch.setattr(
+        "gripprobe.runner._collect_runtime_snapshot",
+        lambda include_ollama=False: {
+            "captured_at": "2026-04-21T12:49:21+02:00",
+            "probes": {
+                "loadavg": {"status": "ok", "command": "cat /proc/loadavg", "stdout": "1.00 2.00 3.00"},
+                "ollama_ps": {"status": "ok", "command": "GET http://127.0.0.1:11434/api/ps", "stdout": "qwen3:8b 100%"},
+            },
         },
     )
 
@@ -50,12 +61,16 @@ def test_run_writes_case_and_manifest(monkeypatch, specs_root: Path) -> None:
     assert manifest["run_metadata"]["shell_version"] == "gptme vtest"
     assert manifest["run_metadata"]["ollama_context_length"] == "32768"
     assert manifest["run_metadata"]["venv"] == "/tmp/fake-venv"
+    assert manifest["run_metadata"]["runtime_snapshots"]["run_started"]["probes"]["ollama_ps"]["stdout"] == "qwen3:8b 100%"
+    assert manifest["run_metadata"]["runtime_snapshots"]["run_finished"]["probes"]["loadavg"]["stdout"] == "1.00 2.00 3.00"
     assert case["status"] == "PASS"
     assert case["model"]["backend"] == "ollama"
     assert case["model"]["model_hash"] == "845dbda0ea48"
     assert case["metadata"]["shell_version"] == "gptme vtest"
     assert case["metadata"]["ollama_context_length"] == "32768"
     assert case["metadata"]["venv"] == "/tmp/fake-venv"
+    assert case["metadata"]["runtime_snapshots"]["before"]["probes"]["ollama_ps"]["stdout"] == "qwen3:8b 100%"
+    assert case["metadata"]["runtime_snapshots"]["after"]["probes"]["loadavg"]["stdout"] == "1.00 2.00 3.00"
     assert warmup_workspace.exists()
     assert measured_workspace.exists()
     assert warmup_workspace != measured_workspace
@@ -64,7 +79,9 @@ def test_run_writes_case_and_manifest(monkeypatch, specs_root: Path) -> None:
 
 def test_run_emits_progress_lines(monkeypatch, specs_root: Path) -> None:
     monkeypatch.setattr("gripprobe.runner._adapter_for", lambda shell_spec: FakeSuccessAdapter(shell_spec))
+    monkeypatch.setattr("gripprobe.runner._fetch_ollama_model_digest", lambda model_id: "845dbda0ea48")
     monkeypatch.setattr("gripprobe.runner._collect_shell_runtime_metadata", lambda executable: {})
+    monkeypatch.setattr("gripprobe.runner._collect_runtime_snapshot", lambda include_ollama=False: {"captured_at": "now", "probes": {}})
 
     lines: list[str] = []
     run(
@@ -90,6 +107,8 @@ def test_run_emits_progress_lines(monkeypatch, specs_root: Path) -> None:
 
 def test_run_timeout_persists_timeout_case(monkeypatch, specs_root: Path) -> None:
     monkeypatch.setattr("gripprobe.runner._adapter_for", lambda shell_spec: FakeTimeoutAdapter(shell_spec))
+    monkeypatch.setattr("gripprobe.runner._fetch_ollama_model_digest", lambda model_id: "845dbda0ea48")
+    monkeypatch.setattr("gripprobe.runner._collect_runtime_snapshot", lambda include_ollama=False: {"captured_at": "now", "probes": {}})
 
     run_dir, results = run(
         specs_root,
@@ -122,6 +141,8 @@ def test_run_timeout_persists_timeout_case(monkeypatch, specs_root: Path) -> Non
 
 def test_run_timeout_with_artifact_marks_timeout_as_reached(monkeypatch, specs_root: Path) -> None:
     monkeypatch.setattr("gripprobe.runner._adapter_for", lambda shell_spec: FakeTimeoutWithArtifactAdapter(shell_spec))
+    monkeypatch.setattr("gripprobe.runner._fetch_ollama_model_digest", lambda model_id: "845dbda0ea48")
+    monkeypatch.setattr("gripprobe.runner._collect_runtime_snapshot", lambda include_ollama=False: {"captured_at": "now", "probes": {}})
 
     run_dir, results = run(
         specs_root,
@@ -155,6 +176,8 @@ def test_run_timeout_with_artifact_marks_timeout_as_reached(monkeypatch, specs_r
 def test_run_uses_unknown_model_hash_when_not_in_spec_or_cli(monkeypatch, specs_root: Path) -> None:
     monkeypatch.setattr("gripprobe.runner._adapter_for", lambda shell_spec: FakeSuccessAdapter(shell_spec))
     monkeypatch.setattr("gripprobe.runner._collect_shell_runtime_metadata", lambda executable: {})
+    monkeypatch.setattr("gripprobe.runner._collect_runtime_snapshot", lambda include_ollama=False: {"captured_at": "now", "probes": {}})
+    monkeypatch.setattr("gripprobe.runner._fetch_ollama_model_digest", lambda model_id: None)
 
     run_dir, results = run(
         specs_root,

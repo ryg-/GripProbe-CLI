@@ -10,6 +10,27 @@ from gripprobe.reporters.html_report import write_html_summary
 def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     reports_dir = tmp_path / "reports"
     reports_dir.mkdir(parents=True)
+    (tmp_path / "manifest.json").write_text(
+        json.dumps(
+            {
+                "run_metadata": {
+                    "runtime_snapshots": {
+                        "run_started": {
+                            "captured_at": "2026-04-21T12:49:21+02:00",
+                            "probes": {
+                                "ollama_ps": {
+                                    "status": "ok",
+                                    "command": "GET http://127.0.0.1:11434/api/ps",
+                                    "stdout": "qwen3:8b 100%",
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
     case_dir = tmp_path / "cases" / "case-1"
     case_dir.mkdir(parents=True)
     (case_dir / "case.json").write_text(
@@ -18,6 +39,19 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
                 "metadata": {
                     "shell_executable_path": "$HOME/.local/bin/gptme",
                     "shell_version": "gptme v0.31.0",
+                    "failure_reason": "answered without invoking tool",
+                    "runtime_snapshots": {
+                        "before": {
+                            "captured_at": "2026-04-21T12:49:21+02:00",
+                            "probes": {
+                                "loadavg": {
+                                    "status": "ok",
+                                    "command": "cat /proc/loadavg",
+                                    "stdout": "1.00 2.00 3.00",
+                                }
+                            },
+                        }
+                    },
                     "run_consistency": "strongly_diverged",
                     "run_1_status": "NO_TOOL_CALL",
                     "run_2_status": "TIMEOUT",
@@ -68,6 +102,14 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     detail_html = (reports_dir / "cases" / "case-1.html").read_text(encoding="utf-8")
     assert "$HOME/.local/bin/gptme" not in detail_html
     assert "[hidden in HTML]" in detail_html
+    assert "Runtime Snapshots" in detail_html
+    assert "cat /proc/loadavg" in detail_html
     assert "Trajectory Hints" in detail_html
     assert "Run Comparison" in detail_html
+    assert "Failure Reason:" in detail_html
+    assert "answered without invoking tool" in detail_html
     assert "strongly_diverged" in detail_html
+    summary_html = (reports_dir / "summary.html").read_text(encoding="utf-8")
+    assert "<th>Reason</th>" in summary_html
+    assert "GET http://127.0.0.1:11434/api/ps" in summary_html
+    assert "qwen3:8b 100%" in summary_html

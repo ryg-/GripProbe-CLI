@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from gripprobe.case_result import CaseStatus, ToolInvocation
+from gripprobe.failure_reason import infer_failure_reason
 from gripprobe.models import CaseLogs, CaseModelInfo, CaseResult, CaseTimings, ModelSpec
 from gripprobe.reporters.html_report import write_html_summary
 from gripprobe.reporters.markdown import write_markdown_summary
@@ -35,6 +36,7 @@ def _fallback_status(case_dir: Path) -> tuple[CaseStatus, ToolInvocation]:
     measured_stderr = (case_dir / "measured.stderr").read_text(encoding="utf-8", errors="replace") if (case_dir / "measured.stderr").exists() else ""
     observed = (case_dir / "observed.txt").read_text(encoding="utf-8", errors="replace").strip() if (case_dir / "observed.txt").exists() else ""
     expected = (case_dir / "expected.txt").read_text(encoding="utf-8", errors="replace").strip() if (case_dir / "expected.txt").exists() else ""
+    completion_lines = {line.strip() for line in f"{measured_stdout}\n{measured_stderr}".splitlines() if line.strip() in {"DONE", "FAIL"}}
 
     if observed and expected and observed == expected:
         return "PASS", "yes"
@@ -42,6 +44,8 @@ def _fallback_status(case_dir: Path) -> tuple[CaseStatus, ToolInvocation]:
         return "NO_TOOL_CALL", "no"
     if "does not support tools" in measured_stdout or "does not support tools" in measured_stderr:
         return "TOOL_UNSUPPORTED", "no"
+    if completion_lines:
+        return "FAIL", "no"
     if measured_stdout or measured_stderr or observed or expected:
         return "FAIL", "maybe"
     return "HARNESS_ERROR", "no"
@@ -175,6 +179,7 @@ def _build_recomputed_case_result(case_dir: Path, model_index: dict[str, ModelSp
             "rebuilt": True,
             "source": "recomputed" if existing_payload is not None else "fallback",
             "artifact_reached_before_timeout": artifact_reached_before_timeout,
+            "failure_reason": infer_failure_reason(status, invoked, measured_stdout, measured_stderr),
             "run_1_status": run_1_status,
             "run_2_status": status,
             "run_1_profile": run_1_profile.as_metadata(),
@@ -182,6 +187,7 @@ def _build_recomputed_case_result(case_dir: Path, model_index: dict[str, ModelSp
             "run_consistency": run_consistency,
             "language": test_spec.language if test_spec else "en",
             "rules": test_spec.rules.model_dump() if test_spec else {},
+            "test_tags": list(test_spec.tags) if test_spec else [],
             "trajectory_reasons": trajectory_reasons,
         },
     )

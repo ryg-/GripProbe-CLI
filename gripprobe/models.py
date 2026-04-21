@@ -124,7 +124,7 @@ class CaseDefinition(BaseModel):
     allowed_tools: list[str] | None = None
     container_image: str | None = None
     keep_system_messages: bool = False
-    run_metadata: dict[str, str] = Field(default_factory=dict)
+    run_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class CaseTimings(BaseModel):

@@ -38,6 +38,7 @@ def cmd_run(
     model: str,
     backend: str,
     tests: list[str] | None,
+    test_tags: list[str] | None,
     formats: list[str] | None,
     container_image: str | None,
     keep_system_messages: bool,
@@ -50,6 +51,7 @@ def cmd_run(
         model_name=model,
         backend_name=backend,
         tests_filter=tests,
+        test_tags_filter=test_tags,
         formats_filter=formats,
         container_image=container_image,
         keep_system_messages=keep_system_messages,
@@ -93,10 +95,15 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--model", required=True)
     run_p.add_argument("--backend", default=DEFAULT_BACKEND)
     run_p.add_argument("--tests", nargs="*")
+    run_p.add_argument("--test-tags", nargs="*")
+    run_p.add_argument("--sanity", action="store_true", help="Run only tests tagged with sanity")
     run_p.add_argument("--formats", nargs="*")
     run_p.add_argument("--container-image")
     run_p.add_argument("--keep-system-messages", action="store_true")
-    run_p.add_argument("--model-hash")
+    run_p.add_argument(
+        "--model-hash",
+        help="Optional fallback model hash. For Ollama, GripProbe now resolves the digest automatically via /api/tags when possible.",
+    )
     run_p.add_argument("--metadata", action="append", help="Attach run metadata as key=value; may be passed multiple times")
     rebuild_p = sub.add_parser("rebuild-reports")
     rebuild_p.add_argument("--run-dir", required=True)
@@ -121,12 +128,16 @@ def main() -> int:
             metadata = _parse_metadata(ns.metadata)
         except ValueError as exc:
             parser.error(str(exc))
+        test_tags = list(ns.test_tags or [])
+        if ns.sanity and "sanity" not in test_tags:
+            test_tags.append("sanity")
         return cmd_run(
             root,
             shell=ns.shell,
             model=ns.model,
             backend=ns.backend,
             tests=ns.tests,
+            test_tags=test_tags or None,
             formats=ns.formats,
             container_image=ns.container_image,
             keep_system_messages=ns.keep_system_messages,

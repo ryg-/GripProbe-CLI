@@ -1,0 +1,12 @@
+id: aider
+label: aider
+executable: aider
+default_args: []
+supported_formats:
+  - markdown
+env: {}
+default_tools:
+  - read
+  - patch
+  - save
+timeout_seconds: 300

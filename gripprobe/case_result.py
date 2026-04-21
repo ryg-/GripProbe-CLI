@@ -59,6 +59,8 @@ def build_case_result(
     measured_seconds: float,
     metadata: dict[str, Any],
 ) -> CaseResult:
+    metadata = {**metadata}
+    metadata.setdefault("test_tags", list(test_spec.tags))
     return CaseResult(
         case_id=case.case_id,
         run_id=case.run_id,

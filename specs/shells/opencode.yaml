@@ -1,0 +1,13 @@
+id: opencode
+label: opencode
+executable: opencode
+default_args: []
+supported_formats:
+  - markdown
+  - tool
+env: {}
+default_tools:
+  - shell
+  - patch
+  - read
+  - save

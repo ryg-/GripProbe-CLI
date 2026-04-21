@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from pathlib import Path
 
 from gripprobe.rebuild import rebuild_reports
@@ -91,7 +92,7 @@ def test_rebuild_reports_recomputes_existing_case_json_when_requested(tmp_path: 
     (case_dir / 'warmup.stderr').write_text('', encoding='utf-8')
     (case_dir / 'measured.stdout').write_text('[gripprobe] process_finished_at=2026-04-20T17:28:39+02:00 exit_code=124 timeout=true\nSystem:\nRan command: `date +%F > date-output.txt`\n', encoding='utf-8')
     (case_dir / 'measured.stderr').write_text('', encoding='utf-8')
-    (workspace / 'date-output.txt').write_text('2026-04-20\n', encoding='utf-8')
+    (workspace / 'date-output.txt').write_text(f'{date.today().isoformat()}\n', encoding='utf-8')
     (case_dir / 'case.json').write_text(
         json.dumps(
             {
@@ -252,3 +253,54 @@ def test_rebuild_reports_recomputes_case_json_without_model_hash_in_spec(tmp_pat
     case_json = json.loads((case_dir / 'case.json').read_text(encoding='utf-8'))
     assert case_json['model']['model_hash'] == 'unknown'
     assert case_json['metadata']['source'] == 'recomputed'
+
+
+def test_rebuild_reports_sets_failure_reason_for_text_only_completion(tmp_path: Path) -> None:
+    root = tmp_path
+    (root / 'specs' / 'models').mkdir(parents=True)
+    (root / 'specs' / 'tests').mkdir(parents=True)
+    (root / 'specs' / 'models' / 'local_granite3_dense_8b_instruct_q6_k.yaml').write_text(
+        '\n'.join([
+            'id: local_granite3_dense_8b_instruct_q6_k',
+            'label: local/granite3-dense:8b-instruct-q6_K',
+            'family: granite',
+            'size_class: small',
+            'quantization: q6_K',
+            'backends:',
+            '  - id: ollama',
+            '    model_id: granite3-dense:8b-instruct-q6_K',
+            '    shell_model_id: local/granite3-dense:8b-instruct-q6_K',
+            'supported_formats:',
+            '  - markdown',
+        ]) + '\n',
+        encoding='utf-8',
+    )
+    (root / 'specs' / 'tests' / 'shell_pwd.yaml').write_text(
+        '\n'.join([
+            'id: shell_pwd',
+            'title: Shell PWD',
+            'category: shell',
+            'prompt: test',
+            'validators:',
+            '  - type: file_equals',
+            '    target: pwd-output.txt',
+            '    expected_from: workspace_path',
+        ]) + '\n',
+        encoding='utf-8',
+    )
+    run_dir = root / 'results' / 'runs' / 'run-no-tool'
+    case_dir = run_dir / 'cases' / 'continue-cli__local_granite3_dense_8b_instruct_q6_k__ollama__markdown__shell_pwd'
+    workspace = case_dir / 'workspace'
+    workspace.mkdir(parents=True)
+    (case_dir / 'prompt.txt').write_text('prompt\n', encoding='utf-8')
+    (case_dir / 'warmup.stdout').write_text('DONE\n', encoding='utf-8')
+    (case_dir / 'warmup.stderr').write_text('', encoding='utf-8')
+    (case_dir / 'measured.stdout').write_text('DONE\n', encoding='utf-8')
+    (case_dir / 'measured.stderr').write_text('', encoding='utf-8')
+
+    rebuilt_dir, results = rebuild_reports(run_dir, recompute_case_json=True)
+
+    assert rebuilt_dir == run_dir.resolve()
+    assert len(results) == 1
+    assert results[0].status == 'FAIL'
+    assert results[0].metadata['failure_reason'] == 'answered without invoking tool'

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
-import yaml
 
 from gripprobe.adapters.base import ShellAdapter
 from gripprobe.case_result import CaseStatus, ToolInvocation, build_case_result
@@ -11,61 +11,67 @@ from gripprobe.models import CaseDefinition, ModelSpec, TestSpec
 from gripprobe.validator_runner import evaluate_validators
 
 
-class ContinueCliAdapter(ShellAdapter):
+class OpencodeAdapter(ShellAdapter):
     def _resolve_source_config_path(self) -> Path | None:
-        explicit = self.shell_spec.config_path or os.environ.get("GRIPPROBE_CONTINUE_CONFIG")
+        explicit = self.shell_spec.config_path or os.environ.get("GRIPPROBE_OPENCODE_CONFIG")
         if explicit:
             path = Path(explicit).expanduser()
             if path.exists():
                 return path
-        default_path = Path.home() / ".continue" / "config.yaml"
+        default_path = Path.home() / ".config" / "opencode" / "opencode.json"
         if default_path.exists():
             return default_path
         return None
 
-    def _prepare_continue_home(self, case: CaseDefinition) -> tuple[Path, Path]:
+    def _prepare_opencode_home(self, case: CaseDefinition) -> tuple[Path, Path]:
         config_path = self._resolve_source_config_path()
-        continue_home = case.case_dir / "continue-home"
-        continue_dir = continue_home / ".continue"
-        continue_dir.mkdir(parents=True, exist_ok=True)
+        opencode_home = case.case_dir / "opencode-home"
+        config_dir = opencode_home / ".config" / "opencode"
+        config_dir.mkdir(parents=True, exist_ok=True)
 
-        api_base = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-        model_entry: dict[str, object] = {
-            "name": case.model_label,
-            "provider": "ollama",
-            "model": case.backend_model_id,
-            "apiBase": api_base,
-            "roles": ["chat", "edit", "apply"],
+        api_base = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+        if not api_base.endswith("/v1"):
+            api_base = f"{api_base}/v1"
+        model_key = case.backend_model_id
+        source_payload: dict[str, object] = {}
+        if config_path:
+            source_payload = json.loads(config_path.read_text(encoding="utf-8"))
+
+        provider_payload = (
+            source_payload.get("provider", {}) if isinstance(source_payload.get("provider", {}), dict) else {}
+        )
+        ollama_payload = provider_payload.get("ollama", {}) if isinstance(provider_payload, dict) else {}
+        if not isinstance(ollama_payload, dict):
+            ollama_payload = {}
+
+        options = ollama_payload.get("options", {}) if isinstance(ollama_payload.get("options", {}), dict) else {}
+        models = ollama_payload.get("models", {}) if isinstance(ollama_payload.get("models", {}), dict) else {}
+
+        payload = {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {
+                "ollama": {
+                    "npm": ollama_payload.get("npm", "@ai-sdk/openai-compatible"),
+                    "name": ollama_payload.get("name", "Ollama"),
+                    "options": {
+                        "baseURL": options.get("baseURL", api_base),
+                        "apiKey": options.get("apiKey", "dummy"),
+                        "timeout": options.get("timeout", 600000),
+                        "chunkTimeout": options.get("chunkTimeout", 30000),
+                    },
+                    "models": {
+                        model_key: models.get(model_key, {"name": case.model_label}),
+                    },
+                }
+            },
+            "model": f"ollama/{model_key}",
+            "small_model": f"ollama/{model_key}",
+            "autoupdate": False,
         }
 
-        if config_path:
-            payload = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-            models = payload.get("models")
-            if isinstance(models, list):
-                for item in models:
-                    if not isinstance(item, dict):
-                        continue
-                    if item.get("model") == case.backend_model_id or item.get("name") == case.model_label:
-                        model_entry = item
-                        break
-            payload["models"] = [model_entry]
-        else:
-            payload = {
-                "name": "gripprobe-continue",
-                "version": "0.0.1",
-                "schema": "v1",
-                "defaultCompletionOptions": {"contextLength": 2048},
-                "models": [model_entry],
-            }
-
-        isolated_config = continue_dir / "config.yaml"
-        isolated_config.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
-        permissions_path = continue_dir / "permissions.yaml"
-        permissions_path.write_text(
-            "allow: []\nask: []\nexclude: []\n",
-            encoding="utf-8",
-        )
-        return continue_home, isolated_config
+        isolated_config = config_dir / "opencode.json"
+        isolated_config.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        return opencode_home, isolated_config
 
     def _classify(self, test_spec: TestSpec, workspace: Path, stdout: str, stderr: str) -> tuple[CaseStatus, ToolInvocation, int, str, str]:
         if "does not support tools" in stdout or "does not support tools" in stderr:
@@ -73,9 +79,12 @@ class ContinueCliAdapter(ShellAdapter):
         ok, expected, observed = evaluate_validators(test_spec, workspace)
         if ok:
             return "PASS", "yes", 100, expected, observed
-        if 'Required parameter "' in stdout or 'Required parameter "' in stderr:
+        combined = f"{stdout}\n{stderr}"
+        if any(marker in combined for marker in ('"tool"', '"call"', '"bash"', '"read"', '"edit"', '"write"')):
             return "FAIL", "maybe", 0, expected, observed
-        return "FAIL", ("maybe" if ("Read(" in stdout or "System:" in stdout) else "no"), 0, expected, observed
+        if "DONE" in combined or "FAIL" in combined:
+            return "FAIL", "no", 0, expected, observed
+        return "FAIL", "maybe", 0, expected, observed
 
     def run_case(self, case: CaseDefinition, model_spec: ModelSpec, test_spec: TestSpec):
         case.case_dir.mkdir(parents=True, exist_ok=True)
@@ -89,28 +98,35 @@ class ContinueCliAdapter(ShellAdapter):
 
         env = os.environ.copy()
         env.update(self.shell_spec.env)
-        continue_home, isolated_config = self._prepare_continue_home(case)
-        warmup_env = {**env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
-        measured_env = {**env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
-        warmup_env["HOME"] = str(continue_home)
-        measured_env["HOME"] = str(continue_home)
-        allowed_tools = case.allowed_tools or self.shell_spec.default_tools
+        opencode_home, isolated_config = self._prepare_opencode_home(case)
+        shared_env = {
+            **env,
+            "HOME": str(opencode_home),
+            "XDG_CONFIG_HOME": str(opencode_home / ".config"),
+            "XDG_DATA_HOME": str(opencode_home / ".local" / "share"),
+            "XDG_STATE_HOME": str(opencode_home / ".local" / "state"),
+        }
+        warmup_env = {**shared_env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
+        measured_env = {**shared_env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
 
         base_args = [
             self.shell_spec.executable,
-            "--config",
-            str(isolated_config),
-            "-p",
-            "--auto",
-            "--silent",
+            "run",
+            "--format",
+            "json",
+            "--dir",
+            str(case.workspace_dir),
+            "--model",
+            f"{case.backend_id}/{case.backend_model_id}",
+            "--dangerously-skip-permissions",
             case.prompt,
         ]
-        for tool_name in allowed_tools:
-            base_args[1:1] = ["--allow", tool_name]
+        warmup_args = base_args.copy()
+        warmup_args[warmup_args.index(str(case.workspace_dir))] = str(case.warmup_workspace_dir)
 
         warmup_rc, warmup_s, warmup_started_at, warmup_finished_at = self.run_command(
             case,
-            base_args,
+            warmup_args,
             warmup_env,
             warmup_stdout,
             warmup_stderr,
@@ -129,13 +145,11 @@ class ContinueCliAdapter(ShellAdapter):
         stderr_text = measured_stderr.read_text(encoding="utf-8", errors="replace") if measured_stderr.exists() else ""
         validators_ok, validators_expected, validators_observed = evaluate_validators(test_spec, case.workspace_dir)
 
-        status: CaseStatus
-        invoked: ToolInvocation
         artifact_reached_before_timeout = False
         if measured_rc == 124:
             artifact_reached_before_timeout = validators_ok
-            status = "TIMEOUT"
-            invoked = "yes" if validators_ok else "no"
+            status: CaseStatus = "TIMEOUT"
+            invoked: ToolInvocation = "yes" if validators_ok else "no"
             match_percent = 100 if validators_ok else 0
             expected = validators_expected
             observed = validators_observed
@@ -163,11 +177,11 @@ class ContinueCliAdapter(ShellAdapter):
                 "measured_started_at": measured_started_at,
                 "measured_finished_at": measured_finished_at,
                 "tool_format": case.tool_format,
-                "allowed_tools": allowed_tools,
+                "allowed_tools": case.allowed_tools or self.shell_spec.default_tools,
                 "model_selection": "isolated-config",
                 "model_hash": case.model_hash,
                 "artifact_reached_before_timeout": artifact_reached_before_timeout,
-                "continue_config_path": str(isolated_config),
+                "opencode_config_path": str(isolated_config),
                 "failure_reason": failure_reason,
             },
         )

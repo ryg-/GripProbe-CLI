@@ -5,6 +5,7 @@ from pathlib import Path
 
 from gripprobe.adapters.base import ShellAdapter
 from gripprobe.case_result import CaseStatus, ToolInvocation, build_case_result
+from gripprobe.failure_reason import infer_failure_reason
 from gripprobe.models import CaseDefinition, ModelSpec, TestSpec
 from gripprobe.results import remove_transient_files, strip_system_messages_from_transcripts
 from gripprobe.trace_analysis import (
@@ -123,6 +124,7 @@ class GptmeAdapter(ShellAdapter):
             stdout_text,
             stderr_text,
         )
+        failure_reason = infer_failure_reason(status, invoked, stdout_text, stderr_text)
         run_1_status = infer_trace_status(run_1_profile, warmup_stdout_text, warmup_stderr_text, timed_out=warmup_rc == 124)
         run_consistency = compare_profiles(run_1_profile, run_2_profile, run_1_status, status)
 
@@ -160,6 +162,7 @@ class GptmeAdapter(ShellAdapter):
                 "language": test_spec.language,
                 "rules": test_spec.rules.model_dump(),
                 "trajectory_reasons": trajectory_reasons,
+                "failure_reason": failure_reason,
                 **case.run_metadata,
             },
         )

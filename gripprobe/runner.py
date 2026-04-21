@@ -4,13 +4,19 @@ import os
 import shutil
 import subprocess
 import time
+import urllib.error
+import urllib.request
+import json
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 from typing import Callable, Iterable, cast
 
 from gripprobe.adapters.base import AdapterError
+from gripprobe.adapters.aider import AiderAdapter
 from gripprobe.adapters.continue_cli import ContinueCliAdapter
 from gripprobe.adapters.gptme import GptmeAdapter
+from gripprobe.adapters.opencode import OpencodeAdapter
 from gripprobe.case_result import build_case_result
 from gripprobe.models import BackendSpec, CaseDefinition, CaseResult, ModelSpec, ShellSpec, TestSpec
 from gripprobe.reporters.html_report import write_html_summary
@@ -71,6 +77,190 @@ def _collect_shell_runtime_metadata(executable: str) -> dict[str, str]:
     return metadata
 
 
+def _run_probe_command(args: list[str], timeout_seconds: int = 5) -> dict[str, str | int | float]:
+    started = time.monotonic()
+    command = " ".join(args)
+    try:
+        probe = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except FileNotFoundError:
+        return {
+            "command": command,
+            "status": "unavailable",
+            "error": "command not found",
+            "duration_seconds": round(time.monotonic() - started, 3),
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "command": command,
+            "status": "timeout",
+            "duration_seconds": round(time.monotonic() - started, 3),
+        }
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {
+            "command": command,
+            "status": "error",
+            "error": str(exc),
+            "duration_seconds": round(time.monotonic() - started, 3),
+        }
+    return {
+        "command": command,
+        "status": "ok",
+        "exit_code": probe.returncode,
+        "stdout": (probe.stdout or "").strip(),
+        "stderr": (probe.stderr or "").strip(),
+        "duration_seconds": round(time.monotonic() - started, 3),
+    }
+
+
+def _run_remote_probe_command(target: str, remote_command: str, timeout_seconds: int = 5) -> dict[str, str | int | float]:
+    return _run_probe_command(
+        ["ssh", target, remote_command],
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def _ollama_base_url() -> str:
+    host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").strip()
+    if not host:
+        host = "http://127.0.0.1:11434"
+    if "://" not in host:
+        host = f"http://{host}"
+    return host.rstrip("/")
+
+
+def _ollama_host_name() -> str:
+    parsed = urlparse(_ollama_base_url())
+    return parsed.hostname or ""
+
+
+def _looks_local_host(host: str) -> bool:
+    normalized = host.strip().lower()
+    return normalized in {"", "localhost", "127.0.0.1", "::1"}
+
+
+def _ollama_probe_target() -> str | None:
+    explicit = os.environ.get("GRIPPROBE_OLLAMA_SSH_TARGET", "").strip()
+    if explicit:
+        return explicit
+    host = _ollama_host_name()
+    if _looks_local_host(host):
+        return None
+    return host
+
+
+def _run_http_probe(url: str, timeout_seconds: int = 5) -> dict[str, str | int | float]:
+    started = time.monotonic()
+    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            body = response.read().decode("utf-8", errors="replace").strip()
+            status_code = getattr(response, "status", None) or response.getcode()
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace").strip()
+        return {
+            "command": f"GET {url}",
+            "status": "http_error",
+            "http_status": exc.code,
+            "stdout": body,
+            "duration_seconds": round(time.monotonic() - started, 3),
+        }
+    except urllib.error.URLError as exc:
+        return {
+            "command": f"GET {url}",
+            "status": "connection_error",
+            "error": str(exc.reason),
+            "duration_seconds": round(time.monotonic() - started, 3),
+        }
+    except TimeoutError:
+        return {
+            "command": f"GET {url}",
+            "status": "timeout",
+            "duration_seconds": round(time.monotonic() - started, 3),
+        }
+    return {
+        "command": f"GET {url}",
+        "status": "ok",
+        "http_status": status_code,
+        "stdout": body,
+        "duration_seconds": round(time.monotonic() - started, 3),
+    }
+
+
+def _fetch_ollama_model_digest(model_id: str, timeout_seconds: int = 10) -> str | None:
+    url = f"{_ollama_base_url()}/api/tags"
+    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            body = response.read().decode("utf-8", errors="replace")
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError):
+        return None
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return None
+    models = payload.get("models")
+    if not isinstance(models, list):
+        return None
+    for item in models:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("name", "")).strip() != model_id:
+            continue
+        digest = str(item.get("digest", "")).strip()
+        if digest:
+            return digest
+    return None
+
+
+def _resolve_model_hash(backend: BackendSpec, cli_model_hash: str | None = None) -> str:
+    if backend.id == "ollama":
+        digest = _fetch_ollama_model_digest(backend.model_id)
+        if digest:
+            return digest
+    if cli_model_hash:
+        return cli_model_hash
+    if backend.model_hash:
+        return backend.model_hash
+    return "unknown"
+
+
+def _collect_runtime_snapshot(include_ollama: bool = False) -> dict[str, object]:
+    remote_target = _ollama_probe_target() if include_ollama else None
+    if remote_target:
+        probes: dict[str, dict[str, str | int | float]] = {
+            "loadavg": _run_remote_probe_command(remote_target, "cat /proc/loadavg"),
+            "meminfo": _run_remote_probe_command(remote_target, "cat /proc/meminfo"),
+            "nvidia_smi": _run_remote_probe_command(
+                remote_target,
+                "nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits",
+            ),
+        }
+    else:
+        probes = {
+            "loadavg": _run_probe_command(["cat", "/proc/loadavg"]),
+            "meminfo": _run_probe_command(["cat", "/proc/meminfo"]),
+            "nvidia_smi": _run_probe_command(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=name,utilization.gpu,memory.used,memory.total",
+                    "--format=csv,noheader,nounits",
+                ]
+            ),
+        }
+    if include_ollama:
+        probes["ollama_ps"] = _run_http_probe(f"{_ollama_base_url()}/api/ps", timeout_seconds=10)
+    return {
+        "captured_at": _timestamp(),
+        "probes": probes,
+    }
+
+
 def _prepare_workspace(path: Path, test_id: str) -> None:
     path.mkdir(parents=True, exist_ok=True)
     for file in path.iterdir():
@@ -93,11 +283,25 @@ def _prepare_workspace(path: Path, test_id: str) -> None:
 
 
 def _adapter_for(shell_spec: ShellSpec):
+    if shell_spec.id == "aider":
+        return AiderAdapter(shell_spec)
     if shell_spec.id == "gptme":
         return GptmeAdapter(shell_spec)
     if shell_spec.id == "continue-cli":
         return ContinueCliAdapter(shell_spec)
+    if shell_spec.id == "opencode":
+        return OpencodeAdapter(shell_spec)
     raise ValueError(f"Unsupported shell adapter: {shell_spec.id}")
+
+
+def _apply_model_policy_overrides(shell_spec: ShellSpec, model_spec: ModelSpec) -> ShellSpec:
+    overrides = model_spec.policy_overrides or {}
+    shell_timeouts = overrides.get("shell_timeout_seconds")
+    if isinstance(shell_timeouts, dict):
+        timeout_override = shell_timeouts.get(shell_spec.id)
+        if isinstance(timeout_override, int) and timeout_override > 0:
+            return shell_spec.model_copy(update={"timeout_seconds": timeout_override})
+    return shell_spec
 
 
 def _filter_tests(tests: list[TestSpec], selected: Iterable[str] | None) -> list[TestSpec]:
@@ -105,6 +309,13 @@ def _filter_tests(tests: list[TestSpec], selected: Iterable[str] | None) -> list
         return tests
     wanted = set(selected)
     return [test for test in tests if test.id in wanted or test.title in wanted]
+
+
+def _filter_tests_by_tags(tests: list[TestSpec], selected_tags: Iterable[str] | None) -> list[TestSpec]:
+    if not selected_tags:
+        return tests
+    wanted = set(selected_tags)
+    return [test for test in tests if wanted.intersection(test.tags)]
 
 
 def _filter_formats(formats: list[str], selected: Iterable[str] | None) -> list[str]:
@@ -149,6 +360,7 @@ def run(
     backend_name: str = DEFAULT_BACKEND,
     run_id: str | None = None,
     tests_filter: list[str] | None = None,
+    test_tags_filter: list[str] | None = None,
     formats_filter: list[str] | None = None,
     container_image: str | None = None,
     keep_system_messages: bool = False,
@@ -161,13 +373,20 @@ def run(
     shells = load_shell_specs(root)
 
     model_spec: ModelSpec = _find_one(models, "label", model_name)
-    shell_spec: ShellSpec = _find_one(shells, "id", shell_name)
+    shell_spec: ShellSpec = _apply_model_policy_overrides(_find_one(shells, "id", shell_name), model_spec)
     backend = _select_backend(model_spec, backend_name)
-    resolved_model_hash = backend.model_hash or model_hash or "unknown"
+    resolved_model_hash = _resolve_model_hash(backend, model_hash)
     adapter = _adapter_for(shell_spec)
     run_paths = create_run_paths(root, run_id=run_id)
     runtime_metadata = _collect_shell_runtime_metadata(shell_spec.executable)
-    merged_run_metadata = {**runtime_metadata, **(run_metadata or {})}
+    runtime_snapshots = {
+        "run_started": _collect_runtime_snapshot(include_ollama=backend.id == "ollama"),
+    }
+    merged_run_metadata = {
+        **runtime_metadata,
+        **(run_metadata or {}),
+        "runtime_snapshots": runtime_snapshots,
+    }
     _emit(
         progress,
         "START "
@@ -179,6 +398,7 @@ def run(
 
     results: list[CaseResult] = []
     tests = _filter_tests(tests, tests_filter)
+    tests = _filter_tests_by_tags(tests, test_tags_filter)
     formats = [fmt for fmt in model_spec.supported_formats if fmt in shell_spec.supported_formats] or shell_spec.supported_formats
     formats = _filter_formats(formats, formats_filter)
 
@@ -238,11 +458,20 @@ def run(
                 keep_system_messages=keep_system_messages,
                 run_metadata=merged_run_metadata,
             )
+            case_runtime_before = _collect_runtime_snapshot(include_ollama=backend.id == "ollama")
             try:
                 result = adapter.run_case(case, model_spec, test_spec)
             except AdapterError as exc:
                 result = _harness_error_result(case, model_spec, test_spec, str(exc))
-            result.metadata = {**merged_run_metadata, **result.metadata}
+            case_runtime_after = _collect_runtime_snapshot(include_ollama=backend.id == "ollama")
+            result.metadata = {
+                **merged_run_metadata,
+                **result.metadata,
+                "runtime_snapshots": {
+                    "before": case_runtime_before,
+                    "after": case_runtime_after,
+                },
+            }
             write_json(case_dir / "case.json", result.model_dump())
             results.append(result)
             _emit(
@@ -267,6 +496,7 @@ def run(
         )
 
     write_markdown_summary(results, run_paths.reports_dir / "summary.md")
+    merged_run_metadata["runtime_snapshots"]["run_finished"] = _collect_runtime_snapshot(include_ollama=backend.id == "ollama")
     write_html_summary(results, run_paths.reports_dir / "summary.html")
     write_json(
         run_paths.run_dir / "manifest.json",

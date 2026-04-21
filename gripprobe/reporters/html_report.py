@@ -241,6 +241,105 @@ def _render_trajectory_hints(case_json_raw: str) -> str:
     return legend + current
 
 
+def _render_failure_reason(case_json_raw: str) -> str:
+    if not case_json_raw.strip():
+        return ""
+    try:
+        payload = json.loads(case_json_raw)
+    except json.JSONDecodeError:
+        return ""
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        return ""
+    failure_reason = metadata.get("failure_reason")
+    if not failure_reason:
+        return ""
+    return f"<p><strong>Failure Reason:</strong> {escape(str(failure_reason))}</p>"
+
+
+def _render_runtime_snapshot(snapshot: object) -> str:
+    if not isinstance(snapshot, dict):
+        return ""
+    probes = snapshot.get("probes")
+    if not isinstance(probes, dict):
+        return ""
+    blocks: list[str] = []
+    captured_at = snapshot.get("captured_at")
+    if captured_at:
+        blocks.append(f"<p><strong>Captured:</strong> {escape(str(captured_at))}</p>")
+    for probe_name, probe_payload in probes.items():
+        if not isinstance(probe_payload, dict):
+            continue
+        command = escape(str(probe_payload.get("command", "")))
+        status = escape(str(probe_payload.get("status", "")))
+        duration = escape(str(probe_payload.get("duration_seconds", "")))
+        exit_code = probe_payload.get("exit_code")
+        stdout = escape(str(probe_payload.get("stdout", "")))
+        stderr = escape(str(probe_payload.get("stderr", "")))
+        error = escape(str(probe_payload.get("error", "")))
+        meta = [f"<li><strong>Status:</strong> {status}</li>"]
+        if command:
+            meta.append(f"<li><strong>Command:</strong> <code>{command}</code></li>")
+        if duration:
+            meta.append(f"<li><strong>Duration:</strong> {duration}s</li>")
+        if exit_code is not None:
+            meta.append(f"<li><strong>Exit Code:</strong> {escape(str(exit_code))}</li>")
+        if error:
+            meta.append(f"<li><strong>Error:</strong> {error}</li>")
+        body = f"<ul>{''.join(meta)}</ul>"
+        if stdout:
+            body += f"<h4>stdout</h4><pre>{stdout}</pre>"
+        if stderr:
+            body += f"<h4>stderr</h4><pre>{stderr}</pre>"
+        blocks.append(f"<div class='panel'><h3>{escape(str(probe_name))}</h3>{body}</div>")
+    if not blocks:
+        return ""
+    return "<div class='grid'>" + "".join(blocks) + "</div>"
+
+
+def _render_case_runtime_snapshots(case_json_raw: str) -> str:
+    if not case_json_raw.strip():
+        return ""
+    try:
+        payload = json.loads(case_json_raw)
+    except json.JSONDecodeError:
+        return ""
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        return ""
+    snapshots = metadata.get("runtime_snapshots")
+    if not isinstance(snapshots, dict):
+        return ""
+    sections: list[str] = []
+    for label, key in (("Before Case", "before"), ("After Case", "after")):
+        rendered = _render_runtime_snapshot(snapshots.get(key))
+        if rendered:
+            sections.append(f"<h3>{escape(label)}</h3>{rendered}")
+    return "".join(sections)
+
+
+def _render_run_runtime_snapshots(reports_dir: Path) -> str:
+    manifest_path = reports_dir.parent / "manifest.json"
+    if not manifest_path.exists():
+        return ""
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return ""
+    run_metadata = payload.get("run_metadata")
+    if not isinstance(run_metadata, dict):
+        return ""
+    snapshots = run_metadata.get("runtime_snapshots")
+    if not isinstance(snapshots, dict):
+        return ""
+    sections: list[str] = []
+    for label, key in (("Run Start", "run_started"), ("Run Finish", "run_finished")):
+        rendered = _render_runtime_snapshot(snapshots.get(key))
+        if rendered:
+            sections.append(f"<h2>{escape(label)}</h2>{rendered}")
+    return "".join(sections)
+
+
 def _write_case_detail(result: CaseResult, reports_dir: Path, case_dir: Path) -> str:
     details_dir = reports_dir / "cases"
     details_dir.mkdir(parents=True, exist_ok=True)
@@ -255,6 +354,8 @@ def _write_case_detail(result: CaseResult, reports_dir: Path, case_dir: Path) ->
     case_json_raw = _render_case_json_panel_text(case_dir)
     run_comparison_html = _render_run_comparison(case_json_raw)
     trajectory_hints_html = _render_trajectory_hints(case_json_raw)
+    failure_reason_html = _render_failure_reason(case_json_raw)
+    runtime_snapshots_html = _render_case_runtime_snapshots(case_json_raw)
     transcript_html = _render_transcript(case_dir)
     artifact_links = _render_artifact_links(case_dir, detail_path)
     summary_rel = escape(os.path.relpath(reports_dir / "summary.html", detail_path.parent))
@@ -318,7 +419,9 @@ section{{margin:1.5rem 0}}
 <h1>{escape(result.title)}</h1>
 <p><strong>Case:</strong> <code>{escape(result.case_id)}</code></p>
     <p>{_status_badges(result)} <strong>Trajectory:</strong> <span class='badge {trajectory_class}'>{escape(result.trajectory)}</span> | <strong>Invoked:</strong> <span class='badge {invoked_class}'>{escape(result.invoked)}</span> | <strong>Match:</strong> <span class='badge {match_class}'>{result.match_percent}%</span></p>
+    {failure_reason_html}
     {("<p class='ok'>The expected workspace artifact was present before the harness timeout elapsed.</p>") if _timeout_artifact_reached(result) else ''}
+    {('<section><h2>Runtime Snapshots</h2>' + runtime_snapshots_html + '</section>') if runtime_snapshots_html else ''}
     {('<section><h2>Trajectory Hints</h2>' + trajectory_hints_html + '</section>') if trajectory_hints_html else ''}
     {('<section><h2>Run Comparison</h2>' + run_comparison_html + '</section>') if run_comparison_html else ''}
 {('<div class="grid">' + top_panels + '</div>') if top_panels else ''}
@@ -351,6 +454,7 @@ def write_html_summary(results: list[CaseResult], path: Path) -> None:
     reports_dir = path.parent
     cases_dir = reports_dir.parent / "cases"
     detail_links = write_case_detail_pages(results, reports_dir, cases_dir)
+    run_runtime_snapshots_html = _render_run_runtime_snapshots(reports_dir)
     rows = []
     for item in results:
         detail_rel = detail_links[item.case_id]
@@ -366,6 +470,7 @@ def write_html_summary(results: list[CaseResult], path: Path) -> None:
             f"<td>{escape(item.format)}</td>"
             f"<td>{escape(item.title)}</td>"
             f"<td>{_status_badges(item)}</td>"
+            f"<td>{escape(str(item.metadata.get('failure_reason') or ''))}</td>"
             f"<td><span class='badge {trajectory_class}'>{escape(item.trajectory)}</span></td>"
             f"<td><span class='badge {invoked_class}'>{escape(item.invoked)}</span></td>"
             f"<td><span class='badge {match_class}'>{item.match_percent}%</span></td>"
@@ -382,6 +487,11 @@ table{{border-collapse:collapse;width:100%}}
 th,td{{border:1px solid #ccc;padding:.5rem;text-align:left;vertical-align:top}}
 th{{background:#ece8dc}}
 a{{color:#0b57d0}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}}
+.panel{{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem;margin-bottom:1rem}}
+.panel h3,.panel h4{{margin-top:0}}
+pre{{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}}
+code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
 .badge{{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}}
 .pass{{background:#d9f2df;color:#115c23}}
 .fail{{background:#f9d7d7;color:#7a1520}}
@@ -402,8 +512,9 @@ a{{color:#0b57d0}}
 .match-none{{background:#f9d7d7;color:#7a1520}}
 </style></head><body>
 <h1>GripProbe Run Summary</h1>
+{('<section><h1>Runtime Snapshots</h1>' + run_runtime_snapshots_html + '</section>') if run_runtime_snapshots_html else ''}
 <table>
-<thead><tr><th>Shell</th><th>Model</th><th>Backend</th><th>Hash</th><th>Format</th><th>Test</th><th>Status</th><th>Trajectory</th><th>Invoked</th><th>Match</th><th>Warmup (s)</th><th>Measured (s)</th><th>Details</th></tr></thead>
+<thead><tr><th>Shell</th><th>Model</th><th>Backend</th><th>Hash</th><th>Format</th><th>Test</th><th>Status</th><th>Reason</th><th>Trajectory</th><th>Invoked</th><th>Match</th><th>Warmup (s)</th><th>Measured (s)</th><th>Details</th></tr></thead>
 <tbody>
 {''.join(rows)}
 </tbody></table></body></html>"""
