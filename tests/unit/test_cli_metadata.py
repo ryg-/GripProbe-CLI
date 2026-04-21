@@ -44,3 +44,12 @@ def test_run_parser_exposes_model_hash_as_optional_fallback_help() -> None:
     assert "--model-hash" in help_text
     assert "fallback model hash" in help_text
     assert "/api/tags" in help_text
+
+
+def test_run_suite_parser_defaults_to_default_cli_matrix() -> None:
+    parser = build_parser()
+
+    ns = parser.parse_args(["run-suite"])
+
+    assert ns.cmd == "run-suite"
+    assert ns.suite == "default_cli_matrix"

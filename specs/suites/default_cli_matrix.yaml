@@ -1,0 +1,26 @@
+id: default_cli_matrix
+title: Default CLI Matrix
+description: Run the default local Ollama model set across every supported CLI framework.
+backend: ollama
+models:
+  - local/qwen2.5:7b
+  - local/qwen3:8b
+  - local/MFDoom/deepseek-r1-tool-calling:8b
+  - local/granite3-dense:8b-instruct-q6_K
+  - local/yi-coder:9b-chat-q5_K_M
+  - local/phi3.5:latest
+  - local/gemma3:12b
+  - local/gemma4:e2b
+  - local/gemma4:e4b
+  - local/gpt-oss:20b
+  - local/mistral-small:24b
+  - local/mistral-nemo:12b
+  - local/ministral-3:8b
+  - local/nemotron-3-nano:4b
+  - local/orieg/gemma3-tools:12b-ft-v2
+test_tags:
+  - sanity
+formats:
+  - tool
+metadata:
+  suite: default_cli_matrix

@@ -6,7 +6,8 @@ from pathlib import Path
 from gripprobe.aggregate import aggregate_reports, discover_run_dirs
 from gripprobe.rebuild import rebuild_reports
 from gripprobe.runner import DEFAULT_BACKEND, run
-from gripprobe.spec_loader import load_model_specs, load_shell_specs, load_test_specs
+from gripprobe.spec_loader import load_model_specs, load_shell_specs, load_suite_specs, load_test_specs
+from gripprobe.suite_runner import run_suite
 
 
 
@@ -14,7 +15,8 @@ def cmd_validate(root: Path) -> int:
     tests = load_test_specs(root)
     models = load_model_specs(root)
     shells = load_shell_specs(root)
-    print(f"Validated specs: tests={len(tests)} models={len(models)} shells={len(shells)}")
+    suites = load_suite_specs(root)
+    print(f"Validated specs: tests={len(tests)} models={len(models)} shells={len(shells)} suites={len(suites)}")
     return 0
 
 
@@ -84,6 +86,38 @@ def cmd_aggregate_reports(run_dirs: list[Path], output_dir: Path) -> int:
     print(f"cases={len(results)}")
     return 0
 
+
+def cmd_run_suite(
+    root: Path,
+    suite: str,
+    shells: list[str] | None,
+    models: list[str] | None,
+    tests: list[str] | None,
+    test_tags: list[str] | None,
+    formats: list[str] | None,
+    container_image: str | None,
+    keep_system_messages: bool,
+    model_hash: str | None,
+    metadata: dict[str, str],
+) -> int:
+    run_dirs = run_suite(
+        root,
+        suite_name=suite,
+        shells=shells,
+        models=models,
+        tests=tests,
+        test_tags=test_tags,
+        formats=formats,
+        container_image=container_image,
+        keep_system_messages=keep_system_messages,
+        model_hash=model_hash,
+        metadata=metadata,
+    )
+    for run_dir in run_dirs:
+        print(run_dir)
+    print(f"runs={len(run_dirs)}")
+    return 0
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="gripprobe")
     parser.add_argument("--root", default=".")
@@ -105,6 +139,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional fallback model hash. For Ollama, GripProbe now resolves the digest automatically via /api/tags when possible.",
     )
     run_p.add_argument("--metadata", action="append", help="Attach run metadata as key=value; may be passed multiple times")
+    run_suite_p = sub.add_parser("run-suite")
+    run_suite_p.add_argument("--suite", default="default_cli_matrix")
+    run_suite_p.add_argument("--shells", nargs="*")
+    run_suite_p.add_argument("--models", nargs="*")
+    run_suite_p.add_argument("--tests", nargs="*")
+    run_suite_p.add_argument("--test-tags", nargs="*")
+    run_suite_p.add_argument("--formats", nargs="*")
+    run_suite_p.add_argument("--container-image")
+    run_suite_p.add_argument("--keep-system-messages", action="store_true")
+    run_suite_p.add_argument(
+        "--model-hash",
+        help="Optional fallback model hash. For Ollama, GripProbe now resolves the digest automatically via /api/tags when possible.",
+    )
+    run_suite_p.add_argument("--metadata", action="append", help="Attach run metadata as key=value; may be passed multiple times")
     rebuild_p = sub.add_parser("rebuild-reports")
     rebuild_p.add_argument("--run-dir", required=True)
     rebuild_p.add_argument("--keep-system-messages", action="store_true")
@@ -138,6 +186,24 @@ def main() -> int:
             backend=ns.backend,
             tests=ns.tests,
             test_tags=test_tags or None,
+            formats=ns.formats,
+            container_image=ns.container_image,
+            keep_system_messages=ns.keep_system_messages,
+            model_hash=ns.model_hash,
+            metadata=metadata,
+        )
+    if ns.cmd == "run-suite":
+        try:
+            metadata = _parse_metadata(ns.metadata)
+        except ValueError as exc:
+            parser.error(str(exc))
+        return cmd_run_suite(
+            root,
+            suite=ns.suite,
+            shells=ns.shells,
+            models=ns.models,
+            tests=ns.tests,
+            test_tags=ns.test_tags,
             formats=ns.formats,
             container_image=ns.container_image,
             keep_system_messages=ns.keep_system_messages,

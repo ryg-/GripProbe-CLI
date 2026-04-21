@@ -6,7 +6,7 @@ from typing import TypeVar
 import yaml
 from pydantic import BaseModel
 
-from .models import ModelSpec, ShellSpec, TestSpec
+from .models import ModelSpec, ShellSpec, SuiteSpec, TestSpec
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -36,3 +36,7 @@ def load_model_specs(root: Path) -> list[ModelSpec]:
 
 def load_shell_specs(root: Path) -> list[ShellSpec]:
     return _load_specs(root / "specs" / "shells", ShellSpec)
+
+
+def load_suite_specs(root: Path) -> list[SuiteSpec]:
+    return _load_specs(root / "specs" / "suites", SuiteSpec)

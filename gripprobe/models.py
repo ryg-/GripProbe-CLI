@@ -100,6 +100,21 @@ class ShellSpec(BaseModel):
     timeout_seconds: int = 120
 
 
+class SuiteSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    title: str
+    description: str | None = None
+    backend: str = "ollama"
+    shells: list[str] = Field(default_factory=list)
+    models: list[str] = Field(default_factory=list)
+    tests: list[str] = Field(default_factory=list)
+    test_tags: list[str] = Field(default_factory=list)
+    formats: list[str] = Field(default_factory=list)
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
 class CaseDefinition(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
