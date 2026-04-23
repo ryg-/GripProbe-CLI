@@ -94,9 +94,19 @@ def test_opencode_uses_isolated_single_model_config(tmp_path: Path) -> None:
     case.workspace_dir.mkdir(parents=True)
 
     captured_args: list[list[str]] = []
+    captured_envs: list[dict[str, str]] = []
 
-    def _fake_run_command(self, case_arg, args, env, stdout_path, stderr_path, workspace_dir=None):
+    def _fake_run_command(
+        self,
+        case_arg,
+        args: list[str],
+        env: dict[str, str],
+        stdout_path,
+        stderr_path,
+        workspace_dir=None,
+    ):
         captured_args.append(list(args))
+        captured_envs.append(dict(env))
         active_workspace = workspace_dir or case_arg.workspace_dir
         (active_workspace / "pwd-output.txt").write_text(str(active_workspace) + "\n", encoding="utf-8")
         stdout_path.write_text('{"type":"message","role":"assistant","content":"DONE"}\n', encoding="utf-8")
@@ -108,12 +118,19 @@ def test_opencode_uses_isolated_single_model_config(tmp_path: Path) -> None:
     result = adapter.run_case(case, model_spec, test_spec)
 
     assert result.status == "PASS"
+    assert str(result.metadata["warmup_command"]).startswith("opencode run ")
+    assert str(result.metadata["measured_command"]).startswith("opencode run ")
     assert len(captured_args) == 2
+    assert len(captured_envs) == 2
     for args in captured_args:
         assert args[:3] == ["opencode", "run", "--format"]
         assert "--model" in args
         assert "ollama/qwen2.5:7b" in args
         assert "--dangerously-skip-permissions" in args
+    assert captured_envs[0]["HOME"] != captured_envs[1]["HOME"]
+    for env in captured_envs:
+        assert env["XDG_CONFIG_HOME"]
+        assert env["XDG_STATE_HOME"]
 
     isolated_config = Path(result.metadata["opencode_config_path"])
     payload = json.loads(isolated_config.read_text(encoding="utf-8"))

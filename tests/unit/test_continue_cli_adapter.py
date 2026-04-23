@@ -93,9 +93,19 @@ def test_continue_cli_uses_isolated_single_model_config(tmp_path: Path) -> None:
     case.workspace_dir.mkdir(parents=True)
 
     captured_args: list[list[str]] = []
+    captured_envs: list[dict[str, str]] = []
 
-    def _fake_run_command(self, case_arg, args, env, stdout_path, stderr_path, workspace_dir=None):
+    def _fake_run_command(
+        self,
+        case_arg,
+        args: list[str],
+        env: dict[str, str],
+        stdout_path,
+        stderr_path,
+        workspace_dir=None,
+    ):
         captured_args.append(list(args))
+        captured_envs.append(dict(env))
         active_workspace = workspace_dir or case_arg.workspace_dir
         (active_workspace / "pwd-output.txt").write_text(str(active_workspace) + "\n", encoding="utf-8")
         stdout_path.write_text("System:\nRan command: `pwd > pwd-output.txt`\n", encoding="utf-8")
@@ -107,7 +117,10 @@ def test_continue_cli_uses_isolated_single_model_config(tmp_path: Path) -> None:
     result = adapter.run_case(case, model_spec, test_spec)
 
     assert result.status == "PASS"
+    assert str(result.metadata["warmup_command"]).startswith("cn ")
+    assert str(result.metadata["measured_command"]).startswith("cn ")
     assert len(captured_args) == 2
+    assert len(captured_envs) == 2
     for args in captured_args:
         assert args[0] == "cn"
         assert "--config" in args
@@ -117,6 +130,10 @@ def test_continue_cli_uses_isolated_single_model_config(tmp_path: Path) -> None:
         assert "shell" in args
         assert "read" in args
         assert "Use shell" == args[-1]
+    assert captured_envs[0]["HOME"] != captured_envs[1]["HOME"]
+    for env in captured_envs:
+        assert env["XDG_CONFIG_HOME"]
+        assert env["XDG_STATE_HOME"]
 
 
 def test_continue_cli_falls_back_to_home_config_for_model_endpoint(tmp_path: Path, monkeypatch) -> None:

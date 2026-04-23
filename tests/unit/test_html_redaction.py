@@ -94,7 +94,10 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
             measured_stdout="measured.stdout",
             measured_stderr="measured.stderr",
         ),
-        metadata={},
+        metadata={
+            "warmup_command": "tool --warmup",
+            "measured_command": "tool --measured",
+        },
     )
 
     write_html_summary([result], reports_dir / "summary.html")
@@ -106,10 +109,13 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     assert "cat /proc/loadavg" in detail_html
     assert "Trajectory Hints" in detail_html
     assert "Run Comparison" in detail_html
+    assert "Shell Commands" in detail_html
+    assert "tool --measured" in detail_html
     assert "Failure Reason:" in detail_html
     assert "answered without invoking tool" in detail_html
     assert "strongly_diverged" in detail_html
     summary_html = (reports_dir / "summary.html").read_text(encoding="utf-8")
     assert "<th>Reason</th>" in summary_html
+    assert "<th>Command</th>" not in summary_html
     assert "GET http://127.0.0.1:11434/api/ps" in summary_html
     assert "qwen3:8b 100%" in summary_html

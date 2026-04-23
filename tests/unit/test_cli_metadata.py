@@ -53,3 +53,28 @@ def test_run_suite_parser_defaults_to_default_cli_matrix() -> None:
 
     assert ns.cmd == "run-suite"
     assert ns.suite == "default_cli_matrix"
+    assert ns.resume_suite is False
+
+
+def test_run_suite_parser_accepts_resume_suite_flag() -> None:
+    parser = build_parser()
+
+    ns = parser.parse_args(["run-suite", "--resume-suite"])
+
+    assert ns.cmd == "run-suite"
+    assert ns.resume_suite is True
+
+
+def test_backfill_model_hashes_parser_accepts_run_dir() -> None:
+    parser = build_parser()
+
+    ns = parser.parse_args(
+        [
+            "backfill-model-hashes",
+            "--run-dir",
+            "/tmp/run-x",
+        ]
+    )
+
+    assert ns.cmd == "backfill-model-hashes"
+    assert ns.run_dir == "/tmp/run-x"

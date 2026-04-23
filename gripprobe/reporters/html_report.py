@@ -151,6 +151,19 @@ def _pre_block(text: str) -> str:
     return f"<pre>{escape(text)}</pre>"
 
 
+def _render_shell_commands(result: CaseResult) -> str:
+    warmup_command = str(result.metadata.get("warmup_command") or "").strip()
+    measured_command = str(result.metadata.get("measured_command") or "").strip()
+    if not warmup_command and not measured_command:
+        return ""
+    parts: list[str] = []
+    if warmup_command:
+        parts.append(f"<h3>Warmup</h3><pre>{escape(warmup_command)}</pre>")
+    if measured_command:
+        parts.append(f"<h3>Measured</h3><pre>{escape(measured_command)}</pre>")
+    return "".join(parts)
+
+
 def _render_case_json_panel_text(case_dir: Path) -> str:
     case_json_path = case_dir / "case.json"
     raw = _read_text(case_json_path)
@@ -340,7 +353,14 @@ def _render_run_runtime_snapshots(reports_dir: Path) -> str:
     return "".join(sections)
 
 
-def _write_case_detail(result: CaseResult, reports_dir: Path, case_dir: Path) -> str:
+def _write_case_detail(
+    result: CaseResult,
+    reports_dir: Path,
+    case_dir: Path,
+    show_artifacts: bool = True,
+    show_runtime_snapshots: bool = True,
+    show_case_json: bool = True,
+) -> str:
     details_dir = reports_dir / "cases"
     details_dir.mkdir(parents=True, exist_ok=True)
     detail_path = details_dir / f"{result.case_id}.html"
@@ -355,9 +375,10 @@ def _write_case_detail(result: CaseResult, reports_dir: Path, case_dir: Path) ->
     run_comparison_html = _render_run_comparison(case_json_raw)
     trajectory_hints_html = _render_trajectory_hints(case_json_raw)
     failure_reason_html = _render_failure_reason(case_json_raw)
-    runtime_snapshots_html = _render_case_runtime_snapshots(case_json_raw)
+    runtime_snapshots_html = _render_case_runtime_snapshots(case_json_raw) if show_runtime_snapshots else ""
+    shell_commands_html = _render_shell_commands(result)
     transcript_html = _render_transcript(case_dir)
-    artifact_links = _render_artifact_links(case_dir, detail_path)
+    artifact_links = _render_artifact_links(case_dir, detail_path) if show_artifacts else ""
     summary_rel = escape(os.path.relpath(reports_dir / "summary.html", detail_path.parent))
     trajectory_class = TRAJECTORY_CLASS.get(result.trajectory, "unknown")
     invoked_class = INVOKED_CLASS.get(result.invoked, "unknown")
@@ -368,7 +389,7 @@ def _write_case_detail(result: CaseResult, reports_dir: Path, case_dir: Path) ->
             _panel("Prompt", _pre_block(prompt_raw)),
             _panel("Expected", _pre_block(expected_raw)),
             _panel("Observed", _pre_block(observed_raw)),
-            _panel("Case JSON", _pre_block(case_json_raw)),
+            _panel("Case JSON", _pre_block(case_json_raw)) if show_case_json else "",
         ]
         if panel
     )
@@ -421,6 +442,7 @@ section{{margin:1.5rem 0}}
     <p>{_status_badges(result)} <strong>Trajectory:</strong> <span class='badge {trajectory_class}'>{escape(result.trajectory)}</span> | <strong>Invoked:</strong> <span class='badge {invoked_class}'>{escape(result.invoked)}</span> | <strong>Match:</strong> <span class='badge {match_class}'>{result.match_percent}%</span></p>
     {failure_reason_html}
     {("<p class='ok'>The expected workspace artifact was present before the harness timeout elapsed.</p>") if _timeout_artifact_reached(result) else ''}
+    {('<section><h2>Shell Commands</h2>' + shell_commands_html + '</section>') if shell_commands_html else ''}
     {('<section><h2>Runtime Snapshots</h2>' + runtime_snapshots_html + '</section>') if runtime_snapshots_html else ''}
     {('<section><h2>Trajectory Hints</h2>' + trajectory_hints_html + '</section>') if trajectory_hints_html else ''}
     {('<section><h2>Run Comparison</h2>' + run_comparison_html + '</section>') if run_comparison_html else ''}
@@ -434,18 +456,29 @@ section{{margin:1.5rem 0}}
 {transcript_html}
 </section>
 {('<section><h2>Tool / Process Output</h2><div class="grid">' + output_panels + '</div></section>') if output_panels else ''}
-<section>
-<h2>Raw Artifacts</h2>
-{artifact_links}
-</section>
+{('<section><h2>Raw Artifacts</h2>' + artifact_links + '</section>') if artifact_links else ''}
 </body></html>"""
     detail_path.write_text(html, encoding="utf-8")
     return str(detail_path.relative_to(reports_dir))
 
 
-def write_case_detail_pages(results: list[CaseResult], reports_dir: Path, cases_dir: Path) -> dict[str, str]:
+def write_case_detail_pages(
+    results: list[CaseResult],
+    reports_dir: Path,
+    cases_dir: Path,
+    show_artifacts: bool = True,
+    show_runtime_snapshots: bool = True,
+    show_case_json: bool = True,
+) -> dict[str, str]:
     return {
-        item.case_id: _write_case_detail(item, reports_dir, cases_dir / item.case_id)
+        item.case_id: _write_case_detail(
+            item,
+            reports_dir,
+            cases_dir / item.case_id,
+            show_artifacts=show_artifacts,
+            show_runtime_snapshots=show_runtime_snapshots,
+            show_case_json=show_case_json,
+        )
         for item in results
     }
 

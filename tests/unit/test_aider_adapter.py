@@ -96,9 +96,19 @@ def test_aider_uses_isolated_config_and_ollama_model(tmp_path: Path) -> None:
     (case.workspace_dir / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
 
     captured_args: list[list[str]] = []
+    captured_envs: list[dict[str, str]] = []
 
-    def _fake_run_command(self, case_arg, args, env, stdout_path, stderr_path, workspace_dir=None):
+    def _fake_run_command(
+        self,
+        case_arg,
+        args: list[str],
+        env: dict[str, str],
+        stdout_path,
+        stderr_path,
+        workspace_dir=None,
+    ):
         captured_args.append(list(args))
+        captured_envs.append(dict(env))
         active_workspace = workspace_dir or case_arg.workspace_dir
         (active_workspace / "patch-target.txt").write_text("STATUS=new\n", encoding="utf-8")
         stdout_path.write_text("Applied edit to patch-target.txt\n", encoding="utf-8")
@@ -110,7 +120,10 @@ def test_aider_uses_isolated_config_and_ollama_model(tmp_path: Path) -> None:
     result = adapter.run_case(case, model_spec, test_spec)
 
     assert result.status == "PASS"
+    assert str(result.metadata["warmup_command"]).startswith("aider ")
+    assert str(result.metadata["measured_command"]).startswith("aider ")
     assert len(captured_args) == 2
+    assert len(captured_envs) == 2
     for args in captured_args:
         assert args[0] == "aider"
         assert "--config" in args
@@ -120,6 +133,11 @@ def test_aider_uses_isolated_config_and_ollama_model(tmp_path: Path) -> None:
         assert "--openai-api-base" in args
         assert "--message" in args
         assert "patch-target.txt" in args
+    for env in captured_envs:
+        assert env["OLLAMA_API_BASE"] == "http://127.0.0.1:11434"
+        assert env["HOME"]
+        assert env["XDG_STATE_HOME"]
+    assert captured_envs[0]["HOME"] != captured_envs[1]["HOME"]
 
     config_path = Path(result.metadata["aider_config_path"])
     config_text = config_path.read_text(encoding="utf-8")

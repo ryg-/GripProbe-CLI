@@ -31,3 +31,15 @@ def test_trajectory_violation_uses_structured_rules_not_english_prompt(specs_roo
     trajectory = derive_trajectory(analyze_trace(stdout, ""), spec.rules.no_retry_on_error, stdout, "")
 
     assert trajectory == "violated"
+
+
+def test_non_sanity_tag_marks_all_non_sanity_specs(specs_root: Path) -> None:
+    specs = load_test_specs(specs_root)
+
+    for spec in specs:
+        has_sanity = "sanity" in spec.tags
+        has_non_sanity = "non_sanity" in spec.tags
+        if has_sanity:
+            assert not has_non_sanity, f"{spec.id} should not have both sanity and non_sanity tags"
+        else:
+            assert has_non_sanity, f"{spec.id} is missing non_sanity tag"

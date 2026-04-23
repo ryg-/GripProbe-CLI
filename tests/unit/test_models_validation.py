@@ -67,3 +67,20 @@ def test_modelspec_allows_backend_without_model_hash() -> None:
     )
 
     assert spec.backends[0].model_hash is None
+
+
+def test_web_nonce_proof_validator_requires_target() -> None:
+    with pytest.raises(ValidationError, match="web_nonce_proof validator requires target"):
+        GripTestSpec.model_validate(
+            {
+                "id": "web_nonce_proof",
+                "title": "Web Nonce Proof",
+                "category": "web",
+                "prompt": "web",
+                "validators": [
+                    {
+                        "type": "web_nonce_proof",
+                    }
+                ],
+            }
+        )

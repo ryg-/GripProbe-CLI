@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from types import MethodType
 from pathlib import Path
+from types import MethodType
 
 from gripprobe.adapters.gptme import GptmeAdapter
 from gripprobe.models import CaseDefinition, ModelSpec, ShellSpec, TestSpec as GripTestSpec
@@ -296,3 +296,130 @@ def test_run_case_keeps_timeout_but_records_artifact_reached(tmp_path: Path) -> 
     assert result.metadata["artifact_reached_before_timeout"] is True
     assert (case.case_dir / "expected.txt").read_text(encoding="utf-8").strip() == str(case.workspace_dir)
     assert (case.case_dir / "observed.txt").read_text(encoding="utf-8").strip() == str(case.workspace_dir)
+
+
+def test_gptme_uses_separate_runtime_home_and_logs_per_phase(tmp_path: Path) -> None:
+    adapter = _adapter()
+    model_spec = _model_spec()
+    test_spec = _patch_test_spec()
+    case = CaseDefinition.model_validate(
+        {
+            "case_id": "gptme__local_qwen2_5_7b__ollama__tool__patch_file",
+            "run_id": "run-gptme-runtime-home",
+            "shell_id": "gptme",
+            "shell_label": "gptme",
+            "model_id": "local_qwen2_5_7b",
+            "model_label": "local/qwen2.5:7b",
+            "backend_id": "ollama",
+            "backend_model_id": "qwen2.5:7b",
+            "shell_model_id": "local/qwen2.5:7b",
+            "model_hash": "845dbda0ea48",
+            "tool_format": "tool",
+            "test_id": "patch_file",
+            "test_title": "Patch File",
+            "prompt": test_spec.prompt,
+            "warmup_workspace_dir": tmp_path / "workspace-warmup",
+            "workspace_dir": tmp_path / "workspace",
+            "case_dir": tmp_path / "case",
+            "allowed_tools": ["read", "patch"],
+        }
+    )
+    case.warmup_workspace_dir.mkdir(parents=True)
+    case.workspace_dir.mkdir(parents=True)
+    (case.warmup_workspace_dir / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
+    (case.workspace_dir / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
+
+    captured_envs: list[dict[str, str]] = []
+
+    def _fake_run_command(
+        self,
+        case_arg,
+        args: list[str],
+        env: dict[str, str],
+        stdout_path,
+        stderr_path,
+        workspace_dir=None,
+    ):
+        captured_envs.append(dict(env))
+        active_workspace = workspace_dir or case_arg.workspace_dir
+        (active_workspace / "patch-target.txt").write_text("STATUS=new\n", encoding="utf-8")
+        stdout_path.write_text('@patch(call_1): {}\nSystem:\nApplied patch\n', encoding="utf-8")
+        stderr_path.write_text("", encoding="utf-8")
+        return 0, 0.1, "2026-04-22T10:00:00+02:00", "2026-04-22T10:00:01+02:00"
+
+    adapter.run_command = MethodType(_fake_run_command, adapter)
+
+    result = adapter.run_case(case, model_spec, test_spec)
+
+    assert result.status == "PASS"
+    assert str(result.metadata["warmup_command"]).startswith("gptme ")
+    assert str(result.metadata["measured_command"]).startswith("gptme ")
+    assert len(captured_envs) == 2
+    assert captured_envs[0]["HOME"] != captured_envs[1]["HOME"]
+    assert captured_envs[0]["GPTME_LOGS_HOME"] != captured_envs[1]["GPTME_LOGS_HOME"]
+    for env in captured_envs:
+        assert env["XDG_CONFIG_HOME"]
+        assert env["XDG_STATE_HOME"]
+
+
+def test_gptme_populates_openai_env_for_ollama_backend_when_missing(tmp_path: Path, monkeypatch) -> None:
+    adapter = _adapter()
+    model_spec = _model_spec()
+    test_spec = _patch_test_spec()
+    case = CaseDefinition.model_validate(
+        {
+            "case_id": "gptme__local_qwen2_5_7b__ollama__tool__patch_file",
+            "run_id": "run-gptme-ollama-env",
+            "shell_id": "gptme",
+            "shell_label": "gptme",
+            "model_id": "local_qwen2_5_7b",
+            "model_label": "local/qwen2.5:7b",
+            "backend_id": "ollama",
+            "backend_model_id": "qwen2.5:7b",
+            "shell_model_id": "local/qwen2.5:7b",
+            "model_hash": "845dbda0ea48",
+            "tool_format": "tool",
+            "test_id": "patch_file",
+            "test_title": "Patch File",
+            "prompt": test_spec.prompt,
+            "warmup_workspace_dir": tmp_path / "workspace-warmup",
+            "workspace_dir": tmp_path / "workspace",
+            "case_dir": tmp_path / "case",
+            "allowed_tools": ["read", "patch"],
+        }
+    )
+    case.warmup_workspace_dir.mkdir(parents=True)
+    case.workspace_dir.mkdir(parents=True)
+    (case.warmup_workspace_dir / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
+    (case.workspace_dir / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
+
+    monkeypatch.setenv("OLLAMA_HOST", "http://c:11434")
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    captured_envs: list[dict[str, str]] = []
+
+    def _fake_run_command(
+        self,
+        case_arg,
+        args: list[str],
+        env: dict[str, str],
+        stdout_path,
+        stderr_path,
+        workspace_dir=None,
+    ):
+        captured_envs.append(dict(env))
+        active_workspace = workspace_dir or case_arg.workspace_dir
+        (active_workspace / "patch-target.txt").write_text("STATUS=new\n", encoding="utf-8")
+        stdout_path.write_text('@patch(call_1): {}\nSystem:\nApplied patch\n', encoding="utf-8")
+        stderr_path.write_text("", encoding="utf-8")
+        return 0, 0.1, "2026-04-23T12:00:00+00:00", "2026-04-23T12:00:01+00:00"
+
+    adapter.run_command = MethodType(_fake_run_command, adapter)
+
+    result = adapter.run_case(case, model_spec, test_spec)
+
+    assert result.status == "PASS"
+    assert len(captured_envs) == 2
+    for env in captured_envs:
+        assert env["OPENAI_BASE_URL"] == "http://c:11434/v1"
+        assert env["OPENAI_API_KEY"] == "ollama"

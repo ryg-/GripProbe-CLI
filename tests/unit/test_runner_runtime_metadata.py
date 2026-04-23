@@ -148,23 +148,23 @@ def test_collect_runtime_snapshot_uses_ssh_for_remote_ollama_host(monkeypatch) -
 
     monkeypatch.setattr("gripprobe.runner.subprocess.run", _fake_run)
     monkeypatch.setattr("gripprobe.runner.urllib.request.urlopen", lambda request, timeout=0: _FakeResponse())
-    monkeypatch.setattr("gripprobe.runner.os.environ", {"OLLAMA_HOST": "http://c:11434"})
+    monkeypatch.setattr("gripprobe.runner.os.environ", {"OLLAMA_HOST": "http://ollama-host:11434"})
 
     snapshot = _collect_runtime_snapshot(include_ollama=True)
     snapshot_payload = cast(SnapshotPayload, snapshot)
     probes = cast(ProbeMap, snapshot_payload["probes"])
 
-    assert probes["loadavg"]["command"] == "ssh c cat /proc/loadavg"
-    assert probes["meminfo"]["command"] == "ssh c cat /proc/meminfo"
-    assert str(probes["nvidia_smi"]["command"]).startswith("ssh c nvidia-smi")
-    assert ["ssh", "c", "cat /proc/loadavg"] in calls
+    assert probes["loadavg"]["command"] == "ssh ollama-host cat /proc/loadavg"
+    assert probes["meminfo"]["command"] == "ssh ollama-host cat /proc/meminfo"
+    assert str(probes["nvidia_smi"]["command"]).startswith("ssh ollama-host nvidia-smi")
+    assert ["ssh", "ollama-host", "cat /proc/loadavg"] in calls
 
 
 def test_ollama_probe_target_uses_explicit_override(monkeypatch) -> None:
     monkeypatch.setattr(
         "gripprobe.runner.os.environ",
         {
-            "OLLAMA_HOST": "http://c:11434",
+            "OLLAMA_HOST": "http://ollama-host:11434",
             "GRIPPROBE_OLLAMA_SSH_TARGET": "gpu-box",
         },
     )
