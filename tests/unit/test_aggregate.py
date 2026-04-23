@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -83,11 +84,13 @@ def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     assert case_a["metadata"]["source_case_id"] == "case-1"
     assert case_b["case_id"] == "run-b__case-1"
     assert manifest["cases"] == 2
-    assert summary_html.count("<tr>") == 2
+    assert summary_html.count("<tr") == 2
     assert "source_reports/run-b/summary.html" in summary_html
     assert "cases/run-a__case-1.html" in summary_html
     assert "Case One" in summary_html
     assert "Case Two" in summary_html
+    assert "model-meta" in summary_html
+    assert "845dbda0ea48" in summary_html
 
 
 def test_discover_run_dirs_finds_case_directories(tmp_path: Path) -> None:
@@ -175,7 +178,120 @@ def test_aggregate_reports_keeps_different_formats_on_separate_rows(tmp_path: Pa
     output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
     summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
 
-    assert "<th>Format</th>" in summary_html
-    assert summary_html.count("<tr>") == 3
+    assert "<th>Format<span class='sort-controls'>" in summary_html
+    assert "<th>Score<span class='sort-controls'>" in summary_html
+    assert "<th>Typical Time<span class='sort-controls'>" in summary_html
+    assert "<th>Outliers<span class='sort-controls'>" in summary_html
+    assert "<th>Hash</th>" not in summary_html
+    assert summary_html.count("<tr") == 3
     assert ">markdown</td>" in summary_html
     assert ">tool</td>" in summary_html
+
+
+def test_aggregate_reports_sanitizes_source_report_private_values(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "PASS")
+    source_case_html = run_dir / "reports" / "cases" / "case-1.html"
+    source_case_html.write_text(
+        "<html><body>"
+        "GET http://c:11434/api/ps "
+        "ssh c cat /proc/loadavg "
+        "/home/ryg/work/private"
+        "</body></html>",
+        encoding="utf-8",
+    )
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
+    copied_html = (output_dir / "source_reports" / "run-a" / "cases" / "case-1.html").read_text(encoding="utf-8")
+
+    assert "http://c:11434" not in copied_html
+    assert "ssh c " not in copied_html
+    assert "/home/ryg" not in copied_html
+    assert "http://ollama-host:11434" in copied_html
+    assert "ssh ollama-host" in copied_html
+    assert "$HOME/work/private" in copied_html
+
+
+def test_aggregate_reports_ignores_dangling_symlink_in_case_dir(tmp_path: Path) -> None:
+    if not hasattr(os, "symlink"):
+        pytest.skip("symlink unsupported on this platform")
+
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "PASS")
+    broken_link = run_dir / "cases" / "case-1" / "gptme-logs" / "missing-workspace"
+    broken_link.parent.mkdir(parents=True, exist_ok=True)
+    broken_link.symlink_to(run_dir / "cases" / "case-1" / "does-not-exist")
+
+    output_dir, results = aggregate_reports([run_dir], tmp_path / "aggregate")
+
+    assert len(results) == 1
+    assert (output_dir / "cases" / "run-a__case-1" / "case.json").exists()
+
+
+def test_aggregate_reports_marks_and_filters_extended_rows(tmp_path: Path) -> None:
+    run_a = tmp_path / "runs" / "run-a"
+    run_b = tmp_path / "runs" / "run-b"
+    _write_case(run_a, "case-1", "Case One", "PASS")
+    _write_case(run_b, "case-1", "Case Two", "PASS")
+
+    case_b_path = run_b / "cases" / "case-1" / "case.json"
+    case_b = json.loads(case_b_path.read_text(encoding="utf-8"))
+    case_b["format"] = "tool"
+    case_b["metadata"]["test_tags"] = ["non_sanity"]
+    case_b_path.write_text(json.dumps(case_b), encoding="utf-8")
+
+    output_dir, _ = aggregate_reports([run_a, run_b], tmp_path / "aggregate")
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+
+    assert "hide-no-extended" in summary_html
+    assert "Hide rows without extended test set (non_sanity)" in summary_html
+    assert "data-extended='yes'" in summary_html
+    assert "data-extended='no'" in summary_html
+
+
+def test_aggregate_reports_computes_weighted_score_typical_time_and_outliers(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "PASS")
+    _write_case(run_dir, "case-2", "Case Two", "FAIL")
+
+    case_2_path = run_dir / "cases" / "case-2" / "case.json"
+    case_2 = json.loads(case_2_path.read_text(encoding="utf-8"))
+    case_2["timings"]["measured_seconds"] = 4.0
+    case_2_path.write_text(json.dumps(case_2), encoding="utf-8")
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+
+    assert "data-score='0.4444'" in summary_html
+    assert ">44.4%</td>" in summary_html
+    assert "data-typical='3.0000'" in summary_html
+    assert ">3.0s</td>" in summary_html
+    assert "data-outliers='0.0000'" in summary_html
+    assert ">0/2</td>" in summary_html
+
+
+def test_aggregate_reports_counts_outliers_by_test_baseline(tmp_path: Path) -> None:
+    run_a = tmp_path / "runs" / "run-a"
+    run_b = tmp_path / "runs" / "run-b"
+    run_c = tmp_path / "runs" / "run-c"
+    for run_dir in (run_a, run_b, run_c):
+        _write_case(run_dir, "case-1", "Case One", "PASS")
+        _write_case(run_dir, "case-2", "Case Two", "PASS")
+
+    for run_dir, shell in ((run_a, "gptme"), (run_b, "continue-cli"), (run_c, "opencode")):
+        for case_id in ("case-1", "case-2"):
+            path = run_dir / "cases" / case_id / "case.json"
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["shell"] = shell
+            if run_dir == run_c and case_id == "case-1":
+                payload["timings"]["measured_seconds"] = 10.0
+            else:
+                payload["timings"]["measured_seconds"] = 2.0
+            path.write_text(json.dumps(payload), encoding="utf-8")
+
+    output_dir, _ = aggregate_reports([run_a, run_b, run_c], tmp_path / "aggregate")
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+
+    assert "data-shell='opencode'" in summary_html
+    assert "data-outliers='0.5000'" in summary_html
+    assert ">1/2</td>" in summary_html

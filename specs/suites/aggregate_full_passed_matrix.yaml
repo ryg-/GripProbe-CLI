@@ -1,0 +1,52 @@
+id: aggregate_full_passed_matrix
+title: Aggregate Full Passed Matrix
+description: |
+  Shell/model/format combinations that fully passed all tracked sanity tests
+  in results/aggregate/all-runs/reports/summary.html at 2026-04-23.
+  This suite is intended for follow-up non-sanity runs on the same matrix.
+backend: ollama
+test_tags:
+  - non_sanity
+matrix:
+  - shell: continue-cli
+    model: local/qwen2.5:7b
+    format: markdown
+  - shell: continue-cli
+    model: local/qwen3:8b
+    format: markdown
+  - shell: continue-cli
+    model: local/gemma4:e2b
+    format: markdown
+  - shell: continue-cli
+    model: local/gemma4:e4b
+    format: markdown
+  - shell: continue-cli
+    model: local/gpt-oss:20b
+    format: markdown
+  - shell: continue-cli
+    model: local/ministral-3:8b
+    format: tool
+  - shell: continue-cli
+    model: local/nemotron-3-nano:4b
+    format: tool
+  - shell: gptme
+    model: local/gemma4:e2b
+    format: tool
+  - shell: gptme
+    model: local/gemma4:e4b
+    format: tool
+  - shell: gptme
+    model: local/ministral-3:8b
+    format: tool
+  - shell: gptme
+    model: local/mistral-nemo:12b
+    format: tool
+  - shell: gptme
+    model: local/qwen2.5:7b
+    format: tool
+  - shell: gptme
+    model: local/qwen3:8b
+    format: tool
+metadata:
+  suite: aggregate_full_passed_matrix
+  source_report: results/aggregate/all-runs/reports/summary.html
