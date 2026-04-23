@@ -131,6 +131,15 @@ def _format_duration(seconds: float) -> str:
     return f"{seconds:.1f}s"
 
 
+def _short_hash(value: str) -> str:
+    raw = value.strip()
+    if not raw or raw == "unknown":
+        return raw
+    if raw.startswith("sha256:"):
+        raw = raw.split(":", 1)[1]
+    return raw if len(raw) <= 7 else raw[:7]
+
+
 def _test_sort_key(title: str, results: list[CaseResult]) -> tuple[int, str]:
     for item in results:
         if item.title == title:
@@ -212,11 +221,11 @@ def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) ->
     )
 
     tests = sorted({item.title for item in results}, key=lambda title: _test_sort_key(title, results))
-    grouped: dict[tuple[str, str, str, str, str], list[CaseResult]] = defaultdict(list)
+    grouped: dict[tuple[str, str, str, str], list[CaseResult]] = defaultdict(list)
     for item in results:
-        grouped[(item.shell, item.model.label, item.model.backend, item.model.model_hash, item.format)].append(item)
+        grouped[(item.shell, item.model.label, item.model.model_hash, item.format)].append(item)
 
-    grouped_by_test: dict[tuple[str, str, str, str, str], dict[str, list[CaseResult]]] = {}
+    grouped_by_test: dict[tuple[str, str, str, str], dict[str, list[CaseResult]]] = {}
     representative_time_samples_by_test: dict[str, list[float]] = defaultdict(list)
     for group_key, items in grouped.items():
         by_test: dict[str, list[CaseResult]] = defaultdict(list)
@@ -235,7 +244,7 @@ def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) ->
 
     rows: list[str] = []
     for group_key in sorted(grouped):
-        shell, model_label, backend, model_hash, tool_format = group_key
+        shell, model_label, model_hash, tool_format = group_key
         items = grouped[group_key]
         has_extended_set = any(_has_extended_test_tags(item) for item in items)
         by_test = grouped_by_test[group_key]
@@ -286,15 +295,14 @@ def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) ->
             f"data-outliers='{outlier_rate:.4f}'>"
             f"<td><a href='{group_link}'>{escape(shell)}</a></td>"
             f"<td><a href='{group_link}'>{escape(model_label)}"
-            f"<span class='model-meta'>{escape(model_hash)}</span>"
+            f"<span class='model-meta'>{escape(_short_hash(model_hash))}</span>"
             "</a></td>"
-            f"<td>{escape(backend)}</td>"
             f"<td>{escape(tool_format)}</td>"
             f"<td>{score * 100:.1f}%</td>"
             f"<td>{_format_duration(typical_time)}</td>"
             f"<td>{outlier_count}/{outlier_total}</td>"
-            f"<td>{run_links}</td>"
             f"{''.join(cells)}"
+            f"<td class='runs-meta'>{run_links}</td>"
             "</tr>"
         )
 
@@ -315,6 +323,7 @@ a:hover{{text-decoration:underline}}
 .meta{{color:#555;margin-bottom:1rem;font-size:.9rem}}
 .cell-time{{display:block;font-size:.75rem;font-weight:500;color:#26492d;margin-top:.12rem}}
 .model-meta{{display:block;font-size:.68rem;font-weight:500;color:#666;margin-top:.18rem;word-break:break-all}}
+.runs-meta{{font-size:.68rem;font-weight:500;color:#666;line-height:1.35}}
 .sort-controls{{display:inline-flex;gap:.2rem;margin-left:.35rem;vertical-align:middle}}
 .sort-btn{{border:1px solid #c9c3b4;background:#f7f3e8;color:#555;border-radius:4px;padding:0 .22rem;font-size:.66rem;line-height:1.15;cursor:pointer}}
 .sort-btn:hover{{background:#efe6d3;color:#222}}
@@ -323,21 +332,20 @@ a:hover{{text-decoration:underline}}
 .row-hidden{{display:none}}
 </style></head><body>
 <h1>GripProbe Aggregate Summary</h1>
-<p class='meta'>One row per shell/model/backend/hash/format group. Test cells link to a concrete case detail page. Group links open the source run summary.</p>
+<p class='meta'>One row per shell/model/hash/format group. Test cells link to a concrete case detail page. Group links open the source run summary.</p>
 <div class='controls'>
-<input id='hide-no-extended' type='checkbox' />
-<label for='hide-no-extended'>Hide rows without extended test set (non_sanity)</label>
+<input id='hide-no-extended' type='checkbox' checked />
+<label for='hide-no-extended'>Extended only</label>
 </div>
 <table>
 <thead><tr>
 <th>Shell<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('shell', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('shell', 'desc')">▼</button></span></th>
 <th>Model<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('model', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('model', 'desc')">▼</button></span></th>
-<th>Backend</th>
 <th>Format<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('format', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('format', 'desc')">▼</button></span></th>
 <th>Score<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('score', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('score', 'desc')">▼</button></span></th>
 <th>Typical Time<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('typical', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('typical', 'desc')">▼</button></span></th>
 <th>Outliers<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('outliers', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('outliers', 'desc')">▼</button></span></th>
-<th>Runs</th>{header_tests}</tr></thead>
+{header_tests}<th>Runs</th></tr></thead>
 <tbody>
 {''.join(rows)}
 </tbody></table>

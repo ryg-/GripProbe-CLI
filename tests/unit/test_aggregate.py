@@ -90,7 +90,8 @@ def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     assert "Case One" in summary_html
     assert "Case Two" in summary_html
     assert "model-meta" in summary_html
-    assert "845dbda0ea48" in summary_html
+    assert "845dbda" in summary_html
+    assert "845dbda0ea48" not in summary_html
 
 
 def test_discover_run_dirs_finds_case_directories(tmp_path: Path) -> None:
@@ -182,6 +183,9 @@ def test_aggregate_reports_keeps_different_formats_on_separate_rows(tmp_path: Pa
     assert "<th>Score<span class='sort-controls'>" in summary_html
     assert "<th>Typical Time<span class='sort-controls'>" in summary_html
     assert "<th>Outliers<span class='sort-controls'>" in summary_html
+    assert summary_html.index("<th>Runs</th>") > summary_html.index("<th>Case Two</th>")
+    assert "class='runs-meta'" in summary_html
+    assert "<th>Backend</th>" not in summary_html
     assert "<th>Hash</th>" not in summary_html
     assert summary_html.count("<tr") == 3
     assert ">markdown</td>" in summary_html
@@ -244,7 +248,8 @@ def test_aggregate_reports_marks_and_filters_extended_rows(tmp_path: Path) -> No
     summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
 
     assert "hide-no-extended" in summary_html
-    assert "Hide rows without extended test set (non_sanity)" in summary_html
+    assert "Extended only" in summary_html
+    assert "id='hide-no-extended' type='checkbox' checked" in summary_html
     assert "data-extended='yes'" in summary_html
     assert "data-extended='no'" in summary_html
 
