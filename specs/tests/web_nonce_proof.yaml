@@ -1,0 +1,36 @@
+id: web_nonce_proof
+title: Web Nonce Proof
+category: web
+prompt: |
+  Use the shell tool.
+  Read the URL from challenge-url.txt in the current workspace.
+  Fetch JSON from that URL. The JSON shape is: {"nonce":"...","payload":"..."}.
+  Create web-proof.txt in the current workspace with exactly these three lines:
+  NONCE=<nonce>
+  PAYLOAD=<payload>
+  PROOF=<sha256_hex_of_nonce_colon_payload>
+  Where PROOF is lowercase SHA-256 of the UTF-8 string "<nonce>:<payload>".
+  Do not invent values.
+  Do not explain.
+  If command execution fails, reply only FAIL.
+  If successful, reply only DONE.
+allowed_tools:
+  - shell
+artifacts:
+  - path: challenge-url.txt
+    kind: text
+  - path: web-proof.txt
+    kind: text
+validators:
+  - type: web_nonce_proof
+    target: web-proof.txt
+supported_shells:
+  - gptme
+  - continue-cli
+  - opencode
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - web
+  - non_sanity

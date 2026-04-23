@@ -6,6 +6,7 @@ from gripprobe.adapters.base import AdapterError
 from gripprobe.models import TestSpec, ValidatorSpec
 from gripprobe.validators.file_equals import validate_file_equals
 from gripprobe.validators.patch_applied import validate_patch_applied
+from gripprobe.validators.web_nonce_proof import validate_web_nonce_proof
 
 
 ValidatorResult = tuple[bool, str, str]
@@ -16,6 +17,8 @@ def run_validator(spec: ValidatorSpec, workspace: Path) -> ValidatorResult:
         return validate_file_equals(spec, workspace)
     if spec.type == "patch_applied":
         return validate_patch_applied(spec, workspace)
+    if spec.type == "web_nonce_proof":
+        return validate_web_nonce_proof(spec, workspace)
     raise AdapterError(f"Unsupported validator: {spec.type}")
 
 
