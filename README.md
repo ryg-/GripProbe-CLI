@@ -2,10 +2,15 @@
 
 GripProbe is a benchmark framework for CLI AI agents, focused on small and local models and artifact-first tool-use evaluation.
 
-There is no goal is not to measure general intelligence, instead the goal is to measure tool-use reliability in real local setups
-and how local LLMs in CLI agent environments actually use tools, modify files, and execute commands
+The goal is not to measure general intelligence, but to evaluate tool-use reliability in real local setups and
+verify whether local LLMs in CLI agent environments actually use tools, modify files, and execute commands.
 
 Results are environment-specific and may vary by runtime, quantization, prompt formatting, hardware, seed, and model version.
+
+Privacy and publication policy:
+- `results/runs/...` is the internal diagnostic layer
+- `results/aggregate/...` is the sanitized sharing/publication layer
+- see [docs/privacy.md](docs/privacy.md)
 
 Current MVP slice:
 - shell executables are resolved from `PATH`, not from machine-specific absolute paths
@@ -25,6 +30,63 @@ python -m gripprobe.cli --root . run --shell gptme --model local/qwen2.5:7b --ba
 
 `--backend` is selected explicitly at runtime and defaults to `ollama`.
 This avoids ambiguous backend choice when a model spec defines multiple backends.
+
+## Docker
+
+You can run GripProbe itself inside Docker while keeping Ollama outside the container.
+
+Build:
+
+```bash
+docker compose build
+```
+
+Validate:
+
+```bash
+docker compose run --rm gripprobe python3 -m gripprobe.cli --root . validate
+```
+
+Run the default suite against an external Ollama endpoint:
+
+```bash
+OLLAMA_HOST=http://ollama-host:11434 docker compose run --rm gripprobe \
+  python3 -m gripprobe.cli --root . run-suite
+```
+
+If runtime probes should be collected from the Ollama host over SSH, also set:
+
+```bash
+GRIPPROBE_OLLAMA_SSH_TARGET=ollama-host
+```
+
+The compose file mounts:
+- the repository into `/work`
+- `~/.continue` read-only for `continue-cli`
+- `~/.config/opencode` read-only for `opencode`
+- `~/.config/gptme` read-only for `gptme`
+- `~/.ssh` read-only for remote host probes
+
+The compose service also exports:
+- `GRIPPROBE_CONTINUE_CONFIG=/root/.continue/config.yaml`
+- `GRIPPROBE_OPENCODE_CONFIG=/root/.config/opencode/opencode.json`
+
+Examples:
+
+```bash
+OLLAMA_HOST=http://ollama-host:11434 docker compose run --rm gripprobe \
+  python3 -m gripprobe.cli --root . run --shell gptme --model local/qwen2.5:7b --backend ollama --formats tool
+```
+
+```bash
+OLLAMA_HOST=http://ollama-host:11434 docker compose run --rm gripprobe \
+  python3 -m gripprobe.cli --root . run --shell opencode --model local/qwen2.5:7b --backend ollama --formats tool
+```
+
+```bash
+OLLAMA_HOST=http://ollama-host:11434 docker compose run --rm gripprobe \
+  python3 -m gripprobe.cli --root . run --shell continue-cli --model local/qwen2.5:7b --backend ollama --formats tool
+```
 
 ## Execution Model
 
