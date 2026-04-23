@@ -16,6 +16,7 @@ validators:
     target: date-output.txt
     expected_from: today
 supported_shells:
+  - aider
   - gptme
   - continue-cli
   - opencode

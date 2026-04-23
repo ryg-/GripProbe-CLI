@@ -16,6 +16,7 @@ validators:
     target: shell-output.txt
     expected: SHELL_OK
 supported_shells:
+  - aider
   - gptme
   - continue-cli
   - opencode
@@ -24,3 +25,4 @@ supported_formats:
   - tool
 tags:
   - mvp
+  - non_sanity

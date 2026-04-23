@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 from gripprobe.aggregate import aggregate_reports, discover_run_dirs
+from gripprobe.backfill import backfill_model_hashes
 from gripprobe.rebuild import rebuild_reports
 from gripprobe.runner import DEFAULT_BACKEND, run
 from gripprobe.spec_loader import load_model_specs, load_shell_specs, load_suite_specs, load_test_specs
@@ -87,6 +88,14 @@ def cmd_aggregate_reports(run_dirs: list[Path], output_dir: Path) -> int:
     return 0
 
 
+def cmd_backfill_model_hashes(run_dirs: list[Path]) -> int:
+    stats = backfill_model_hashes(run_dirs)
+    print(f"runs={stats['runs']}")
+    print(f"case_updates={stats['case_updates']}")
+    print(f"manifest_updates={stats['manifest_updates']}")
+    return 0
+
+
 def cmd_run_suite(
     root: Path,
     suite: str,
@@ -99,6 +108,7 @@ def cmd_run_suite(
     keep_system_messages: bool,
     model_hash: str | None,
     metadata: dict[str, str],
+    resume_suite: bool,
 ) -> int:
     run_dirs = run_suite(
         root,
@@ -112,6 +122,7 @@ def cmd_run_suite(
         keep_system_messages=keep_system_messages,
         model_hash=model_hash,
         metadata=metadata,
+        resume_suite=resume_suite,
     )
     for run_dir in run_dirs:
         print(run_dir)
@@ -149,6 +160,11 @@ def build_parser() -> argparse.ArgumentParser:
     run_suite_p.add_argument("--container-image")
     run_suite_p.add_argument("--keep-system-messages", action="store_true")
     run_suite_p.add_argument(
+        "--resume-suite",
+        action="store_true",
+        help="Skip already completed suite entries detected in results/runs/*/manifest.json",
+    )
+    run_suite_p.add_argument(
         "--model-hash",
         help="Optional fallback model hash. For Ollama, GripProbe now resolves the digest automatically via /api/tags when possible.",
     )
@@ -157,6 +173,9 @@ def build_parser() -> argparse.ArgumentParser:
     rebuild_p.add_argument("--run-dir", required=True)
     rebuild_p.add_argument("--keep-system-messages", action="store_true")
     rebuild_p.add_argument("--recompute-case-json", action="store_true")
+    backfill_p = sub.add_parser("backfill-model-hashes")
+    backfill_p.add_argument("--run-dir")
+    backfill_p.add_argument("--runs-root")
     aggregate_p = sub.add_parser("aggregate-reports")
     aggregate_p.add_argument("--run-dirs", nargs="+")
     aggregate_p.add_argument("--runs-root")
@@ -209,6 +228,7 @@ def main() -> int:
             keep_system_messages=ns.keep_system_messages,
             model_hash=ns.model_hash,
             metadata=metadata,
+            resume_suite=ns.resume_suite,
         )
     if ns.cmd == "rebuild-reports":
         return cmd_rebuild_reports(
@@ -216,6 +236,15 @@ def main() -> int:
             keep_system_messages=ns.keep_system_messages,
             recompute_case_json=ns.recompute_case_json,
         )
+    if ns.cmd == "backfill-model-hashes":
+        if bool(ns.run_dir) == bool(ns.runs_root):
+            parser.error("backfill-model-hashes requires exactly one of --run-dir or --runs-root")
+        run_dirs = (
+            [Path(ns.run_dir).resolve()]
+            if ns.run_dir
+            else discover_run_dirs(Path(ns.runs_root).resolve())
+        )
+        return cmd_backfill_model_hashes(run_dirs)
     if ns.cmd == "aggregate-reports":
         if bool(ns.run_dirs) == bool(ns.runs_root):
             parser.error("aggregate-reports requires exactly one of --run-dirs or --runs-root")

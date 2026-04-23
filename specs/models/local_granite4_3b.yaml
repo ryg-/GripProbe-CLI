@@ -1,0 +1,18 @@
+id: local_granite4_3b
+label: local/granite4:3b
+family: granite
+size_class: small
+parameters_b: 3.4
+quantization: Q4_K_M
+backends:
+  - id: ollama
+    model_id: granite4:3b
+    shell_model_id: local/granite4:3b
+tags:
+  - local
+  - small
+  - tool-capable
+supported_formats:
+  - markdown
+  - tool
+policy_overrides: {}

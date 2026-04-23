@@ -11,8 +11,8 @@ from gripprobe.validator_runner import evaluate_validators
 
 
 class AiderAdapter(ShellAdapter):
-    def _prepare_aider_home(self, case: CaseDefinition) -> tuple[Path, Path]:
-        aider_home = case.case_dir / "aider-home"
+    def _prepare_aider_home(self, runtime_env: dict[str, str]) -> tuple[Path, Path]:
+        aider_home = Path(runtime_env["HOME"])
         aider_home.mkdir(parents=True, exist_ok=True)
         config_path = aider_home / ".aider.conf.yml"
         config_path.write_text(
@@ -95,22 +95,30 @@ class AiderAdapter(ShellAdapter):
         measured_stdout = case.case_dir / "measured.stdout"
         measured_stderr = case.case_dir / "measured.stderr"
 
-        aider_home, config_path = self._prepare_aider_home(case)
         env = os.environ.copy()
         env.update(self.shell_spec.env)
+        ollama_api_base = ""
+        if case.backend_id == "ollama":
+            ollama_api_base = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+        warmup_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "warmup")
+        measured_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "measured")
+        warmup_home, warmup_config_path = self._prepare_aider_home(warmup_runtime_env)
+        measured_home, measured_config_path = self._prepare_aider_home(measured_runtime_env)
         shared_env = {
             **env,
-            "HOME": str(aider_home),
             "AIDER_ANALYTICS": "false",
             "AIDER_CHECK_UPDATE": "false",
             "AIDER_SHOW_RELEASE_NOTES": "false",
             "AIDER_AUTO_COMMITS": "false",
             "AIDER_DIRTY_COMMITS": "false",
+            **({"OLLAMA_API_BASE": ollama_api_base} if ollama_api_base else {}),
         }
-        warmup_env = {**shared_env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
-        measured_env = {**shared_env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
-        warmup_args = self._base_args(case, config_path, case.warmup_workspace_dir)
-        measured_args = self._base_args(case, config_path, case.workspace_dir)
+        warmup_env = {**shared_env, **warmup_runtime_env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
+        measured_env = {**shared_env, **measured_runtime_env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
+        warmup_args = self._base_args(case, warmup_config_path, case.warmup_workspace_dir)
+        measured_args = self._base_args(case, measured_config_path, case.workspace_dir)
+        warmup_command = self._command_text(case, warmup_args, warmup_env, workspace_dir=case.warmup_workspace_dir)
+        measured_command = self._command_text(case, measured_args, measured_env, workspace_dir=case.workspace_dir)
 
         warmup_rc, warmup_s, warmup_started_at, warmup_finished_at = self.run_command(
             case,
@@ -171,10 +179,12 @@ class AiderAdapter(ShellAdapter):
                 "measured_finished_at": measured_finished_at,
                 "tool_format": case.tool_format,
                 "allowed_tools": case.allowed_tools or self.shell_spec.default_tools,
+                "warmup_command": warmup_command,
+                "measured_command": measured_command,
                 "model_selection": "cli-model",
                 "model_hash": case.model_hash,
                 "artifact_reached_before_timeout": artifact_reached_before_timeout,
-                "aider_config_path": str(config_path),
+                "aider_config_path": str(measured_config_path),
                 "failure_reason": failure_reason,
             },
         )

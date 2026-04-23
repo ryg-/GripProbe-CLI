@@ -23,9 +23,9 @@ class ContinueCliAdapter(ShellAdapter):
             return default_path
         return None
 
-    def _prepare_continue_home(self, case: CaseDefinition) -> tuple[Path, Path]:
+    def _prepare_continue_home(self, case: CaseDefinition, runtime_env: dict[str, str]) -> tuple[Path, Path]:
         config_path = self._resolve_source_config_path()
-        continue_home = case.case_dir / "continue-home"
+        continue_home = Path(runtime_env["HOME"])
         continue_dir = continue_home / ".continue"
         continue_dir.mkdir(parents=True, exist_ok=True)
 
@@ -89,28 +89,41 @@ class ContinueCliAdapter(ShellAdapter):
 
         env = os.environ.copy()
         env.update(self.shell_spec.env)
-        continue_home, isolated_config = self._prepare_continue_home(case)
-        warmup_env = {**env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
-        measured_env = {**env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
-        warmup_env["HOME"] = str(continue_home)
-        measured_env["HOME"] = str(continue_home)
+        warmup_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "warmup")
+        measured_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "measured")
+        _warmup_home, warmup_config = self._prepare_continue_home(case, warmup_runtime_env)
+        _measured_home, measured_config = self._prepare_continue_home(case, measured_runtime_env)
+        warmup_env = {**env, **warmup_runtime_env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
+        measured_env = {**env, **measured_runtime_env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
         allowed_tools = case.allowed_tools or self.shell_spec.default_tools
 
-        base_args = [
+        warmup_args = [
             self.shell_spec.executable,
             "--config",
-            str(isolated_config),
+            str(warmup_config),
+            "-p",
+            "--auto",
+            "--silent",
+            case.prompt,
+        ]
+        measured_args = [
+            self.shell_spec.executable,
+            "--config",
+            str(measured_config),
             "-p",
             "--auto",
             "--silent",
             case.prompt,
         ]
         for tool_name in allowed_tools:
-            base_args[1:1] = ["--allow", tool_name]
+            warmup_args[1:1] = ["--allow", tool_name]
+            measured_args[1:1] = ["--allow", tool_name]
+        warmup_command = self._command_text(case, warmup_args, warmup_env, workspace_dir=case.warmup_workspace_dir)
+        measured_command = self._command_text(case, measured_args, measured_env, workspace_dir=case.workspace_dir)
 
         warmup_rc, warmup_s, warmup_started_at, warmup_finished_at = self.run_command(
             case,
-            base_args,
+            warmup_args,
             warmup_env,
             warmup_stdout,
             warmup_stderr,
@@ -118,7 +131,7 @@ class ContinueCliAdapter(ShellAdapter):
         )
         measured_rc, measured_s, measured_started_at, measured_finished_at = self.run_command(
             case,
-            base_args,
+            measured_args,
             measured_env,
             measured_stdout,
             measured_stderr,
@@ -164,10 +177,12 @@ class ContinueCliAdapter(ShellAdapter):
                 "measured_finished_at": measured_finished_at,
                 "tool_format": case.tool_format,
                 "allowed_tools": allowed_tools,
+                "warmup_command": warmup_command,
+                "measured_command": measured_command,
                 "model_selection": "isolated-config",
                 "model_hash": case.model_hash,
                 "artifact_reached_before_timeout": artifact_reached_before_timeout,
-                "continue_config_path": str(isolated_config),
+                "continue_config_path": str(measured_config),
                 "failure_reason": failure_reason,
             },
         )

@@ -16,12 +16,17 @@ class ArtifactSpec(BaseModel):
 class ValidatorSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["file_equals", "patch_applied"]
+    type: Literal["file_equals", "patch_applied", "web_nonce_proof"]
     target: str | None = None
     expected: str | None = None
     expected_from: Literal["workspace_path", "today"] | None = None
     target_file: str | None = None
     expected_line: str | None = None
+    nonce: str | None = None
+    payload: str | None = None
+    proof: str | None = None
+    request_log: str | None = None
+    request_path: str | None = None
 
     @model_validator(mode="after")
     def validate_shape(self) -> "ValidatorSpec":
@@ -33,6 +38,9 @@ class ValidatorSpec(BaseModel):
         if self.type == "patch_applied":
             if not (self.target_file and self.expected_line):
                 raise ValueError("patch_applied validator requires target_file and expected_line")
+        if self.type == "web_nonce_proof":
+            if not self.target:
+                raise ValueError("web_nonce_proof validator requires target")
         return self
 
 
@@ -100,6 +108,18 @@ class ShellSpec(BaseModel):
     timeout_seconds: int = 120
 
 
+class SuiteMatrixEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    shell: str
+    model: str
+    backend: str | None = None
+    format: str | None = None
+    tests: list[str] = Field(default_factory=list)
+    test_tags: list[str] = Field(default_factory=list)
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
 class SuiteSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -112,6 +132,7 @@ class SuiteSpec(BaseModel):
     tests: list[str] = Field(default_factory=list)
     test_tags: list[str] = Field(default_factory=list)
     formats: list[str] = Field(default_factory=list)
+    matrix: list[SuiteMatrixEntry] = Field(default_factory=list)
     metadata: dict[str, str] = Field(default_factory=dict)
 
 

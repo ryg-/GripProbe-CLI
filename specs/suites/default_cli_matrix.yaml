@@ -6,8 +6,7 @@ models:
   - local/qwen2.5:7b
   - local/qwen3:8b
   - local/MFDoom/deepseek-r1-tool-calling:8b
-  - local/granite3-dense:8b-instruct-q6_K
-  - local/yi-coder:9b-chat-q5_K_M
+  - local/granite4:3b
   - local/phi3.5:latest
   - local/gemma3:12b
   - local/gemma4:e2b

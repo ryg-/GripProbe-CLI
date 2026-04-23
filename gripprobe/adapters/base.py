@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import os
+import shlex
 from pathlib import Path
 import subprocess
 import time
@@ -75,7 +76,20 @@ class ShellAdapter(ABC):
             "-w",
             workspace,
         ]
-        for key in ("OPENAI_BASE_URL", "OLLAMA_HOST", "GRIPPROBE_WORKSPACE", "GPTME_LOGS_HOME"):
+        for key in (
+            "OPENAI_BASE_URL",
+            "OPENAI_API_KEY",
+            "OLLAMA_HOST",
+            "OLLAMA_API_BASE",
+            "GRIPPROBE_WORKSPACE",
+            "GPTME_LOGS_HOME",
+            "HOME",
+            "XDG_CONFIG_HOME",
+            "XDG_DATA_HOME",
+            "XDG_STATE_HOME",
+            "XDG_CACHE_HOME",
+            "TMPDIR",
+        ):
             if key in env:
                 cmd.extend(["-e", f"{key}={env[key]}"])
         cmd.extend([case.container_image, *args])
@@ -88,9 +102,52 @@ class ShellAdapter(ABC):
         passthrough = {
             key: value
             for key, value in env.items()
-            if key in {"OPENAI_BASE_URL", "OLLAMA_HOST", "GRIPPROBE_WORKSPACE", "GPTME_LOGS_HOME"}
+            if key
+            in {
+                "OPENAI_BASE_URL",
+                "OPENAI_API_KEY",
+                "OLLAMA_HOST",
+                "OLLAMA_API_BASE",
+                "GRIPPROBE_WORKSPACE",
+                "GPTME_LOGS_HOME",
+                "HOME",
+                "XDG_CONFIG_HOME",
+                "XDG_DATA_HOME",
+                "XDG_STATE_HOME",
+                "XDG_CACHE_HOME",
+                "TMPDIR",
+            }
         }
         return {**os.environ, **passthrough}
+
+    def _prepare_runtime_dirs(self, case: CaseDefinition, shell_name: str, phase: str) -> dict[str, str]:
+        runtime_root = case.case_dir / "runtime" / shell_name / phase
+        home_dir = runtime_root / "home"
+        xdg_config_home = runtime_root / "config"
+        xdg_data_home = runtime_root / "data"
+        xdg_state_home = runtime_root / "state"
+        xdg_cache_home = runtime_root / "cache"
+        tmp_dir = runtime_root / "tmp"
+        for path in (home_dir, xdg_config_home, xdg_data_home, xdg_state_home, xdg_cache_home, tmp_dir):
+            path.mkdir(parents=True, exist_ok=True)
+        return {
+            "HOME": str(home_dir),
+            "XDG_CONFIG_HOME": str(xdg_config_home),
+            "XDG_DATA_HOME": str(xdg_data_home),
+            "XDG_STATE_HOME": str(xdg_state_home),
+            "XDG_CACHE_HOME": str(xdg_cache_home),
+            "TMPDIR": str(tmp_dir),
+        }
+
+    def _command_text(
+        self,
+        case: CaseDefinition,
+        args: list[str],
+        env: dict[str, str],
+        workspace_dir: Path | None = None,
+    ) -> str:
+        wrapped = self._wrap_command(case, args, env, workspace_dir)
+        return shlex.join(str(part) for part in wrapped)
 
 
 class AdapterError(RuntimeError):

@@ -17,6 +17,7 @@ validators:
     expected: TOOL_SAVE_OK
 supported_shells:
   - aider
+  - aider
   - gptme
   - continue-cli
   - opencode
@@ -25,3 +26,4 @@ supported_formats:
   - tool
 tags:
   - mvp
+  - non_sanity

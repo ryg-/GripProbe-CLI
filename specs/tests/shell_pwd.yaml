@@ -19,6 +19,7 @@ validators:
     target: pwd-output.txt
     expected_from: workspace_path
 supported_shells:
+  - aider
   - gptme
   - continue-cli
   - opencode

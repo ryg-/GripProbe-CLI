@@ -23,10 +23,10 @@ class OpencodeAdapter(ShellAdapter):
             return default_path
         return None
 
-    def _prepare_opencode_home(self, case: CaseDefinition) -> tuple[Path, Path]:
+    def _prepare_opencode_home(self, case: CaseDefinition, runtime_env: dict[str, str]) -> tuple[Path, Path]:
         config_path = self._resolve_source_config_path()
-        opencode_home = case.case_dir / "opencode-home"
-        config_dir = opencode_home / ".config" / "opencode"
+        opencode_home = Path(runtime_env["HOME"])
+        config_dir = Path(runtime_env["XDG_CONFIG_HOME"]) / "opencode"
         config_dir.mkdir(parents=True, exist_ok=True)
 
         api_base = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
@@ -98,18 +98,29 @@ class OpencodeAdapter(ShellAdapter):
 
         env = os.environ.copy()
         env.update(self.shell_spec.env)
-        opencode_home, isolated_config = self._prepare_opencode_home(case)
+        warmup_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "warmup")
+        measured_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "measured")
+        _warmup_home, warmup_config = self._prepare_opencode_home(case, warmup_runtime_env)
+        _measured_home, measured_config = self._prepare_opencode_home(case, measured_runtime_env)
         shared_env = {
             **env,
-            "HOME": str(opencode_home),
-            "XDG_CONFIG_HOME": str(opencode_home / ".config"),
-            "XDG_DATA_HOME": str(opencode_home / ".local" / "share"),
-            "XDG_STATE_HOME": str(opencode_home / ".local" / "state"),
         }
-        warmup_env = {**shared_env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
-        measured_env = {**shared_env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
+        warmup_env = {**shared_env, **warmup_runtime_env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
+        measured_env = {**shared_env, **measured_runtime_env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
 
-        base_args = [
+        warmup_args = [
+            self.shell_spec.executable,
+            "run",
+            "--format",
+            "json",
+            "--dir",
+            str(case.warmup_workspace_dir),
+            "--model",
+            f"{case.backend_id}/{case.backend_model_id}",
+            "--dangerously-skip-permissions",
+            case.prompt,
+        ]
+        measured_args = [
             self.shell_spec.executable,
             "run",
             "--format",
@@ -121,8 +132,8 @@ class OpencodeAdapter(ShellAdapter):
             "--dangerously-skip-permissions",
             case.prompt,
         ]
-        warmup_args = base_args.copy()
-        warmup_args[warmup_args.index(str(case.workspace_dir))] = str(case.warmup_workspace_dir)
+        warmup_command = self._command_text(case, warmup_args, warmup_env, workspace_dir=case.warmup_workspace_dir)
+        measured_command = self._command_text(case, measured_args, measured_env, workspace_dir=case.workspace_dir)
 
         warmup_rc, warmup_s, warmup_started_at, warmup_finished_at = self.run_command(
             case,
@@ -134,7 +145,7 @@ class OpencodeAdapter(ShellAdapter):
         )
         measured_rc, measured_s, measured_started_at, measured_finished_at = self.run_command(
             case,
-            base_args,
+            measured_args,
             measured_env,
             measured_stdout,
             measured_stderr,
@@ -178,10 +189,12 @@ class OpencodeAdapter(ShellAdapter):
                 "measured_finished_at": measured_finished_at,
                 "tool_format": case.tool_format,
                 "allowed_tools": case.allowed_tools or self.shell_spec.default_tools,
+                "warmup_command": warmup_command,
+                "measured_command": measured_command,
                 "model_selection": "isolated-config",
                 "model_hash": case.model_hash,
                 "artifact_reached_before_timeout": artifact_reached_before_timeout,
-                "opencode_config_path": str(isolated_config),
+                "opencode_config_path": str(measured_config),
                 "failure_reason": failure_reason,
             },
         )

@@ -21,6 +21,24 @@ from gripprobe.validator_runner import evaluate_validators
 
 
 class GptmeAdapter(ShellAdapter):
+    @staticmethod
+    def _normalize_http_base(url: str) -> str:
+        raw = (url or "").strip()
+        if not raw:
+            raw = "http://127.0.0.1:11434"
+        if "://" not in raw:
+            raw = f"http://{raw}"
+        return raw.rstrip("/")
+
+    def _ensure_ollama_openai_env(self, case: CaseDefinition, env: dict[str, str]) -> None:
+        if case.backend_id != "ollama":
+            return
+        if not env.get("OPENAI_BASE_URL"):
+            ollama_host = env.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+            env["OPENAI_BASE_URL"] = f"{self._normalize_http_base(ollama_host)}/v1"
+        if not env.get("OPENAI_API_KEY"):
+            env["OPENAI_API_KEY"] = "ollama"
+
     def _classify(self, test_spec: TestSpec, workspace: Path, stdout: str, stderr: str) -> tuple[CaseStatus, ToolInvocation, int, str, str]:
         profile = analyze_trace(stdout, stderr)
         if "does not support tools" in stdout or "does not support tools" in stderr:
@@ -67,11 +85,27 @@ class GptmeAdapter(ShellAdapter):
 
         env = os.environ.copy()
         env.update(self.shell_spec.env)
-        env["GPTME_LOGS_HOME"] = str(case.case_dir / "gptme-logs")
+        self._ensure_ollama_openai_env(case, env)
+        warmup_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "warmup")
+        measured_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "measured")
         warmup_args = base_args.copy()
         warmup_args[warmup_args.index(str(case.workspace_dir))] = str(case.warmup_workspace_dir)
-        warmup_env = {**env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
-        measured_env = {**env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
+        warmup_env = {
+            **env,
+            **warmup_runtime_env,
+            "GPTME_LOGS_HOME": str(Path(warmup_runtime_env["XDG_STATE_HOME"]) / "gptme-logs"),
+            "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir),
+        }
+        measured_env = {
+            **env,
+            **measured_runtime_env,
+            "GPTME_LOGS_HOME": str(Path(measured_runtime_env["XDG_STATE_HOME"]) / "gptme-logs"),
+            "GRIPPROBE_WORKSPACE": str(case.workspace_dir),
+        }
+        measured_args = base_args.copy()
+        measured_args[measured_args.index(f"{case.case_id}-warmup")] = f"{case.case_id}-measured"
+        warmup_command = self._command_text(case, warmup_args, warmup_env, workspace_dir=case.warmup_workspace_dir)
+        measured_command = self._command_text(case, measured_args, measured_env, workspace_dir=case.workspace_dir)
 
         warmup_rc, warmup_s, warmup_started_at, warmup_finished_at = self.run_command(
             case,
@@ -82,8 +116,6 @@ class GptmeAdapter(ShellAdapter):
             workspace_dir=case.warmup_workspace_dir,
         )
 
-        measured_args = base_args.copy()
-        measured_args[measured_args.index(f"{case.case_id}-warmup")] = f"{case.case_id}-measured"
         measured_rc, measured_s, measured_started_at, measured_finished_at = self.run_command(
             case,
             measured_args,
@@ -153,6 +185,8 @@ class GptmeAdapter(ShellAdapter):
                 "measured_finished_at": measured_finished_at,
                 "tool_format": case.tool_format,
                 "allowed_tools": case.allowed_tools,
+                "warmup_command": warmup_command,
+                "measured_command": measured_command,
                 "artifact_reached_before_timeout": artifact_reached_before_timeout,
                 "run_1_status": run_1_status,
                 "run_2_status": status,
