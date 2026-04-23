@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -7,10 +8,13 @@ import time
 import urllib.error
 import urllib.request
 import json
+import secrets
+import threading
 from datetime import datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
-from typing import Callable, Iterable, cast
+from urllib.parse import urlparse, urlsplit
+from typing import Any, Callable, Iterable, cast
 
 from gripprobe.adapters.base import AdapterError
 from gripprobe.adapters.aider import AiderAdapter
@@ -282,6 +286,123 @@ def _prepare_workspace(path: Path, test_id: str) -> None:
         )
 
 
+class _WebNonceChallenge:
+    def __init__(self, case_dir: Path):
+        self.case_dir = case_dir
+        self.request_log_path = case_dir / "web-challenge-requests.json"
+        self.warmup_token = secrets.token_urlsafe(18)
+        self.measured_token = secrets.token_urlsafe(18)
+        self.warmup_nonce = secrets.token_hex(16)
+        self.warmup_payload = secrets.token_hex(12)
+        self.measured_nonce = secrets.token_hex(16)
+        self.measured_payload = secrets.token_hex(12)
+        self._request_paths: list[str] = []
+        self._lock = threading.Lock()
+        self._server: ThreadingHTTPServer | None = None
+        self._thread: threading.Thread | None = None
+        self.base_url = ""
+        self.warmup_path = f"/challenge/{self.warmup_token}"
+        self.measured_path = f"/challenge/{self.measured_token}"
+        self.warmup_url = ""
+        self.measured_url = ""
+
+    @staticmethod
+    def _proof(nonce: str, payload: str) -> str:
+        return hashlib.sha256(f"{nonce}:{payload}".encode("utf-8")).hexdigest()
+
+    @property
+    def measured_proof(self) -> str:
+        return self._proof(self.measured_nonce, self.measured_payload)
+
+    def _write_request_log(self) -> None:
+        self.request_log_path.write_text(
+            json.dumps(self._request_paths, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+    def _register_hit(self, path: str) -> None:
+        with self._lock:
+            self._request_paths.append(path)
+            self._write_request_log()
+
+    def _response_for_path(self, path: str) -> dict[str, str] | None:
+        if path == self.warmup_path:
+            return {"nonce": self.warmup_nonce, "payload": self.warmup_payload}
+        if path == self.measured_path:
+            return {"nonce": self.measured_nonce, "payload": self.measured_payload}
+        return None
+
+    def start(self) -> None:
+        challenge = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                parsed = urlsplit(self.path)
+                response = challenge._response_for_path(parsed.path)
+                if response is None:
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(b'{"error":"not_found"}')
+                    return
+                challenge._register_hit(parsed.path)
+                payload = json.dumps(response, ensure_ascii=False).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, format: str, *args):
+                return
+
+        def _handler_factory(request: Any, client_address: Any, server: ThreadingHTTPServer) -> BaseHTTPRequestHandler:
+            return Handler(request, client_address, server)
+
+        self.case_dir.mkdir(parents=True, exist_ok=True)
+        self._write_request_log()
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), _handler_factory)
+        self.base_url = f"http://127.0.0.1:{self._server.server_port}"
+        self.warmup_url = f"{self.base_url}{self.warmup_path}"
+        self.measured_url = f"{self.base_url}{self.measured_path}"
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        if self._server is not None:
+            self._server.shutdown()
+            self._server.server_close()
+            self._server = None
+        if self._thread is not None:
+            self._thread.join(timeout=5)
+            self._thread = None
+        self._write_request_log()
+
+
+def _prepare_web_nonce_workspace(path: Path, challenge_url: str) -> None:
+    (path / "challenge-url.txt").write_text(challenge_url + "\n", encoding="utf-8")
+
+
+def _patch_web_nonce_validators(test_spec: TestSpec, challenge: _WebNonceChallenge) -> TestSpec:
+    validators = []
+    for validator in test_spec.validators:
+        if validator.type != "web_nonce_proof":
+            validators.append(validator)
+            continue
+        validators.append(
+            validator.model_copy(
+                update={
+                    "nonce": challenge.measured_nonce,
+                    "payload": challenge.measured_payload,
+                    "proof": challenge.measured_proof,
+                    "request_log": str(challenge.request_log_path),
+                    "request_path": challenge.measured_path,
+                }
+            )
+        )
+    return test_spec.model_copy(update={"validators": validators})
+
+
 def _adapter_for(shell_spec: ShellSpec):
     if shell_spec.id == "aider":
         return AiderAdapter(shell_spec)
@@ -434,6 +555,15 @@ def run(
             workspace_dir = case_dir / "workspace"
             _prepare_workspace(warmup_workspace_dir, test_spec.id)
             _prepare_workspace(workspace_dir, test_spec.id)
+            active_test_spec = test_spec
+            web_challenge: _WebNonceChallenge | None = None
+            if test_spec.id == "web_nonce_proof":
+                web_challenge = _WebNonceChallenge(case_dir)
+                web_challenge.start()
+                _prepare_web_nonce_workspace(warmup_workspace_dir, web_challenge.warmup_url)
+                _prepare_web_nonce_workspace(workspace_dir, web_challenge.measured_url)
+                assert web_challenge is not None
+                active_test_spec = _patch_web_nonce_validators(test_spec, web_challenge)
             case = CaseDefinition(
                 case_id=case_id,
                 run_id=run_paths.run_id,
@@ -447,26 +577,41 @@ def run(
                 model_hash=resolved_model_hash,
                 quantization=model_spec.quantization,
                 tool_format=tool_format,
-                test_id=test_spec.id,
-                test_title=test_spec.title,
-                prompt=test_spec.prompt,
+                test_id=active_test_spec.id,
+                test_title=active_test_spec.title,
+                prompt=active_test_spec.prompt,
                 warmup_workspace_dir=warmup_workspace_dir,
                 workspace_dir=workspace_dir,
                 case_dir=case_dir,
-                allowed_tools=test_spec.allowed_tools,
+                allowed_tools=active_test_spec.allowed_tools,
                 container_image=container_image or shell_spec.container_image,
                 keep_system_messages=keep_system_messages,
                 run_metadata=merged_run_metadata,
             )
             case_runtime_before = _collect_runtime_snapshot(include_ollama=backend.id == "ollama")
             try:
-                result = adapter.run_case(case, model_spec, test_spec)
+                result = adapter.run_case(case, model_spec, active_test_spec)
             except AdapterError as exc:
-                result = _harness_error_result(case, model_spec, test_spec, str(exc))
+                result = _harness_error_result(case, model_spec, active_test_spec, str(exc))
+            finally:
+                if web_challenge is not None:
+                    web_challenge.stop()
             case_runtime_after = _collect_runtime_snapshot(include_ollama=backend.id == "ollama")
             result.metadata = {
                 **merged_run_metadata,
                 **result.metadata,
+                **(
+                    {
+                        "web_challenge": {
+                            "base_url": web_challenge.base_url,
+                            "warmup_path": web_challenge.warmup_path,
+                            "measured_path": web_challenge.measured_path,
+                            "request_log": str(web_challenge.request_log_path),
+                        }
+                    }
+                    if web_challenge is not None
+                    else {}
+                ),
                 "runtime_snapshots": {
                     "before": case_runtime_before,
                     "after": case_runtime_after,

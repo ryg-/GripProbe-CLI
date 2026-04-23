@@ -1,0 +1,19 @@
+services:
+  gripprobe:
+    build:
+      context: .
+    working_dir: /work
+    network_mode: host
+    environment:
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://127.0.0.1:11434}
+      GRIPPROBE_OLLAMA_SSH_TARGET: ${GRIPPROBE_OLLAMA_SSH_TARGET:-}
+      GRIPPROBE_CONTINUE_CONFIG: /root/.continue/config.yaml
+      GRIPPROBE_OPENCODE_CONFIG: /root/.config/opencode/opencode.json
+    volumes:
+      - .:/work
+      - ${HOME}/.continue:/root/.continue:ro
+      - ${HOME}/.config/opencode:/root/.config/opencode:ro
+      - ${HOME}/.config/gptme:/root/.config/gptme:ro
+      - ${HOME}/.ssh:/root/.ssh:ro
+    stdin_open: true
+    tty: true
