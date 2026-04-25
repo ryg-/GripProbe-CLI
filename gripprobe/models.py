@@ -16,7 +16,7 @@ class ArtifactSpec(BaseModel):
 class ValidatorSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["file_equals", "patch_applied", "web_nonce_proof"]
+    type: Literal["file_equals", "patch_applied", "web_nonce_proof", "weekly_plan_task"]
     target: str | None = None
     expected: str | None = None
     expected_from: Literal["workspace_path", "today"] | None = None
@@ -41,6 +41,11 @@ class ValidatorSpec(BaseModel):
         if self.type == "web_nonce_proof":
             if not self.target:
                 raise ValueError("web_nonce_proof validator requires target")
+        if self.type == "weekly_plan_task":
+            if not self.target:
+                raise ValueError("weekly_plan_task validator requires target")
+            if not self.expected:
+                raise ValueError("weekly_plan_task validator requires expected")
         return self
 
 
@@ -106,6 +111,17 @@ class ShellSpec(BaseModel):
     config_path: str | None = None
     container_image: str | None = None
     timeout_seconds: int = 120
+
+
+class HardwareProfileSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    label: str
+    cpu: str
+    gpu: str
+    ram: str
+    notes: str | None = None
 
 
 class SuiteMatrixEntry(BaseModel):

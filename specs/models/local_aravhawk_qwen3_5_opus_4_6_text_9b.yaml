@@ -1,0 +1,19 @@
+id: local_aravhawk_qwen3_5_opus_4_6_text_9b
+label: local/aravhawk/qwen3.5-opus-4.6-text:9b
+family: qwen
+size_class: medium
+parameters_b: 9
+quantization: null
+backends:
+  - id: ollama
+    model_id: aravhawk/qwen3.5-opus-4.6-text:9b
+    shell_model_id: local/aravhawk/qwen3.5-opus-4.6-text:9b
+tags:
+  - local
+  - medium
+supported_formats:
+  - markdown
+  - tool
+policy_overrides:
+  shell_timeout_seconds:
+    continue-cli: 600
