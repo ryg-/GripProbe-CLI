@@ -7,7 +7,7 @@ from gripprobe.aggregate import aggregate_reports, discover_run_dirs
 from gripprobe.backfill import backfill_model_hashes
 from gripprobe.rebuild import rebuild_reports
 from gripprobe.runner import DEFAULT_BACKEND, run
-from gripprobe.spec_loader import load_model_specs, load_shell_specs, load_suite_specs, load_test_specs
+from gripprobe.spec_loader import load_hardware_profiles, load_model_specs, load_shell_specs, load_suite_specs, load_test_specs
 from gripprobe.suite_runner import run_suite
 
 
@@ -17,7 +17,15 @@ def cmd_validate(root: Path) -> int:
     models = load_model_specs(root)
     shells = load_shell_specs(root)
     suites = load_suite_specs(root)
-    print(f"Validated specs: tests={len(tests)} models={len(models)} shells={len(shells)} suites={len(suites)}")
+    hardware_profiles = load_hardware_profiles(root)
+    print(
+        "Validated specs: "
+        f"tests={len(tests)} "
+        f"models={len(models)} "
+        f"shells={len(shells)} "
+        f"suites={len(suites)} "
+        f"hardware_profiles={len(hardware_profiles)}"
+    )
     return 0
 
 
@@ -81,8 +89,8 @@ def cmd_rebuild_reports(run_dir: Path, keep_system_messages: bool, recompute_cas
     return 0
 
 
-def cmd_aggregate_reports(run_dirs: list[Path], output_dir: Path) -> int:
-    aggregate_dir, results = aggregate_reports(run_dirs, output_dir)
+def cmd_aggregate_reports(root: Path, run_dirs: list[Path], output_dir: Path) -> int:
+    aggregate_dir, results = aggregate_reports(run_dirs, output_dir, root=root)
     print(aggregate_dir)
     print(f"cases={len(results)}")
     return 0
@@ -254,6 +262,7 @@ def main() -> int:
             else discover_run_dirs(Path(ns.runs_root).resolve())
         )
         return cmd_aggregate_reports(
+            root,
             run_dirs,
             Path(ns.output_dir).resolve(),
         )

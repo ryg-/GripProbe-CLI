@@ -1,0 +1,7 @@
+profiles:
+  - id: unspecified
+    label: Unspecified Hardware
+    cpu: unknown
+    gpu: unknown
+    ram: unknown
+    notes: Default profile used when run metadata does not provide hardware_profile_id.
