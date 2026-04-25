@@ -3,17 +3,19 @@ services:
     build:
       context: .
     working_dir: /work
+    user: "${UID:-1000}:${GID:-1000}"
     network_mode: host
     environment:
+      HOME: /tmp/gripprobe-home
       OLLAMA_HOST: ${OLLAMA_HOST:-http://127.0.0.1:11434}
       GRIPPROBE_OLLAMA_SSH_TARGET: ${GRIPPROBE_OLLAMA_SSH_TARGET:-}
-      GRIPPROBE_CONTINUE_CONFIG: /root/.continue/config.yaml
-      GRIPPROBE_OPENCODE_CONFIG: /root/.config/opencode/opencode.json
+      GRIPPROBE_CONTINUE_CONFIG: /tmp/gripprobe-home/.continue/config.yaml
+      GRIPPROBE_OPENCODE_CONFIG: /tmp/gripprobe-home/.config/opencode/opencode.json
     volumes:
       - .:/work
-      - ${HOME}/.continue:/root/.continue:ro
-      - ${HOME}/.config/opencode:/root/.config/opencode:ro
-      - ${HOME}/.config/gptme:/root/.config/gptme:ro
-      - ${HOME}/.ssh:/root/.ssh:ro
+      - ${HOME}/.continue:/tmp/gripprobe-home/.continue:ro
+      - ${HOME}/.config/opencode:/tmp/gripprobe-home/.config/opencode:ro
+      - ${HOME}/.config/gptme:/tmp/gripprobe-home/.config/gptme:ro
+      - ${HOME}/.ssh:/tmp/gripprobe-home/.ssh:ro
     stdin_open: true
     tty: true
