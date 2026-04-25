@@ -10,14 +10,16 @@ from html import escape
 from pathlib import Path
 from statistics import median
 
-from gripprobe.models import CaseResult
+from gripprobe.models import CaseResult, HardwareProfileSpec
 from gripprobe.reporters.html_report import write_case_detail_pages
 from gripprobe.reporters.markdown import write_markdown_summary
 from gripprobe.results import write_json
+from gripprobe.spec_loader import load_hardware_profiles
 
 SANITY_WEIGHT = 0.8
 DEFAULT_TEST_WEIGHT = 1.0
 OUTLIER_FACTOR = 2.5
+DEFAULT_HARDWARE_PROFILE_ID = "unspecified"
 
 
 def _prefixed_case_id(run_id: str, case_id: str) -> str:
@@ -27,7 +29,31 @@ def _prefixed_case_id(run_id: str, case_id: str) -> str:
 def _copy_case_dir(src: Path, dst: Path) -> None:
     if dst.exists():
         shutil.rmtree(dst)
-    shutil.copytree(src, dst, ignore_dangling_symlinks=True)
+
+    def _ignore_case_items(dir_path: str, names: list[str]) -> set[str]:
+        ignored: set[str] = set()
+        for name in names:
+            # Runtime directories are debug-only and may contain root-owned lock files.
+            if name == "runtime":
+                ignored.add(name)
+                continue
+            path = Path(dir_path) / name
+            try:
+                if path.is_symlink():
+                    continue
+            except OSError:
+                ignored.add(name)
+                continue
+            if not os.access(path, os.R_OK):
+                ignored.add(name)
+        return ignored
+
+    shutil.copytree(
+        src,
+        dst,
+        ignore_dangling_symlinks=True,
+        ignore=_ignore_case_items,
+    )
 
 
 def _copy_source_reports(run_dir: Path, output_dir: Path) -> None:
@@ -107,11 +133,42 @@ def _aggregate_cell_class(items: list[CaseResult]) -> str:
         return "agg-all-pass"
     if "PASS" in statuses:
         return "agg-mixed"
-    return "agg-none-pass"
+    severity = _worst_failure_severity(items)
+    return f"agg-fail-{severity}"
+
+
+def _failure_severity(item: CaseResult) -> str:
+    if item.status in {"HARNESS_ERROR", "SHELL_ERROR"}:
+        return "critical"
+    if item.status == "TIMEOUT":
+        return "error"
+    reason = item.metadata.get("failure_reason")
+    if item.status in {"TOOL_UNSUPPORTED", "NO_TOOL_CALL"} or reason == "tool unsupported by backend":
+        return "behavioral"
+    return "soft"
+
+
+def _worst_failure_severity(items: list[CaseResult]) -> str:
+    rank = {"soft": 0, "behavioral": 1, "error": 2, "critical": 3}
+    worst = "soft"
+    for item in items:
+        if item.status == "PASS":
+            continue
+        severity = _failure_severity(item)
+        if rank[severity] > rank[worst]:
+            worst = severity
+    return worst
 
 
 def _aggregate_cell_label(items: list[CaseResult]) -> str:
     return "PASS" if any(item.status == "PASS" for item in items) else "FAIL"
+
+
+def _display_failure_reason(value: object) -> str:
+    text = str(value or "-")
+    if text == "tool unsupported by backend":
+        return "tool unsupported"
+    return text
 
 
 def _source_summary_relpath(output_dir: Path, run_id: str) -> str:
@@ -124,7 +181,7 @@ def _format_run_id_time(run_id: str) -> str:
         parsed = datetime.strptime(run_id, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
     except ValueError:
         return run_id
-    return parsed.strftime("%Y-%m-%d %H:%M UTC")
+    return parsed.strftime("%Y-%m-%d %H:%M")
 
 
 def _format_duration(seconds: float) -> str:
@@ -138,6 +195,67 @@ def _short_hash(value: str) -> str:
     if raw.startswith("sha256:"):
         raw = raw.split(":", 1)[1]
     return raw if len(raw) <= 7 else raw[:7]
+
+
+def _hardware_profile_id(item: CaseResult) -> str:
+    raw = item.metadata.get("hardware_profile_id")
+    if not isinstance(raw, str):
+        return DEFAULT_HARDWARE_PROFILE_ID
+    value = raw.strip()
+    return value or DEFAULT_HARDWARE_PROFILE_ID
+
+
+def _load_hardware_profile_map(root: Path | None) -> dict[str, HardwareProfileSpec]:
+    if root is None:
+        return {}
+    return {profile.id: profile for profile in load_hardware_profiles(root)}
+
+
+def _render_hardware_cards(profile_ids: list[str], profile_map: dict[str, HardwareProfileSpec]) -> str:
+    if not profile_ids:
+        return ""
+    cards: list[str] = []
+    for profile_id in profile_ids:
+        profile = profile_map.get(profile_id)
+        if profile is None:
+            cards.append(
+                "<div class='hw-card'>"
+                f"<h4>{escape(profile_id)}</h4>"
+                "<table>"
+                "<tr><th>CPU</th><td>unknown</td></tr>"
+                "<tr><th>GPU</th><td>unknown</td></tr>"
+                "<tr><th>RAM</th><td>unknown</td></tr>"
+                "</table>"
+                "<p class='hw-note'>No matching profile in specs/hardware_profiles.yaml</p>"
+                "</div>"
+            )
+            continue
+        notes_html = f"<p class='hw-note'>{escape(profile.notes)}</p>" if profile.notes else ""
+        cards.append(
+            "<div class='hw-card'>"
+            f"<h4>{escape(profile.id)}</h4>"
+            "<table>"
+            f"<tr><th>CPU</th><td>{escape(profile.cpu)}</td></tr>"
+            f"<tr><th>GPU</th><td>{escape(profile.gpu)}</td></tr>"
+            f"<tr><th>RAM</th><td>{escape(profile.ram)}</td></tr>"
+            "</table>"
+            f"{notes_html}"
+            "</div>"
+        )
+    warning = (
+        "<p class='hw-warning'>Timings span multiple hardware profiles; compare across rows with care.</p>"
+        if len(profile_ids) > 1
+        else ""
+    )
+    return (
+        "<aside class='hardware-summary'>"
+        "<div class='hardware-title'>Hardware Profiles</div>"
+        f"{warning}"
+        "<div class='hw-cards'>"
+        f"{''.join(cards)}"
+        "</div>"
+        "</aside>"
+    )
 
 
 def _test_sort_key(title: str, results: list[CaseResult]) -> tuple[int, str]:
@@ -208,24 +326,33 @@ def _group_typical_time_and_outliers(
     return typical_time, outliers, len(representative_times)
 
 
-def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) -> None:
+def write_aggregate_html_summary(
+    results: list[CaseResult],
+    output_dir: Path,
+    hardware_profile_map: dict[str, HardwareProfileSpec] | None = None,
+) -> None:
     reports_dir = output_dir / "reports"
     cases_dir = output_dir / "cases"
+    detail_filenames = {
+        item.case_id: f"case-{index:05d}.html"
+        for index, item in enumerate(results, start=1)
+    }
     detail_links = write_case_detail_pages(
         results,
         reports_dir,
         cases_dir,
+        detail_filenames=detail_filenames,
         show_artifacts=False,
         show_runtime_snapshots=False,
         show_case_json=False,
     )
 
     tests = sorted({item.title for item in results}, key=lambda title: _test_sort_key(title, results))
-    grouped: dict[tuple[str, str, str, str], list[CaseResult]] = defaultdict(list)
+    grouped: dict[tuple[str, str, str, str, str], list[CaseResult]] = defaultdict(list)
     for item in results:
-        grouped[(item.shell, item.model.label, item.model.model_hash, item.format)].append(item)
+        grouped[(item.shell, item.model.label, item.model.model_hash, item.format, _hardware_profile_id(item))].append(item)
 
-    grouped_by_test: dict[tuple[str, str, str, str], dict[str, list[CaseResult]]] = {}
+    grouped_by_test: dict[tuple[str, str, str, str, str], dict[str, list[CaseResult]]] = {}
     representative_time_samples_by_test: dict[str, list[float]] = defaultdict(list)
     for group_key, items in grouped.items():
         by_test: dict[str, list[CaseResult]] = defaultdict(list)
@@ -242,9 +369,18 @@ def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) ->
         if samples
     }
 
+    profile_ids = sorted({_hardware_profile_id(item) for item in results})
+    hardware_cards_html = _render_hardware_cards(profile_ids, hardware_profile_map or {})
+    shell_filter_options = "".join(
+        [
+            "<option value='all'>all</option>",
+            *[f"<option value='{escape(shell)}'>{escape(shell)}</option>" for shell in sorted({item.shell for item in results})],
+        ]
+    )
+
     rows: list[str] = []
     for group_key in sorted(grouped):
-        shell, model_label, model_hash, tool_format = group_key
+        shell, model_label, model_hash, tool_format, hardware_profile_id = group_key
         items = grouped[group_key]
         has_extended_set = any(_has_extended_test_tags(item) for item in items)
         by_test = grouped_by_test[group_key]
@@ -275,7 +411,7 @@ def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) ->
             )
             tooltip = " | ".join(
                 f"{item.run_id} ({_format_run_id_time(str(item.run_id))}): {item.status}, "
-                f"reason={item.metadata.get('failure_reason', '-')}, {item.trajectory}, "
+                f"reason={_display_failure_reason(item.metadata.get('failure_reason'))}, {item.trajectory}, "
                 f"invoked={item.invoked}, match={item.match_percent}%, measured={_format_duration(item.timings.measured_seconds)}"
                 for item in test_items
             )
@@ -289,6 +425,7 @@ def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) ->
             f"data-shell='{escape(shell)}' "
             f"data-model='{escape(model_label)}' "
             f"data-format='{escape(tool_format)}' "
+            f"data-hw='{escape(hardware_profile_id)}' "
             f"data-extended='{'yes' if has_extended_set else 'no'}' "
             f"data-score='{score:.4f}' "
             f"data-typical='{typical_time:.4f}' "
@@ -296,6 +433,7 @@ def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) ->
             f"<td><a href='{group_link}'>{escape(shell)}</a></td>"
             f"<td><a href='{group_link}'>{escape(model_label)}"
             f"<span class='model-meta'>{escape(_short_hash(model_hash))}</span>"
+            f"<span class='hw-meta'>{escape(hardware_profile_id)}</span>"
             "</a></td>"
             f"<td>{escape(tool_format)}</td>"
             f"<td>{score * 100:.1f}%</td>"
@@ -307,6 +445,8 @@ def write_aggregate_html_summary(results: list[CaseResult], output_dir: Path) ->
         )
 
     header_tests = "".join(f"<th>{escape(title)}</th>" for title in tests)
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
     html = f"""<!doctype html>
 <html><head><meta charset='utf-8'><title>GripProbe Aggregate Summary</title>
 <style>
@@ -318,26 +458,74 @@ a{{color:#0b57d0;text-decoration:none;font-weight:600}}
 a:hover{{text-decoration:underline}}
 .agg-all-pass{{background:#b9e8c2}}
 .agg-mixed{{background:#fff0cc}}
-.agg-none-pass{{background:#f9d7d7}}
+.agg-fail-soft{{background:#e8ddc7}}
+.agg-fail-behavioral{{background:#f6d5b2}}
+.agg-fail-error{{background:#f3b3b3}}
+.agg-fail-critical{{background:#e48686}}
 .empty{{background:#f3f1eb;color:#777;text-align:center}}
 .meta{{color:#555;margin-bottom:1rem;font-size:.9rem}}
 .cell-time{{display:block;font-size:.75rem;font-weight:500;color:#26492d;margin-top:.12rem}}
 .model-meta{{display:block;font-size:.68rem;font-weight:500;color:#666;margin-top:.18rem;word-break:break-all}}
+.hw-meta{{display:block;font-size:.68rem;font-weight:500;color:#666;margin-top:.18rem;word-break:break-all}}
 .runs-meta{{font-size:.68rem;font-weight:500;color:#666;line-height:1.35}}
 .sort-controls{{display:inline-flex;gap:.2rem;margin-left:.35rem;vertical-align:middle}}
 .sort-btn{{border:1px solid #c9c3b4;background:#f7f3e8;color:#555;border-radius:4px;padding:0 .22rem;font-size:.66rem;line-height:1.15;cursor:pointer}}
 .sort-btn:hover{{background:#efe6d3;color:#222}}
 .controls{{display:flex;align-items:center;gap:.5rem;margin:.6rem 0 1rem 0;color:#333}}
 .controls input{{margin:0}}
+.controls select{{border:1px solid #c9c3b4;background:#fff;border-radius:4px;padding:.12rem .25rem;font-size:.85rem}}
 .row-hidden{{display:none}}
+.page-head{{display:flex;justify-content:space-between;align-items:flex-start;gap:1.2rem}}
+.head-side{{display:flex;align-items:flex-start;gap:.8rem}}
+.legend{{border:1px solid #d7d1c3;background:#faf7ef;border-radius:8px;padding:.45rem .6rem;min-width:250px}}
+.legend-title{{font-size:.75rem;font-weight:700;color:#444;margin-bottom:.28rem;text-transform:uppercase;letter-spacing:.02em}}
+.legend-row{{display:flex;align-items:center;gap:.45rem;font-size:.75rem;color:#444;line-height:1.35;margin:.12rem 0}}
+.legend-swatch{{display:inline-block;width:12px;height:12px;border:1px solid #bdb7aa;border-radius:2px;flex:0 0 auto}}
+.legend-pass{{background:#b9e8c2}}
+.legend-mixed{{background:#fff0cc}}
+.legend-soft{{background:#e8ddc7}}
+.legend-behavioral{{background:#f6d5b2}}
+.legend-error{{background:#f3b3b3}}
+.legend-critical{{background:#e48686}}
+.hardware-summary{{border:1px solid #d7d1c3;background:#faf7ef;border-radius:8px;padding:.45rem .6rem;min-width:300px}}
+.hardware-title{{font-size:.75rem;font-weight:700;color:#444;margin-bottom:.28rem;text-transform:uppercase;letter-spacing:.02em}}
+.hw-warning{{font-size:.72rem;color:#855a00;margin:.2rem 0 .45rem 0}}
+.hw-cards{{display:grid;gap:.45rem}}
+.hw-card{{border:1px solid #ddd6c7;border-radius:6px;background:#fffdf7;padding:.35rem .45rem}}
+.hw-card h4{{margin:.1rem 0 .28rem 0;font-size:.76rem}}
+.hw-card table{{border-collapse:collapse;width:100%;font-size:.72rem}}
+.hw-card th,.hw-card td{{text-align:left;padding:.08rem .2rem;border:none;vertical-align:top}}
+.hw-card th{{color:#555;width:48px;font-weight:700}}
+.hw-note{{font-size:.68rem;color:#666;margin:.25rem 0 0 0}}
+.generated-at{{margin-top:1rem;color:#666;font-size:.84rem}}
 </style></head><body>
+<div class='page-head'>
+<div>
 <h1>GripProbe Aggregate Summary</h1>
 <p class='meta'>One row per shell/model/hash/format group. Test cells link to a concrete case detail page. Group links open the source run summary.</p>
-<div class='controls'>
-<input id='hide-no-extended' type='checkbox' checked />
-<label for='hide-no-extended'>Extended only</label>
 </div>
-<table>
+<div class='head-side'>
+{hardware_cards_html}
+<aside class='legend'>
+<div class='legend-title'>Failure Colors</div>
+<div class='legend-row'><span class='legend-swatch legend-pass'></span><span>PASS</span></div>
+<div class='legend-row'><span class='legend-swatch legend-mixed'></span><span>MIXED (has PASS and failures)</span></div>
+<div class='legend-row'><span class='legend-swatch legend-soft'></span><span>SOFT FAIL</span></div>
+<div class='legend-row'><span class='legend-swatch legend-behavioral'></span><span>BEHAVIORAL FAIL</span></div>
+<div class='legend-row'><span class='legend-swatch legend-error'></span><span>ERROR FAIL</span></div>
+<div class='legend-row'><span class='legend-swatch legend-critical'></span><span>CRITICAL FAIL</span></div>
+</aside>
+</div>
+</div>
+<div class='controls'>
+<label for='shell-filter'>Shell</label>
+<select id='shell-filter'>
+{shell_filter_options}
+</select>
+<input id='include-partial-runs' type='checkbox' />
+<label for='include-partial-runs'>Show partial (sanity-only) runs in addition to extended test runs</label>
+</div>
+<table id='aggregate-table'>
 <thead><tr>
 <th>Shell<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('shell', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('shell', 'desc')">▼</button></span></th>
 <th>Model<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('model', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('model', 'desc')">▼</button></span></th>
@@ -349,45 +537,57 @@ a:hover{{text-decoration:underline}}
 <tbody>
 {''.join(rows)}
 </tbody></table>
+<p class='generated-at'>generated at {escape(generated_at)}</p>
 <script>
 function sortRows(key, direction) {{
-  const tbody = document.querySelector("tbody");
+  var tbody = document.querySelector("#aggregate-table tbody");
   if (!tbody) return;
-  const rows = Array.from(tbody.querySelectorAll("tr"));
-  rows.sort((a, b) => {{
+  var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+  rows.sort(function(a, b) {{
     if (key === "score" || key === "typical" || key === "outliers") {{
-      const av = Number(a.dataset[key] || "0");
-      const bv = Number(b.dataset[key] || "0");
-      const cmp = av - bv;
-      return direction === "asc" ? cmp : -cmp;
+      var av = Number(a.getAttribute("data-" + key) || "0");
+      var bv = Number(b.getAttribute("data-" + key) || "0");
+      var cmpNum = av - bv;
+      return direction === "asc" ? cmpNum : -cmpNum;
     }}
-    const av = (a.dataset[key] || "").toLowerCase();
-    const bv = (b.dataset[key] || "").toLowerCase();
-    const cmp = av.localeCompare(bv, undefined, {{ numeric: true, sensitivity: "base" }});
+    var avs = String(a.getAttribute("data-" + key) || "").toLowerCase();
+    var bvs = String(b.getAttribute("data-" + key) || "").toLowerCase();
+    var cmp = avs.localeCompare(bvs, undefined, {{ numeric: true, sensitivity: "base" }});
     return direction === "asc" ? cmp : -cmp;
   }});
-  rows.forEach((row) => tbody.appendChild(row));
+  rows.forEach(function(row) {{ tbody.appendChild(row); }});
   applyRowFilters();
 }}
 
 function applyRowFilters() {{
-  const hideNoExtended = document.getElementById("hide-no-extended");
-  const shouldHide = Boolean(hideNoExtended && hideNoExtended.checked);
-  const rows = Array.from(document.querySelectorAll("tbody tr"));
-  rows.forEach((row) => {{
-    const hasExtended = (row.dataset.extended || "no") === "yes";
-    row.classList.toggle("row-hidden", shouldHide && !hasExtended);
+  var includePartialRuns = document.getElementById("include-partial-runs");
+  var includePartial = Boolean(includePartialRuns && includePartialRuns.checked);
+  var shellFilter = document.getElementById("shell-filter");
+  var selectedShell = String((shellFilter && shellFilter.value) || "all");
+  var rows = Array.prototype.slice.call(document.querySelectorAll("#aggregate-table tbody tr"));
+  rows.forEach(function(row) {{
+    var hasExtended = (row.getAttribute("data-extended") || "no") === "yes";
+    var rowShell = String(row.getAttribute("data-shell") || "");
+    var shellMatches = selectedShell === "all" || rowShell === selectedShell;
+    row.classList.toggle("row-hidden", (!includePartial && !hasExtended) || !shellMatches);
   }});
 }}
 
-document.getElementById("hide-no-extended")?.addEventListener("change", applyRowFilters);
+var includePartialRunsCheckbox = document.getElementById("include-partial-runs");
+if (includePartialRunsCheckbox) {{
+  includePartialRunsCheckbox.addEventListener("change", applyRowFilters);
+}}
+var shellFilterSelect = document.getElementById("shell-filter");
+if (shellFilterSelect) {{
+  shellFilterSelect.addEventListener("change", applyRowFilters);
+}}
 applyRowFilters();
 </script>
 </body></html>"""
     (reports_dir / "summary.html").write_text(html, encoding="utf-8")
 
 
-def aggregate_reports(run_dirs: list[Path], output_dir: Path) -> tuple[Path, list[CaseResult]]:
+def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None = None) -> tuple[Path, list[CaseResult]]:
     output_dir = output_dir.resolve()
     cases_dir = output_dir / "cases"
     reports_dir = output_dir / "reports"
@@ -424,8 +624,9 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path) -> tuple[Path, lis
             write_json(aggregate_case_dir / "case.json", aggregate_result.model_dump())
             aggregated_results.append(aggregate_result)
 
+    hardware_profile_map = _load_hardware_profile_map(root.resolve() if root is not None else None)
     write_markdown_summary(aggregated_results, reports_dir / "summary.md")
-    write_aggregate_html_summary(aggregated_results, output_dir)
+    write_aggregate_html_summary(aggregated_results, output_dir, hardware_profile_map=hardware_profile_map)
     write_json(
         output_dir / "aggregate_manifest.json",
         {

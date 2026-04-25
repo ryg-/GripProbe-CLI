@@ -63,6 +63,10 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    (case_dir / "model.modelfile").write_text(
+        "FROM qwen2.5:7b\nPARAMETER temperature 0.2\n",
+        encoding="utf-8",
+    )
 
     result = CaseResult(
         case_id="case-1",
@@ -114,6 +118,9 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     assert "Failure Reason:" in detail_html
     assert "answered without invoking tool" in detail_html
     assert "strongly_diverged" in detail_html
+    assert "Model Modelfile (Ollama)" in detail_html
+    assert "FROM qwen2.5:7b" in detail_html
+    assert detail_html.rfind("Model Modelfile (Ollama)") > detail_html.rfind("Raw Artifacts")
     summary_html = (reports_dir / "summary.html").read_text(encoding="utf-8")
     assert "<th>Reason</th>" in summary_html
     assert "<th>Command</th>" not in summary_html

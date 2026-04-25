@@ -17,6 +17,7 @@ TEXT_ARTIFACTS = (
     "measured.stderr",
     "expected.txt",
     "observed.txt",
+    "model.modelfile",
     "case.json",
 )
 STATUS_CLASS = {
@@ -357,13 +358,14 @@ def _write_case_detail(
     result: CaseResult,
     reports_dir: Path,
     case_dir: Path,
+    detail_filename: str | None = None,
     show_artifacts: bool = True,
     show_runtime_snapshots: bool = True,
     show_case_json: bool = True,
 ) -> str:
     details_dir = reports_dir / "cases"
     details_dir.mkdir(parents=True, exist_ok=True)
-    detail_path = details_dir / f"{result.case_id}.html"
+    detail_path = details_dir / (detail_filename or f"{result.case_id}.html")
     prompt_raw = _read_text(case_dir / "prompt.txt")
     warmup_stdout_raw = _read_text(case_dir / "warmup.stdout")
     warmup_stderr_raw = _read_text(case_dir / "warmup.stderr")
@@ -379,6 +381,7 @@ def _write_case_detail(
     shell_commands_html = _render_shell_commands(result)
     transcript_html = _render_transcript(case_dir)
     artifact_links = _render_artifact_links(case_dir, detail_path) if show_artifacts else ""
+    modelfile_raw = _read_text(case_dir / "model.modelfile")
     summary_rel = escape(os.path.relpath(reports_dir / "summary.html", detail_path.parent))
     trajectory_class = TRAJECTORY_CLASS.get(result.trajectory, "unknown")
     invoked_class = INVOKED_CLASS.get(result.invoked, "unknown")
@@ -457,6 +460,7 @@ section{{margin:1.5rem 0}}
 </section>
 {('<section><h2>Tool / Process Output</h2><div class="grid">' + output_panels + '</div></section>') if output_panels else ''}
 {('<section><h2>Raw Artifacts</h2>' + artifact_links + '</section>') if artifact_links else ''}
+{('<section><h2>Model Modelfile (Ollama)</h2>' + _pre_block(modelfile_raw) + '</section>') if modelfile_raw.strip() else ''}
 </body></html>"""
     detail_path.write_text(html, encoding="utf-8")
     return str(detail_path.relative_to(reports_dir))
@@ -466,6 +470,7 @@ def write_case_detail_pages(
     results: list[CaseResult],
     reports_dir: Path,
     cases_dir: Path,
+    detail_filenames: dict[str, str] | None = None,
     show_artifacts: bool = True,
     show_runtime_snapshots: bool = True,
     show_case_json: bool = True,
@@ -475,6 +480,7 @@ def write_case_detail_pages(
             item,
             reports_dir,
             cases_dir / item.case_id,
+            detail_filename=(detail_filenames or {}).get(item.case_id),
             show_artifacts=show_artifacts,
             show_runtime_snapshots=show_runtime_snapshots,
             show_case_json=show_case_json,

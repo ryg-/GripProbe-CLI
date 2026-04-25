@@ -11,6 +11,8 @@ Privacy and publication policy:
 - `results/runs/...` is the internal diagnostic layer
 - `results/aggregate/...` is the sanitized sharing/publication layer
 - see [docs/privacy.md](docs/privacy.md)
+- preparation guide: [doc/preparation.md](doc/preparation.md)
+- run metadata keys: [doc/usage.md](doc/usage.md)
 
 Current MVP slice:
 - shell executables are resolved from `PATH`, not from machine-specific absolute paths
@@ -68,8 +70,11 @@ The compose file mounts:
 - `~/.ssh` read-only for remote host probes
 
 The compose service also exports:
-- `GRIPPROBE_CONTINUE_CONFIG=/root/.continue/config.yaml`
-- `GRIPPROBE_OPENCODE_CONFIG=/root/.config/opencode/opencode.json`
+- `GRIPPROBE_CONTINUE_CONFIG=/tmp/gripprobe-home/.continue/config.yaml`
+- `GRIPPROBE_OPENCODE_CONFIG=/tmp/gripprobe-home/.config/opencode/opencode.json`
+- `HOME=/tmp/gripprobe-home` inside the container
+
+By default, the service runs as `${UID}:${GID}` (falls back to `1000:1000`) so files in mounted `results/` are created as your host user.
 
 Examples:
 

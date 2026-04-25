@@ -6,7 +6,7 @@ from typing import TypeVar
 import yaml
 from pydantic import BaseModel
 
-from .models import ModelSpec, ShellSpec, SuiteSpec, TestSpec
+from .models import HardwareProfileSpec, ModelSpec, ShellSpec, SuiteSpec, TestSpec
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -40,3 +40,16 @@ def load_shell_specs(root: Path) -> list[ShellSpec]:
 
 def load_suite_specs(root: Path) -> list[SuiteSpec]:
     return _load_specs(root / "specs" / "suites", SuiteSpec)
+
+
+def load_hardware_profiles(root: Path) -> list[HardwareProfileSpec]:
+    path = root / "specs" / "hardware_profiles.yaml"
+    if not path.exists():
+        return []
+    payload = _load_yaml_file(path)
+    raw_profiles = payload.get("profiles")
+    if raw_profiles is None:
+        return []
+    if not isinstance(raw_profiles, list):
+        raise ValueError(f"{path} field 'profiles' must be a list")
+    return [HardwareProfileSpec.model_validate(item) for item in raw_profiles]

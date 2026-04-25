@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -58,6 +59,13 @@ def _write_case(run_dir: Path, case_id: str, title: str, status: str) -> None:
     (run_dir / "reports" / "summary.md").write_text("# Summary\n", encoding="utf-8")
 
 
+def _tbody_row_count(summary_html: str) -> int:
+    match = re.search(r"<tbody>(.*?)</tbody>", summary_html, flags=re.DOTALL)
+    if not match:
+        return 0
+    return match.group(1).count("<tr")
+
+
 def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     run_a = tmp_path / "runs" / "run-a"
     run_b = tmp_path / "runs" / "run-b"
@@ -84,14 +92,17 @@ def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     assert case_a["metadata"]["source_case_id"] == "case-1"
     assert case_b["case_id"] == "run-b__case-1"
     assert manifest["cases"] == 2
-    assert summary_html.count("<tr") == 2
+    assert _tbody_row_count(summary_html) == 1
     assert "source_reports/run-b/summary.html" in summary_html
-    assert "cases/run-a__case-1.html" in summary_html
+    assert "cases/case-00001.html" in summary_html
     assert "Case One" in summary_html
     assert "Case Two" in summary_html
     assert "model-meta" in summary_html
     assert "845dbda" in summary_html
     assert "845dbda0ea48" not in summary_html
+    assert "Failure Colors" in summary_html
+    assert "generated at " in summary_html
+    assert "<td class='agg-fail-soft'" in summary_html
 
 
 def test_discover_run_dirs_finds_case_directories(tmp_path: Path) -> None:
@@ -143,7 +154,8 @@ def test_aggregate_reports_formats_run_time_and_pass_cell_time(tmp_path: Path) -
     output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
     summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
 
-    assert "2026-04-20 20:28 UTC" in summary_html
+    assert "2026-04-20 20:28" in summary_html
+    assert "2026-04-20 20:28 UTC" not in summary_html
     assert "<span class='cell-time'>2.0s</span>" in summary_html
 
 
@@ -187,7 +199,7 @@ def test_aggregate_reports_keeps_different_formats_on_separate_rows(tmp_path: Pa
     assert "class='runs-meta'" in summary_html
     assert "<th>Backend</th>" not in summary_html
     assert "<th>Hash</th>" not in summary_html
-    assert summary_html.count("<tr") == 3
+    assert _tbody_row_count(summary_html) == 2
     assert ">markdown</td>" in summary_html
     assert ">tool</td>" in summary_html
 
@@ -247,9 +259,19 @@ def test_aggregate_reports_marks_and_filters_extended_rows(tmp_path: Path) -> No
     output_dir, _ = aggregate_reports([run_a, run_b], tmp_path / "aggregate")
     summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
 
-    assert "hide-no-extended" in summary_html
-    assert "Extended only" in summary_html
-    assert "id='hide-no-extended' type='checkbox' checked" in summary_html
+    assert "include-partial-runs" in summary_html
+    assert "id='shell-filter'" in summary_html
+    assert "<option value='all'>all</option>" in summary_html
+    assert "shellFilterSelect.addEventListener(\"change\", applyRowFilters);" in summary_html
+    assert "Show partial (sanity-only) runs in addition to extended test runs" in summary_html
+    assert "id='include-partial-runs' type='checkbox'" in summary_html
+    assert "<table id='aggregate-table'>" in summary_html
+    assert 'document.querySelector("#aggregate-table tbody")' in summary_html
+    assert 'document.querySelectorAll("#aggregate-table tbody tr")' in summary_html
+    assert "?.addEventListener" not in summary_html
+    assert "onclick=\"sortRows(" in summary_html
+    assert "data-sort-key='shell'" not in summary_html
+    assert "<script src='summary.js'></script>" not in summary_html
     assert "data-extended='yes'" in summary_html
     assert "data-extended='no'" in summary_html
 
@@ -300,3 +322,51 @@ def test_aggregate_reports_counts_outliers_by_test_baseline(tmp_path: Path) -> N
     assert "data-shell='opencode'" in summary_html
     assert "data-outliers='0.5000'" in summary_html
     assert ">1/2</td>" in summary_html
+
+
+def test_aggregate_reports_renders_hardware_profile_cards_from_yaml(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "PASS")
+    case_path = run_dir / "cases" / "case-1" / "case.json"
+    payload = json.loads(case_path.read_text(encoding="utf-8"))
+    payload["metadata"]["hardware_profile_id"] = "wombat_a100"
+    case_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    specs_dir = tmp_path / "specs"
+    specs_dir.mkdir(parents=True, exist_ok=True)
+    (specs_dir / "hardware_profiles.yaml").write_text(
+        "profiles:\n"
+        "  - id: wombat_a100\n"
+        "    label: Wombat A100\n"
+        "    cpu: AMD EPYC 7F52\n"
+        "    gpu: NVIDIA A100 80GB\n"
+        "    ram: 512GB\n"
+        "    notes: Dedicated benchmark host\n",
+        encoding="utf-8",
+    )
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate", root=tmp_path)
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+
+    assert "Hardware Profiles" in summary_html
+    assert "wombat_a100" in summary_html
+    assert "AMD EPYC 7F52" in summary_html
+    assert "NVIDIA A100 80GB" in summary_html
+    assert "512GB" in summary_html
+    assert "Dedicated benchmark host" in summary_html
+
+
+def test_aggregate_reports_uses_backend_free_case_detail_links_and_reason_text(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "TOOL_UNSUPPORTED")
+    case_path = run_dir / "cases" / "case-1" / "case.json"
+    payload = json.loads(case_path.read_text(encoding="utf-8"))
+    payload["metadata"]["failure_reason"] = "tool unsupported by backend"
+    case_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+
+    assert "__ollama__" not in summary_html
+    assert "tool unsupported by backend" not in summary_html
+    assert "reason=tool unsupported" in summary_html
