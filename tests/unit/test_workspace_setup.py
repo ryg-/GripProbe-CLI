@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, timedelta
 from pathlib import Path
 
 from gripprobe.runner import _prepare_workspace
@@ -21,4 +22,20 @@ def test_prepare_workspace_seeds_patch_target_and_patch_file_for_prepared_patch_
         "=======\n"
         "STATUS=new\n"
         ">>>>>>> UPDATED\n"
+    )
+
+
+def test_prepare_workspace_seeds_plan_template_for_weekly_plan_scenario(tmp_path: Path) -> None:
+    _prepare_workspace(tmp_path, "weekly_plan_next_week")
+
+    current_monday = date.today() - timedelta(days=date.today().weekday())
+    next_monday = current_monday + timedelta(days=7)
+    assert (tmp_path / "Plan.md").read_text(encoding="utf-8") == (
+        "# Plan\n\n"
+        f"## Week of {current_monday.isoformat()}\n"
+        "- [ ] Carry over outstanding items\n\n"
+        f"## Week of {next_monday.isoformat()}\n"
+        "- [ ] Placeholder for planning\n\n"
+        "## Monthly Summary\n"
+        "- [ ] No entries yet\n"
     )

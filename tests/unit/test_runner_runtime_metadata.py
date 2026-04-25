@@ -9,6 +9,7 @@ from gripprobe.runner import (
     _collect_runtime_snapshot,
     _collect_shell_runtime_metadata,
     _fetch_ollama_model_digest,
+    _fetch_ollama_model_modelfile,
     _ollama_base_url,
     _ollama_probe_target,
 )
@@ -214,3 +215,27 @@ def test_fetch_ollama_model_digest_reads_digest_from_tags(monkeypatch) -> None:
     monkeypatch.setattr("gripprobe.runner.urllib.request.urlopen", lambda request, timeout=0: _FakeResponse())
 
     assert _fetch_ollama_model_digest("qwen2.5:7b") == "845dbda0ea48"
+
+
+def test_fetch_ollama_model_modelfile_reads_modelfile_from_show(monkeypatch) -> None:
+    monkeypatch.setattr("gripprobe.runner.os.environ", {"OLLAMA_HOST": "http://127.0.0.1:11434"})
+
+    class _FakeResponse:
+        def read(self):
+            return b'{"modelfile":"FROM qwen2.5:7b\\nPARAMETER temperature 0.2\\n"}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def _fake_urlopen(request, timeout=0):
+        assert request.full_url == "http://127.0.0.1:11434/api/show"
+        assert request.data is not None
+        assert b'"name": "qwen2.5:7b"' in request.data
+        return _FakeResponse()
+
+    monkeypatch.setattr("gripprobe.runner.urllib.request.urlopen", _fake_urlopen)
+
+    assert _fetch_ollama_model_modelfile("qwen2.5:7b") == "FROM qwen2.5:7b\nPARAMETER temperature 0.2\n"

@@ -134,6 +134,7 @@ def test_run_suite_resume_skips_completed_matrix_entries(monkeypatch, specs_root
         "shell_date_ru",
         "shell_file",
         "web_nonce_proof",
+        "weekly_plan_next_week",
     ]
     completed_manifest = specs_root / "results" / "runs" / "20260423T131238Z" / "manifest.json"
     completed_manifest.parent.mkdir(parents=True, exist_ok=True)

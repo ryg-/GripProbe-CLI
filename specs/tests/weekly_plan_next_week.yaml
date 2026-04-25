@@ -1,0 +1,34 @@
+id: weekly_plan_next_week
+title: Weekly Plan Next Week
+category: scenario
+prompt: |
+  Update Plan.md in the current workspace.
+  Add this exact task text to the next week section (week starts on Monday):
+  Review onboarding draft at https://example.com/docs/onboarding-v2 and send feedback.
+  Keep it inside the next week section, before any later sections such as "Monthly Summary".
+  Keep Markdown structure and use an unchecked checkbox item for the task.
+  If successful, reply only with DONE.
+  If not, reply only with FAIL.
+allowed_tools:
+  - shell
+  - read
+  - patch
+  - save
+artifacts:
+  - path: Plan.md
+    kind: text
+validators:
+  - type: weekly_plan_task
+    target: Plan.md
+    expected: Review onboarding draft at https://example.com/docs/onboarding-v2 and send feedback.
+supported_shells:
+  - aider
+  - gptme
+  - continue-cli
+  - opencode
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - non_sanity
+  - scenario

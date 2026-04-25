@@ -10,7 +10,7 @@ import urllib.request
 import json
 import secrets
 import threading
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, urlsplit
@@ -222,6 +222,34 @@ def _fetch_ollama_model_digest(model_id: str, timeout_seconds: int = 10) -> str 
     return None
 
 
+def _fetch_ollama_model_modelfile(model_id: str, timeout_seconds: int = 10) -> str | None:
+    url = f"{_ollama_base_url()}/api/show"
+    for key in ("name", "model"):
+        request = urllib.request.Request(
+            url,
+            data=json.dumps({key: model_id}).encode("utf-8"),
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                body = response.read().decode("utf-8", errors="replace")
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError):
+            continue
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        modelfile = payload.get("modelfile")
+        if isinstance(modelfile, str) and modelfile.strip():
+            return modelfile.rstrip() + "\n"
+    return None
+
+
 def _resolve_model_hash(backend: BackendSpec, cli_model_hash: str | None = None) -> str:
     if backend.id == "ollama":
         digest = _fetch_ollama_model_digest(backend.model_id)
@@ -265,6 +293,13 @@ def _collect_runtime_snapshot(include_ollama: bool = False) -> dict[str, object]
     }
 
 
+def _write_ollama_modelfile_artifact(case_dir: Path, modelfile_text: str | None) -> None:
+    if not modelfile_text:
+        return
+    case_dir.mkdir(parents=True, exist_ok=True)
+    (case_dir / "model.modelfile").write_text(modelfile_text, encoding="utf-8")
+
+
 def _prepare_workspace(path: Path, test_id: str) -> None:
     path.mkdir(parents=True, exist_ok=True)
     for file in path.iterdir():
@@ -282,6 +317,19 @@ def _prepare_workspace(path: Path, test_id: str) -> None:
             "=======\n"
             "STATUS=new\n"
             ">>>>>>> UPDATED\n",
+            encoding="utf-8",
+        )
+    if test_id == "weekly_plan_next_week":
+        current_monday = date.today() - timedelta(days=date.today().weekday())
+        next_monday = current_monday + timedelta(days=7)
+        (path / "Plan.md").write_text(
+            "# Plan\n\n"
+            f"## Week of {current_monday.isoformat()}\n"
+            "- [ ] Carry over outstanding items\n\n"
+            f"## Week of {next_monday.isoformat()}\n"
+            "- [ ] Placeholder for planning\n\n"
+            "## Monthly Summary\n"
+            "- [ ] No entries yet\n",
             encoding="utf-8",
         )
 
@@ -497,6 +545,7 @@ def run(
     shell_spec: ShellSpec = _apply_model_policy_overrides(_find_one(shells, "id", shell_name), model_spec)
     backend = _select_backend(model_spec, backend_name)
     resolved_model_hash = _resolve_model_hash(backend, model_hash)
+    ollama_modelfile = _fetch_ollama_model_modelfile(backend.model_id) if backend.id == "ollama" else None
     adapter = _adapter_for(shell_spec)
     run_paths = create_run_paths(root, run_id=run_id)
     runtime_metadata = _collect_shell_runtime_metadata(shell_spec.executable)
@@ -555,6 +604,7 @@ def run(
             workspace_dir = case_dir / "workspace"
             _prepare_workspace(warmup_workspace_dir, test_spec.id)
             _prepare_workspace(workspace_dir, test_spec.id)
+            _write_ollama_modelfile_artifact(case_dir, ollama_modelfile)
             active_test_spec = test_spec
             web_challenge: _WebNonceChallenge | None = None
             if test_spec.id == "web_nonce_proof":
