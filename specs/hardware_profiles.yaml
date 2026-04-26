@@ -1,7 +1,7 @@
 profiles:
-  - id: unspecified
-    label: Unspecified Hardware
-    cpu: unknown
-    gpu: unknown
-    ram: unknown
+  - id: default1
+    label: 'first test isetup'
+    cpu: 'Intel(R) Core(TM) i7-2630QM CPU @ 2.00GHz'
+    gpu: 'NVIDIA GeForce RTX 2060 SUPER, 8192 MiB'
+    ram: '15.5 GiB'
     notes: Default profile used when run metadata does not provide hardware_profile_id.
