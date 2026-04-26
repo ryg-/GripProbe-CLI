@@ -356,6 +356,72 @@ def test_aggregate_reports_renders_hardware_profile_cards_from_yaml(tmp_path: Pa
     assert "Dedicated benchmark host" in summary_html
 
 
+def test_aggregate_reports_uses_default_profile_id_from_profiles_yaml(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "PASS")
+
+    specs_dir = tmp_path / "specs"
+    specs_dir.mkdir(parents=True, exist_ok=True)
+    (specs_dir / "hardware_profiles.yaml").write_text(
+        "profiles:\n"
+        "  - id: default1\n"
+        "    label: Default\n"
+        "    cpu: CPU-A\n"
+        "    gpu: GPU-A\n"
+        "    ram: 64GB\n"
+        "  - id: lab_b\n"
+        "    label: Lab B\n"
+        "    cpu: CPU-B\n"
+        "    gpu: GPU-B\n"
+        "    ram: 128GB\n",
+        encoding="utf-8",
+    )
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate", root=tmp_path)
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+
+    assert "data-hw='default1'" in summary_html
+    assert "<span class='hw-meta'>default1</span>" not in summary_html
+    assert "default1" in summary_html
+
+
+def test_aggregate_reports_shows_hw_meta_only_when_multiple_profiles_present(tmp_path: Path) -> None:
+    run_a = tmp_path / "runs" / "run-a"
+    run_b = tmp_path / "runs" / "run-b"
+    _write_case(run_a, "case-1", "Case One", "PASS")
+    _write_case(run_b, "case-1", "Case Two", "PASS")
+
+    case_b_path = run_b / "cases" / "case-1" / "case.json"
+    payload_b = json.loads(case_b_path.read_text(encoding="utf-8"))
+    payload_b["metadata"]["hardware_profile_id"] = "lab_b"
+    case_b_path.write_text(json.dumps(payload_b), encoding="utf-8")
+
+    specs_dir = tmp_path / "specs"
+    specs_dir.mkdir(parents=True, exist_ok=True)
+    (specs_dir / "hardware_profiles.yaml").write_text(
+        "profiles:\n"
+        "  - id: default1\n"
+        "    label: Default\n"
+        "    cpu: CPU-A\n"
+        "    gpu: GPU-A\n"
+        "    ram: 64GB\n"
+        "  - id: lab_b\n"
+        "    label: Lab B\n"
+        "    cpu: CPU-B\n"
+        "    gpu: GPU-B\n"
+        "    ram: 128GB\n",
+        encoding="utf-8",
+    )
+
+    output_dir, _ = aggregate_reports([run_a, run_b], tmp_path / "aggregate", root=tmp_path)
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+
+    assert "data-hw='default1'" in summary_html
+    assert "data-hw='lab_b'" in summary_html
+    assert "<span class='hw-meta'>default1</span>" in summary_html
+    assert "<span class='hw-meta'>lab_b</span>" in summary_html
+
+
 def test_aggregate_reports_uses_backend_free_case_detail_links_and_reason_text(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs" / "run-a"
     _write_case(run_dir, "case-1", "Case One", "TOOL_UNSUPPORTED")

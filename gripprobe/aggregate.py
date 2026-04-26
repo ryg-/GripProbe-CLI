@@ -197,18 +197,21 @@ def _short_hash(value: str) -> str:
     return raw if len(raw) <= 7 else raw[:7]
 
 
-def _hardware_profile_id(item: CaseResult) -> str:
+def _hardware_profile_id(item: CaseResult, default_profile_id: str = DEFAULT_HARDWARE_PROFILE_ID) -> str:
     raw = item.metadata.get("hardware_profile_id")
     if not isinstance(raw, str):
-        return DEFAULT_HARDWARE_PROFILE_ID
+        return default_profile_id
     value = raw.strip()
-    return value or DEFAULT_HARDWARE_PROFILE_ID
+    return value or default_profile_id
 
 
-def _load_hardware_profile_map(root: Path | None) -> dict[str, HardwareProfileSpec]:
+def _load_hardware_profile_data(root: Path | None) -> tuple[dict[str, HardwareProfileSpec], str]:
     if root is None:
-        return {}
-    return {profile.id: profile for profile in load_hardware_profiles(root)}
+        return {}, DEFAULT_HARDWARE_PROFILE_ID
+    profiles = load_hardware_profiles(root)
+    if not profiles:
+        return {}, DEFAULT_HARDWARE_PROFILE_ID
+    return {profile.id: profile for profile in profiles}, profiles[0].id
 
 
 def _render_hardware_cards(profile_ids: list[str], profile_map: dict[str, HardwareProfileSpec]) -> str:
@@ -330,6 +333,7 @@ def write_aggregate_html_summary(
     results: list[CaseResult],
     output_dir: Path,
     hardware_profile_map: dict[str, HardwareProfileSpec] | None = None,
+    default_hardware_profile_id: str = DEFAULT_HARDWARE_PROFILE_ID,
 ) -> None:
     reports_dir = output_dir / "reports"
     cases_dir = output_dir / "cases"
@@ -350,7 +354,15 @@ def write_aggregate_html_summary(
     tests = sorted({item.title for item in results}, key=lambda title: _test_sort_key(title, results))
     grouped: dict[tuple[str, str, str, str, str], list[CaseResult]] = defaultdict(list)
     for item in results:
-        grouped[(item.shell, item.model.label, item.model.model_hash, item.format, _hardware_profile_id(item))].append(item)
+        grouped[
+            (
+                item.shell,
+                item.model.label,
+                item.model.model_hash,
+                item.format,
+                _hardware_profile_id(item, default_hardware_profile_id),
+            )
+        ].append(item)
 
     grouped_by_test: dict[tuple[str, str, str, str, str], dict[str, list[CaseResult]]] = {}
     representative_time_samples_by_test: dict[str, list[float]] = defaultdict(list)
@@ -369,7 +381,8 @@ def write_aggregate_html_summary(
         if samples
     }
 
-    profile_ids = sorted({_hardware_profile_id(item) for item in results})
+    profile_ids = sorted({_hardware_profile_id(item, default_hardware_profile_id) for item in results})
+    show_model_profile_meta = len(profile_ids) > 1
     hardware_cards_html = _render_hardware_cards(profile_ids, hardware_profile_map or {})
     shell_filter_options = "".join(
         [
@@ -394,6 +407,7 @@ def write_aggregate_html_summary(
             f"<a href='{_source_summary_relpath(output_dir, run_id)}'>{escape(_format_run_id_time(run_id))}</a>"
             for run_id in run_ids
         )
+        hw_meta_html = f"<span class='hw-meta'>{escape(hardware_profile_id)}</span>" if show_model_profile_meta else ""
         cells = []
         for test_title in tests:
             test_items = by_test.get(test_title, [])
@@ -433,7 +447,7 @@ def write_aggregate_html_summary(
             f"<td><a href='{group_link}'>{escape(shell)}</a></td>"
             f"<td><a href='{group_link}'>{escape(model_label)}"
             f"<span class='model-meta'>{escape(_short_hash(model_hash))}</span>"
-            f"<span class='hw-meta'>{escape(hardware_profile_id)}</span>"
+            f"{hw_meta_html}"
             "</a></td>"
             f"<td>{escape(tool_format)}</td>"
             f"<td>{score * 100:.1f}%</td>"
@@ -624,9 +638,14 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
             write_json(aggregate_case_dir / "case.json", aggregate_result.model_dump())
             aggregated_results.append(aggregate_result)
 
-    hardware_profile_map = _load_hardware_profile_map(root.resolve() if root is not None else None)
+    hardware_profile_map, default_hardware_profile_id = _load_hardware_profile_data(root.resolve() if root is not None else None)
     write_markdown_summary(aggregated_results, reports_dir / "summary.md")
-    write_aggregate_html_summary(aggregated_results, output_dir, hardware_profile_map=hardware_profile_map)
+    write_aggregate_html_summary(
+        aggregated_results,
+        output_dir,
+        hardware_profile_map=hardware_profile_map,
+        default_hardware_profile_id=default_hardware_profile_id,
+    )
     write_json(
         output_dir / "aggregate_manifest.json",
         {
