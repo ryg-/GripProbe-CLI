@@ -1,0 +1,40 @@
+id: web_fetch_json_raw
+title: Web Fetch JSON Raw
+category: web
+prompt: |
+  Use the shell tool.
+  Read search-url.txt and query.txt from the current workspace.
+  Call the search endpoint with query parameters:
+  - q=<urlencoded query from query.txt>
+  - format=json
+  - limit=8
+  Save the raw JSON response exactly as returned to search-response.json in the current workspace.
+  Do not transform fields and do not wrap with extra text.
+  If successful, reply only DONE.
+  If command execution fails, reply only FAIL.
+allowed_tools:
+  - shell
+artifacts:
+  - path: search-url.txt
+    kind: text
+  - path: query.txt
+    kind: text
+  - path: search-response.json
+    kind: text
+validators:
+  - type: web_search_result
+    target: search-response.json
+    expected: "{}"
+    request_log: __DYNAMIC__
+    request_path: /search/__DYNAMIC__
+supported_shells:
+  - gptme
+  - continue-cli
+  - opencode
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - web
+  - scenario
+  - non_sanity

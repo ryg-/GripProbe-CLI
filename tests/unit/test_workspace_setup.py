@@ -39,3 +39,11 @@ def test_prepare_workspace_seeds_plan_template_for_weekly_plan_scenario(tmp_path
         "## Monthly Summary\n"
         "- [ ] No entries yet\n"
     )
+
+
+def test_prepare_workspace_seeds_json_ranking_fixture(tmp_path: Path) -> None:
+    _prepare_workspace(tmp_path, "json_rank_from_file")
+
+    assert (tmp_path / "query.txt").read_text(encoding="utf-8") == "weekly plan static fixture checkbox\n"
+    assert (tmp_path / "required-token.txt").read_text(encoding="utf-8") == "static-token-abc123\n"
+    assert "doc-static-top" in (tmp_path / "search-response.json").read_text(encoding="utf-8")

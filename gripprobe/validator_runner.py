@@ -6,6 +6,7 @@ from gripprobe.adapters.base import AdapterError
 from gripprobe.models import TestSpec, ValidatorSpec
 from gripprobe.validators.file_equals import validate_file_equals
 from gripprobe.validators.patch_applied import validate_patch_applied
+from gripprobe.validators.web_search_result import validate_web_search_result
 from gripprobe.validators.web_nonce_proof import validate_web_nonce_proof
 from gripprobe.validators.weekly_plan_task import validate_weekly_plan_task
 
@@ -20,6 +21,8 @@ def run_validator(spec: ValidatorSpec, workspace: Path) -> ValidatorResult:
         return validate_patch_applied(spec, workspace)
     if spec.type == "web_nonce_proof":
         return validate_web_nonce_proof(spec, workspace)
+    if spec.type == "web_search_result":
+        return validate_web_search_result(spec, workspace)
     if spec.type == "weekly_plan_task":
         return validate_weekly_plan_task(spec, workspace)
     raise AdapterError(f"Unsupported validator: {spec.type}")

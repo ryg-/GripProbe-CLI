@@ -87,6 +87,67 @@ def test_web_nonce_proof_validator_requires_target() -> None:
         )
 
 
+def test_web_search_result_validator_requires_expected() -> None:
+    with pytest.raises(ValidationError, match="web_search_result validator requires expected"):
+        GripTestSpec.model_validate(
+            {
+                "id": "web_search_json_ranked",
+                "title": "Web Search JSON Ranked",
+                "category": "web",
+                "prompt": "search",
+                "validators": [
+                    {
+                        "type": "web_search_result",
+                        "target": "search-result.json",
+                        "request_log": "requests.json",
+                        "request_path": "/search/token",
+                    }
+                ],
+            }
+        )
+
+
+def test_web_search_result_validator_requires_request_log_and_request_path_together() -> None:
+    with pytest.raises(ValidationError, match="web_search_result validator requires request_log and request_path together"):
+        GripTestSpec.model_validate(
+            {
+                "id": "web_search_json_ranked",
+                "title": "Web Search JSON Ranked",
+                "category": "web",
+                "prompt": "search",
+                "validators": [
+                    {
+                        "type": "web_search_result",
+                        "target": "search-result.json",
+                        "expected": "{\"query\":\"x\"}",
+                        "request_log": "requests.json",
+                    }
+                ],
+            }
+        )
+
+
+def test_web_search_result_validator_allows_file_only_mode_without_request_metadata() -> None:
+    spec = GripTestSpec.model_validate(
+        {
+            "id": "json_rank_from_file",
+            "title": "JSON Rank From File",
+            "category": "scenario",
+            "prompt": "rank",
+            "validators": [
+                {
+                    "type": "web_search_result",
+                    "target": "search-result.json",
+                    "expected": "{\"query\":\"x\"}",
+                }
+            ],
+        }
+    )
+
+    assert spec.validators[0].request_log is None
+    assert spec.validators[0].request_path is None
+
+
 def test_weekly_plan_task_validator_requires_target_and_expected() -> None:
     with pytest.raises(ValidationError, match="weekly_plan_task validator requires expected"):
         GripTestSpec.model_validate(

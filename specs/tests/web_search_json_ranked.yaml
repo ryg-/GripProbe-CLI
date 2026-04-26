@@ -1,0 +1,47 @@
+id: web_search_json_ranked
+title: Web Search JSON Ranked
+category: web
+prompt: |
+  Use the shell tool.
+  Read search-url.txt, query.txt, and required-token.txt from the current workspace.
+  Call the search endpoint with query parameters:
+  - q=<urlencoded query from query.txt>
+  - format=json
+  - limit=8
+  The endpoint returns JSON with a results array.
+  Select the result with the highest score among results whose snippet contains the exact required token.
+  Write search-result.json in the current workspace as JSON with exactly these keys:
+  - query
+  - selected_id
+  - selected_url
+  - selected_score
+  If successful, reply only DONE.
+  If command execution fails, reply only FAIL.
+allowed_tools:
+  - shell
+artifacts:
+  - path: search-url.txt
+    kind: text
+  - path: query.txt
+    kind: text
+  - path: required-token.txt
+    kind: text
+  - path: search-result.json
+    kind: text
+validators:
+  - type: web_search_result
+    target: search-result.json
+    expected: "{}"
+    request_log: __DYNAMIC__
+    request_path: /search/__DYNAMIC__
+supported_shells:
+  - gptme
+  - continue-cli
+  - opencode
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - web
+  - scenario
+  - non_sanity

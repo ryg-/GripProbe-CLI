@@ -115,16 +115,21 @@ def test_run_suite_matrix_runs_only_explicit_combinations(monkeypatch, specs_roo
         models=None,
     )
 
-    assert len(run_dirs) == 13
-    assert len(calls) == 13
+    assert len(run_dirs) == 17
+    assert len(calls) == 17
     assert ("continue-cli", "local/qwen2.5:7b", ("markdown",)) in calls
+    assert ("continue-cli", "local/qwen3.5:9b", ("markdown",)) in calls
+    assert ("continue-cli", "local/aravhawk/qwen3.5-opus-4.6-text:9b", ("markdown",)) in calls
     assert ("continue-cli", "local/ministral-3:8b", ("tool",)) in calls
     assert ("gptme", "local/qwen2.5:7b", ("tool",)) in calls
+    assert ("gptme", "local/qwen3.5:9b", ("tool",)) in calls
+    assert ("gptme", "local/aravhawk/qwen3.5-opus-4.6-text:9b", ("tool",)) in calls
     assert ("gptme", "local/mistral-nemo:12b", ("tool",)) in calls
 
 
 def test_run_suite_resume_skips_completed_matrix_entries(monkeypatch, specs_root: Path) -> None:
     expected_non_sanity_tests = [
+        "json_rank_from_file",
         "patch_file_prepared",
         "python_file",
         "python_file_de",
@@ -133,7 +138,9 @@ def test_run_suite_resume_skips_completed_matrix_entries(monkeypatch, specs_root
         "shell_date_de",
         "shell_date_ru",
         "shell_file",
+        "web_fetch_json_raw",
         "web_nonce_proof",
+        "web_search_json_ranked",
         "weekly_plan_next_week",
     ]
     completed_manifest = specs_root / "results" / "runs" / "20260423T131238Z" / "manifest.json"
@@ -180,8 +187,8 @@ def test_run_suite_resume_skips_completed_matrix_entries(monkeypatch, specs_root
         resume_suite=True,
     )
 
-    assert len(run_dirs) == 12
-    assert len(calls) == 12
+    assert len(run_dirs) == 16
+    assert len(calls) == 16
     assert ("continue-cli", "local/qwen2.5:7b", ("markdown",)) not in calls
 
 
@@ -233,6 +240,6 @@ def test_run_suite_resume_does_not_skip_when_completed_tests_differ(monkeypatch,
         resume_suite=True,
     )
 
-    assert len(run_dirs) == 13
-    assert len(calls) == 13
+    assert len(run_dirs) == 17
+    assert len(calls) == 17
     assert ("continue-cli", "local/qwen2.5:7b", ("markdown",)) in calls

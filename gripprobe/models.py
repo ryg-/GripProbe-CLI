@@ -16,7 +16,7 @@ class ArtifactSpec(BaseModel):
 class ValidatorSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["file_equals", "patch_applied", "web_nonce_proof", "weekly_plan_task"]
+    type: Literal["file_equals", "patch_applied", "web_nonce_proof", "weekly_plan_task", "web_search_result"]
     target: str | None = None
     expected: str | None = None
     expected_from: Literal["workspace_path", "today"] | None = None
@@ -46,6 +46,13 @@ class ValidatorSpec(BaseModel):
                 raise ValueError("weekly_plan_task validator requires target")
             if not self.expected:
                 raise ValueError("weekly_plan_task validator requires expected")
+        if self.type == "web_search_result":
+            if not self.target:
+                raise ValueError("web_search_result validator requires target")
+            if not self.expected:
+                raise ValueError("web_search_result validator requires expected")
+            if (self.request_log and not self.request_path) or (self.request_path and not self.request_log):
+                raise ValueError("web_search_result validator requires request_log and request_path together")
         return self
 
 
