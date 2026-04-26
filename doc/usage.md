@@ -2,6 +2,15 @@
 
 This file lists the primary run metadata keys used in reports.
 
+## Aggregate report metrics
+
+- `Score`: normalized weighted pass ratio across tests in a row.
+  - sanity tests use lower weight (`0.8`) than non-sanity tests (`1.0`), then score is normalized back to `0..100%`.
+- `Typical Time`: median measured time across representative results in the row.
+  - representative result is the PASS case when available, otherwise the first available case.
+- `Outliers`: number of tests in the row whose representative time exceeds baseline median for that test by factor `2.5`.
+  - displayed as `count/total_tests_in_row`.
+
 ## User-provided keys (`--metadata key=value`)
 
 - `hardware_profile_id`: profile id from `specs/hardware_profiles.yaml`. Used by aggregate HTML for hardware cards and row grouping.
@@ -27,4 +36,3 @@ python3 -m gripprobe.cli --root . run-suite \
   --suite default_cli_matrix \
   --metadata hardware_profile_id=unspecified
 ```
-

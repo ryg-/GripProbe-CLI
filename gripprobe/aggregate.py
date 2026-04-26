@@ -493,7 +493,9 @@ a:hover{{text-decoration:underline}}
 .head-side{{display:flex;align-items:flex-start;gap:.8rem}}
 .legend{{border:1px solid #d7d1c3;background:#faf7ef;border-radius:8px;padding:.45rem .6rem;min-width:250px}}
 .legend-title{{font-size:.75rem;font-weight:700;color:#444;margin-bottom:.28rem;text-transform:uppercase;letter-spacing:.02em}}
-.legend-row{{display:flex;align-items:center;gap:.45rem;font-size:.75rem;color:#444;line-height:1.35;margin:.12rem 0}}
+.legend-row{{display:flex;align-items:flex-start;gap:.45rem;font-size:.75rem;color:#444;line-height:1.35;margin:.12rem 0}}
+.legend-row-text{{display:flex;flex-direction:column;gap:.1rem}}
+.legend-sub{{font-size:.66rem;color:#666;line-height:1.25}}
 .legend-swatch{{display:inline-block;width:12px;height:12px;border:1px solid #bdb7aa;border-radius:2px;flex:0 0 auto}}
 .legend-pass{{background:#b9e8c2}}
 .legend-mixed{{background:#fff0cc}}
@@ -501,6 +503,8 @@ a:hover{{text-decoration:underline}}
 .legend-behavioral{{background:#f6d5b2}}
 .legend-error{{background:#f3b3b3}}
 .legend-critical{{background:#e48686}}
+.legend-metrics-title{{margin-top:.55rem}}
+.legend-metric{{font-size:.68rem;color:#555;line-height:1.35;margin:.16rem 0}}
 .hardware-summary{{border:1px solid #d7d1c3;background:#faf7ef;border-radius:8px;padding:.45rem .6rem;min-width:300px}}
 .hardware-title{{font-size:.75rem;font-weight:700;color:#444;margin-bottom:.28rem;text-transform:uppercase;letter-spacing:.02em}}
 .hw-warning{{font-size:.72rem;color:#855a00;margin:.2rem 0 .45rem 0}}
@@ -522,12 +526,16 @@ a:hover{{text-decoration:underline}}
 {hardware_cards_html}
 <aside class='legend'>
 <div class='legend-title'>Failure Colors</div>
-<div class='legend-row'><span class='legend-swatch legend-pass'></span><span>PASS</span></div>
-<div class='legend-row'><span class='legend-swatch legend-mixed'></span><span>MIXED (has PASS and failures)</span></div>
-<div class='legend-row'><span class='legend-swatch legend-soft'></span><span>SOFT FAIL</span></div>
-<div class='legend-row'><span class='legend-swatch legend-behavioral'></span><span>BEHAVIORAL FAIL</span></div>
-<div class='legend-row'><span class='legend-swatch legend-error'></span><span>ERROR FAIL</span></div>
-<div class='legend-row'><span class='legend-swatch legend-critical'></span><span>CRITICAL FAIL</span></div>
+<div class='legend-row'><span class='legend-swatch legend-pass'></span><span class='legend-row-text'><span>PASS</span></span></div>
+<div class='legend-row'><span class='legend-swatch legend-mixed'></span><span class='legend-row-text'><span>MIXED</span><span class='legend-sub'>Group has at least one PASS and at least one failure for the same test cell.</span></span></div>
+<div class='legend-row'><span class='legend-swatch legend-soft'></span><span class='legend-row-text'><span>SOFT FAIL</span><span class='legend-sub'>Output shape/content mismatch after execution.</span></span></div>
+<div class='legend-row'><span class='legend-swatch legend-behavioral'></span><span class='legend-row-text'><span>BEHAVIORAL FAIL</span><span class='legend-sub'>No tool call / tool unsupported / behavior-level policy mismatch.</span></span></div>
+<div class='legend-row'><span class='legend-swatch legend-error'></span><span class='legend-row-text'><span>ERROR FAIL</span><span class='legend-sub'>Execution-level failure such as timeout.</span></span></div>
+<div class='legend-row'><span class='legend-swatch legend-critical'></span><span class='legend-row-text'><span>CRITICAL FAIL</span><span class='legend-sub'>Harness or shell-level error, highest severity.</span></span></div>
+<div class='legend-title legend-metrics-title'>Aggregate Metrics</div>
+<div class='legend-metric'><strong>Score</strong>: normalized weighted pass ratio across visible tests (sanity tests use lower weight than non-sanity).</div>
+<div class='legend-metric'><strong>Typical Time</strong>: median measured time across representative results in the row.</div>
+<div class='legend-metric'><strong>Outliers</strong>: count of tests in the row where time is above baseline median × {OUTLIER_FACTOR:.1f}.</div>
 </aside>
 </div>
 </div>

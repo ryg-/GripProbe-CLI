@@ -101,6 +101,10 @@ def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     assert "845dbda" in summary_html
     assert "845dbda0ea48" not in summary_html
     assert "Failure Colors" in summary_html
+    assert "Aggregate Metrics" in summary_html
+    assert "<strong>Score</strong>" in summary_html
+    assert "<strong>Typical Time</strong>" in summary_html
+    assert "<strong>Outliers</strong>" in summary_html
     assert "generated at " in summary_html
     assert "<td class='agg-fail-soft'" in summary_html
 
