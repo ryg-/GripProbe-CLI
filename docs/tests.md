@@ -91,6 +91,52 @@ It starts with complex scenarios and web-specific cases, and can be extended ove
   - JSON fields are checked structurally against expected values;
   - no request-hit check is required for this file-only scenario.
 
+## Patch File From Prepared Patch (`patch_file_prepared`)
+
+- Goal: verify exact patch application workflow (read + patch), without fallback rewrite logic.
+- Input files in workspace:
+  - `prepared.patch`
+  - `patch-target.txt`
+- Required action:
+  - read `prepared.patch`;
+  - read `patch-target.txt`;
+  - apply the exact patch to `patch-target.txt` using the patch tool;
+  - no retry after failure.
+- Validation:
+  - `patch-target.txt` must contain `STATUS=new` after patching.
+
+## Python File Quoted Variants (`python_file`, `python_file_de`, `python_file_ru`)
+
+- Goal: verify exact quoted Python one-liner execution through shell tool, including strict command shape and output content.
+- Shared required action:
+  - run exactly `python3 -c "from pathlib import Path; Path('python-output.txt').write_text('PYTHON_OK\\n')"`;
+  - no retry on error;
+  - reply `DONE` on success, `FAIL` on command failure.
+- Input/output artifact in workspace:
+  - `python-output.txt`
+- Validation:
+  - `python-output.txt` must equal `PYTHON_OK`.
+- Language and tagging split:
+  - `python_file`: base variant (`mvp`, `non_sanity`).
+  - `python_file_de`: German variant (`multilingual`, `de`, `non_sanity`).
+  - `python_file_ru`: Russian variant (`multilingual`, `ru`, `non_sanity`).
+
+## Shell Date Variants (`shell_date`, `shell_date_de`, `shell_date_ru`)
+
+- Goal: verify exact shell command execution for writing today's date to a file.
+- Shared required action:
+  - run exactly `date +%F > date-output.txt`;
+  - no retry on error;
+  - reply `DONE` on success, `FAIL` on command failure.
+- Input/output artifact in workspace:
+  - `date-output.txt`
+- Validation:
+  - `date-output.txt` must equal today's date in `YYYY-MM-DD` (`expected_from: today`).
+- Language and tagging split:
+  - `shell_date`: base English sanity test (`mvp`, `sanity`).
+  - `shell_date_de`: German variant (`multilingual`, `de`, `non_sanity`).
+  - `shell_date_ru`: Russian variant (`multilingual`, `ru`, `non_sanity`).
+
 ## Weekly Plan Next Week (`weekly_plan_next_week`)
 
 - Goal: verify structured edit in the middle of Markdown, not append-only behavior.

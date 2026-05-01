@@ -1,27 +1,4 @@
-# GripProbe-CLI
-
-GripProbe is a benchmark framework for CLI AI agents, focused on small and local models and artifact-first tool-use evaluation.
-
-The goal is not to measure general intelligence, but to evaluate tool-use reliability in real local setups and
-verify whether local LLMs in CLI agent environments actually use tools, modify files, and execute commands.
-
-Results are environment-specific and may vary by runtime, quantization, prompt formatting, hardware, seed, and model version.
-
-Privacy and publication policy:
-- `results/runs/...` is the internal diagnostic layer
-- `results/aggregate/...` is the sanitized sharing/publication layer
-- see [docs/privacy.md](docs/privacy.md)
-- preparation guide: [docs/preparation.md](docs/preparation.md)
-- run metadata keys: [docs/usage.md](docs/usage.md)
-
-Current MVP slice:
-- shell executables are resolved from `PATH`, not from machine-specific absolute paths
-- YAML specs validated into Pydantic models
-- one working adapter: `gptme`
-- one scaffold adapter: `continue-cli`
-- canonical JSON results
-- generated Markdown and HTML summaries
-- Docker scaffolding for isolated execution
+# Usage
 
 ## Quick Start
 
@@ -143,6 +120,44 @@ python -m gripprobe.cli rebuild-reports --run-dir results/runs/<run_id>
 
 This command recreates `summary.md`, `summary.html`, and per-case HTML detail pages from the saved artifacts.
 
+
+
+This file lists the primary run metadata keys used in reports.
+
+## Aggregate report metrics
+
+- `Score`: normalized weighted pass ratio across tests in a row.
+  - sanity tests use lower weight (`0.8`) than non-sanity tests (`1.0`), then score is normalized back to `0..100%`.
+- `Typical Time`: median measured time across representative results in the row.
+  - representative result is the PASS case when available, otherwise the first available case.
+- `Outliers`: number of tests in the row whose representative time exceeds baseline median for that test by factor `2.5`.
+  - displayed as `count/total_tests_in_row`.
+
+## User-provided keys (`--metadata key=value`)
+
+- `hardware_profile_id`: profile id from `specs/hardware_profiles.yaml`. Used by aggregate HTML for hardware cards and row grouping.
+- `suite`: optional marker for grouping related runs (for example: `aggregate_full_passed_matrix`).
+- `run_note`: optional free-form label for experiment context.
+
+## Automatically captured runtime keys
+
+- `shell_executable`
+- `shell_executable_path` (sanitized to `$HOME/...`)
+- `shell_version`
+- `shell_version_exit_code`
+- `ollama_context_length` (from `OLLAMA_CONTEXT_LENGTH`, if set)
+- `ollama_num_parallel` (from `OLLAMA_NUM_PARALLEL`, if set)
+- `ollama_flash_attention` (from `OLLAMA_FLASH_ATTENTION`, if set)
+- `ollama_kv_cache_type` (from `OLLAMA_KV_CACHE_TYPE`, if set)
+- `runtime_snapshots` (loadavg/meminfo/nvidia-smi and ollama `/api/ps` probe payloads)
+
+## Recommended baseline command
+
+```bash
+python3 -m gripprobe.cli --root . run-suite \
+  --suite default_cli_matrix \
+  --metadata hardware_profile_id=unspecified
+```
 ## Current Limitations
 
 - `continue-cli` adapter is scaffolded but not yet implemented end-to-end

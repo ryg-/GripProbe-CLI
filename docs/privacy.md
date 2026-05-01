@@ -64,3 +64,5 @@ Use the layers like this:
 - `results/aggregate/...` for review, comparison, and sharing
 
 If a report may leave the local machine, prefer generating or publishing from the aggregate layer, not directly from `results/runs/...`.
+
+For routine benchmarking, it is recommended to run GripProbe inside a container (`docker compose run ...`). Container execution reduces accidental host-path/user leakage in runtime artifacts, avoids root-owned file issues in shared result directories, and makes runs more reproducible across environments.
