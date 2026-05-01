@@ -5,8 +5,12 @@ backend: ollama
 models:
   - local/qwen2.5:7b
   - local/qwen3:8b
+  - local/qwen3:14b
   - local/qwen3.5:9b
+  - local/fredrezones55/qwen3.5-opus:9b
+  - local/fredrezones55/qwen3.5-opus:27b
   - local/aravhawk/qwen3.5-opus-4.6-text:9b
+  - local/cryptidbleh/gemma4-claude-opus-4.6:latest
   - local/MFDoom/deepseek-r1-tool-calling:8b
   - local/granite4:3b
   - local/phi3.5:latest

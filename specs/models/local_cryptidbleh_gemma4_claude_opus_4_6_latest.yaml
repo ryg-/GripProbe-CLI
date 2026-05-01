@@ -1,0 +1,19 @@
+id: local_cryptidbleh_gemma4_claude_opus_4_6_latest
+label: local/cryptidbleh/gemma4-claude-opus-4.6:latest
+family: gemma
+size_class: medium
+parameters_b: null
+quantization: null
+backends:
+  - id: ollama
+    model_id: cryptidbleh/gemma4-claude-opus-4.6:latest
+    shell_model_id: local/cryptidbleh/gemma4-claude-opus-4.6:latest
+tags:
+  - local
+  - medium
+supported_formats:
+  - markdown
+  - tool
+policy_overrides:
+  shell_timeout_seconds:
+    continue-cli: 600

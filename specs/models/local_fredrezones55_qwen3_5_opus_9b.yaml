@@ -1,0 +1,20 @@
+id: local_fredrezones55_qwen3_5_opus_9b
+label: local/fredrezones55/qwen3.5-opus:9b
+family: qwen
+size_class: medium
+parameters_b: 9
+quantization: null
+backends:
+  - id: ollama
+    model_id: fredrezones55/qwen3.5-opus:9b
+    shell_model_id: local/fredrezones55/qwen3.5-opus:9b
+tags:
+  - local
+  - medium
+  - tool-capable
+supported_formats:
+  - markdown
+  - tool
+policy_overrides:
+  shell_timeout_seconds:
+    continue-cli: 600

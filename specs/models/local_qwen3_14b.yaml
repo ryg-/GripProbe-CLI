@@ -1,0 +1,20 @@
+id: local_qwen3_14b
+label: local/qwen3:14b
+family: qwen
+size_class: medium
+parameters_b: 14
+quantization: null
+backends:
+  - id: ollama
+    model_id: qwen3:14b
+    shell_model_id: local/qwen3:14b
+tags:
+  - local
+  - medium
+  - tool-capable
+supported_formats:
+  - markdown
+  - tool
+policy_overrides:
+  shell_timeout_seconds:
+    continue-cli: 600
