@@ -19,7 +19,9 @@ matrix:
     format: markdown
   - shell: continue-cli
     model: local/aravhawk/qwen3.5-opus-4.6-text:9b
-    format: markdown
+  - shell: continue-cli
+    model: local/aravhawk/qwen3.5-opus-4.6-text:9b
+    format: tool
   - shell: continue-cli
     model: local/gemma4:e2b
     format: markdown
