@@ -7,6 +7,13 @@ verify whether local LLMs in CLI agent environments actually use tools, modify f
 
 Results are environment-specific and may vary by runtime, quantization, prompt formatting, hardware, seed, and model version.
 
+## What GripProbe Measures
+
+Typical tool-calling benchmarks evaluate parsed tool calls in synthetic, API-like settings.
+GripProbe evaluates observable side effects in real CLI agent environments.
+It distinguishes textual success from executed success.
+It is aimed at model x shell x backend compatibility rather than model-only ranking.
+
 Privacy and publication policy:
 - `results/runs/...` is the internal diagnostic layer
 - `results/aggregate/...` is the sanitized sharing/publication layer
