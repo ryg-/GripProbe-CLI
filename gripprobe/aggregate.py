@@ -334,6 +334,7 @@ def write_aggregate_html_summary(
     output_dir: Path,
     hardware_profile_map: dict[str, HardwareProfileSpec] | None = None,
     default_hardware_profile_id: str = DEFAULT_HARDWARE_PROFILE_ID,
+    tests_doc_relpath: str | None = None,
 ) -> None:
     reports_dir = output_dir / "reports"
     cases_dir = output_dir / "cases"
@@ -384,6 +385,13 @@ def write_aggregate_html_summary(
     profile_ids = sorted({_hardware_profile_id(item, default_hardware_profile_id) for item in results})
     show_model_profile_meta = len(profile_ids) > 1
     hardware_cards_html = _render_hardware_cards(profile_ids, hardware_profile_map or {})
+    tests_doc_link_html = ""
+    if tests_doc_relpath:
+        tests_doc_link_html = (
+            "<p class='tests-doc-link-line'>"
+            f"<a href='{escape(tests_doc_relpath)}'>Test descriptions</a>"
+            "</p>"
+        )
     shell_filter_options = "".join(
         [
             "<option value='all'>all</option>",
@@ -485,12 +493,15 @@ a:hover{{text-decoration:underline}}
 .sort-controls{{display:inline-flex;gap:.2rem;margin-left:.35rem;vertical-align:middle}}
 .sort-btn{{border:1px solid #c9c3b4;background:#f7f3e8;color:#555;border-radius:4px;padding:0 .22rem;font-size:.66rem;line-height:1.15;cursor:pointer}}
 .sort-btn:hover{{background:#efe6d3;color:#222}}
-.controls{{display:flex;align-items:center;gap:.5rem;margin:.6rem 0 1rem 0;color:#333}}
+.controls{{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;margin:.6rem 0 1rem 0;color:#333}}
+.controls .meta{{flex:0 0 100%;margin:0 0 .15rem 0}}
 .controls input{{margin:0}}
 .controls select{{border:1px solid #c9c3b4;background:#fff;border-radius:4px;padding:.12rem .25rem;font-size:.85rem}}
 .row-hidden{{display:none}}
 .page-head{{display:flex;justify-content:space-between;align-items:flex-start;gap:1.2rem}}
 .head-side{{display:flex;align-items:flex-start;gap:.8rem}}
+.hardware-side{{display:flex;flex-direction:column;gap:.35rem}}
+.tests-doc-link-line{{margin:.05rem 0 0 .1rem;font-size:.78rem}}
 .legend{{border:1px solid #d7d1c3;background:#faf7ef;border-radius:8px;padding:.45rem .6rem;min-width:250px}}
 .legend-title{{font-size:.75rem;font-weight:700;color:#444;margin-bottom:.28rem;text-transform:uppercase;letter-spacing:.02em}}
 .legend-row{{display:flex;align-items:flex-start;gap:.45rem;font-size:.75rem;color:#444;line-height:1.35;margin:.12rem 0}}
@@ -520,10 +531,12 @@ a:hover{{text-decoration:underline}}
 <div class='page-head'>
 <div>
 <h1>GripProbe Aggregate Summary</h1>
-<p class='meta'>One row per shell/model/hash/format group. Test cells link to a concrete case detail page. Group links open the source run summary.</p>
 </div>
 <div class='head-side'>
+<div class='hardware-side'>
 {hardware_cards_html}
+{tests_doc_link_html}
+</div>
 <aside class='legend'>
 <div class='legend-title'>Failure Colors</div>
 <div class='legend-row'><span class='legend-swatch legend-pass'></span><span class='legend-row-text'><span>PASS</span></span></div>
@@ -540,6 +553,7 @@ a:hover{{text-decoration:underline}}
 </div>
 </div>
 <div class='controls'>
+<p class='meta'>One row per shell/model/hash/format group. Test cells link to a concrete case detail page. Group links open the source run summary.</p>
 <label for='shell-filter'>Shell</label>
 <select id='shell-filter'>
 {shell_filter_options}
@@ -646,13 +660,22 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
             write_json(aggregate_case_dir / "case.json", aggregate_result.model_dump())
             aggregated_results.append(aggregate_result)
 
-    hardware_profile_map, default_hardware_profile_id = _load_hardware_profile_data(root.resolve() if root is not None else None)
+    resolved_root = root.resolve() if root is not None else None
+    hardware_profile_map, default_hardware_profile_id = _load_hardware_profile_data(resolved_root)
+
+    tests_doc_relpath: str | None = None
+    if resolved_root is not None:
+        tests_doc_path = resolved_root / "docs" / "tests.md"
+        if tests_doc_path.exists():
+            tests_doc_relpath = os.path.relpath(tests_doc_path, reports_dir)
+
     write_markdown_summary(aggregated_results, reports_dir / "summary.md")
     write_aggregate_html_summary(
         aggregated_results,
         output_dir,
         hardware_profile_map=hardware_profile_map,
         default_hardware_profile_id=default_hardware_profile_id,
+        tests_doc_relpath=tests_doc_relpath,
     )
     write_json(
         output_dir / "aggregate_manifest.json",
