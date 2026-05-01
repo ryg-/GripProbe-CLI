@@ -88,8 +88,6 @@ run()
 
 In practice, one matrix point is usually two short shell sessions: `warmup` and `measured`, each with separate `stdout` and `stderr` logs.
 
-Full execution-flow document:
-- `docs_execution_flow.md`
 
 ## Real E2E Test
 
