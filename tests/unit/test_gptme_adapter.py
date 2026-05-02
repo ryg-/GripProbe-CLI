@@ -393,7 +393,7 @@ def test_gptme_populates_openai_env_for_ollama_backend_when_missing(tmp_path: Pa
     (case.warmup_workspace_dir / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
     (case.workspace_dir / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
 
-    monkeypatch.setenv("OLLAMA_HOST", "http://c:11434")
+    monkeypatch.setenv("OLLAMA_HOST", "http://source-host:11434")
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     captured_envs: list[dict[str, str]] = []
@@ -421,5 +421,5 @@ def test_gptme_populates_openai_env_for_ollama_backend_when_missing(tmp_path: Pa
     assert result.status == "PASS"
     assert len(captured_envs) == 2
     for env in captured_envs:
-        assert env["OPENAI_BASE_URL"] == "http://c:11434/v1"
+        assert env["OPENAI_BASE_URL"] == "http://source-host:11434/v1"
         assert env["OPENAI_API_KEY"] == "ollama"

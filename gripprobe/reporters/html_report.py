@@ -3,6 +3,7 @@ from __future__ import annotations
 import difflib
 import json
 import os
+import re
 from html import escape
 from pathlib import Path
 
@@ -41,6 +42,32 @@ INVOKED_CLASS = {
     "maybe": "invoked-maybe",
 }
 
+def _sanitize_user_paths(text: str) -> str:
+    sanitized = re.sub(r"(?<![\w$])/(?:home|Users)/[^/\s\"'<>:]+", "$HOME", text)
+    sanitized = re.sub(r"(?<![\w$])[A-Za-z]:\\+Users\\+[^\\/\s\"'<>:]+", "$HOME", sanitized)
+    return sanitized
+
+
+def _sanitize_local_username(text: str) -> str:
+    username = Path.home().name
+    if not username:
+        return text
+    return re.sub(rf"(?<![A-Za-z0-9_.-]){re.escape(username)}(?![A-Za-z0-9_.-])", "$USER", text)
+
+
+def _sanitize_for_html(text: str) -> str:
+    return _sanitize_local_username(_sanitize_user_paths(text))
+
+
+def _sanitize_obj(value: object) -> object:
+    if isinstance(value, str):
+        return _sanitize_for_html(value)
+    if isinstance(value, list):
+        return [_sanitize_obj(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _sanitize_obj(item) for key, item in value.items()}
+    return value
+
 
 def _match_class(match_percent: int) -> str:
     if match_percent >= 100:
@@ -65,7 +92,7 @@ def _status_badges(result: CaseResult) -> str:
 def _read_text(path: Path) -> str:
     if not path.exists() or not path.is_file():
         return ""
-    return path.read_text(encoding="utf-8", errors="replace")
+    return _sanitize_for_html(path.read_text(encoding="utf-8", errors="replace"))
 
 
 def _find_conversation_jsonl(case_dir: Path) -> Path | None:
@@ -88,7 +115,7 @@ def _render_transcript(case_dir: Path) -> str:
         except json.JSONDecodeError:
             continue
         role = escape(str(item.get("role", "unknown")))
-        content = escape(str(item.get("content", "")))
+        content = escape(_sanitize_for_html(str(item.get("content", ""))))
         rows.append(
             "<section class='message'>"
             f"<h3>{role}</h3>"
@@ -153,8 +180,8 @@ def _pre_block(text: str) -> str:
 
 
 def _render_shell_commands(result: CaseResult) -> str:
-    warmup_command = str(result.metadata.get("warmup_command") or "").strip()
-    measured_command = str(result.metadata.get("measured_command") or "").strip()
+    warmup_command = _sanitize_for_html(str(result.metadata.get("warmup_command") or "")).strip()
+    measured_command = _sanitize_for_html(str(result.metadata.get("measured_command") or "")).strip()
     if not warmup_command and not measured_command:
         return ""
     parts: list[str] = []
@@ -179,6 +206,7 @@ def _render_case_json_panel_text(case_dir: Path) -> str:
         metadata = dict(metadata)
         metadata["shell_executable_path"] = "[hidden in HTML]"
         payload["metadata"] = metadata
+    payload = _sanitize_obj(payload)
     return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
@@ -280,17 +308,17 @@ def _render_runtime_snapshot(snapshot: object) -> str:
     blocks: list[str] = []
     captured_at = snapshot.get("captured_at")
     if captured_at:
-        blocks.append(f"<p><strong>Captured:</strong> {escape(str(captured_at))}</p>")
+        blocks.append(f"<p><strong>Captured:</strong> {escape(_sanitize_for_html(str(captured_at)))}</p>")
     for probe_name, probe_payload in probes.items():
         if not isinstance(probe_payload, dict):
             continue
-        command = escape(str(probe_payload.get("command", "")))
-        status = escape(str(probe_payload.get("status", "")))
-        duration = escape(str(probe_payload.get("duration_seconds", "")))
+        command = escape(_sanitize_for_html(str(probe_payload.get("command", ""))))
+        status = escape(_sanitize_for_html(str(probe_payload.get("status", ""))))
+        duration = escape(_sanitize_for_html(str(probe_payload.get("duration_seconds", ""))))
         exit_code = probe_payload.get("exit_code")
-        stdout = escape(str(probe_payload.get("stdout", "")))
-        stderr = escape(str(probe_payload.get("stderr", "")))
-        error = escape(str(probe_payload.get("error", "")))
+        stdout = escape(_sanitize_for_html(str(probe_payload.get("stdout", ""))))
+        stderr = escape(_sanitize_for_html(str(probe_payload.get("stderr", ""))))
+        error = escape(_sanitize_for_html(str(probe_payload.get("error", ""))))
         meta = [f"<li><strong>Status:</strong> {status}</li>"]
         if command:
             meta.append(f"<li><strong>Command:</strong> <code>{command}</code></li>")
@@ -509,7 +537,7 @@ def write_html_summary(results: list[CaseResult], path: Path) -> None:
             f"<td>{escape(item.format)}</td>"
             f"<td>{escape(item.title)}</td>"
             f"<td>{_status_badges(item)}</td>"
-            f"<td>{escape(str(item.metadata.get('failure_reason') or ''))}</td>"
+            f"<td>{escape(_sanitize_for_html(str(item.metadata.get('failure_reason') or '')))}</td>"
             f"<td><span class='badge {trajectory_class}'>{escape(item.trajectory)}</span></td>"
             f"<td><span class='badge {invoked_class}'>{escape(item.invoked)}</span></td>"
             f"<td><span class='badge {match_class}'>{item.match_percent}%</span></td>"

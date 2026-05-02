@@ -20,6 +20,19 @@ SANITY_WEIGHT = 0.8
 DEFAULT_TEST_WEIGHT = 1.0
 OUTLIER_FACTOR = 2.5
 DEFAULT_HARDWARE_PROFILE_ID = "unspecified"
+_SANITIZED_TEXT_SUFFIXES = {
+    ".html",
+    ".md",
+    ".json",
+    ".txt",
+    ".stdout",
+    ".stderr",
+    ".jsonl",
+    ".toml",
+    ".yaml",
+    ".yml",
+    ".log",
+}
 
 
 def _prefixed_case_id(run_id: str, case_id: str) -> str:
@@ -92,26 +105,58 @@ def _strip_sections_from_source_reports(reports_root: Path) -> None:
         _strip_named_section_from_html(html_path, "Case JSON")
 
 
-def _sanitize_report_text(text: str) -> str:
-    home = str(Path.home())
-    username = Path.home().name
-    sanitized = text.replace(home, "$HOME")
-    sanitized = re.sub(r"https?://[^/\s\"'<>:]+:11434", "http://ollama-host:11434", sanitized)
-    sanitized = re.sub(r"\bssh\s+[^/\s\"'<>:]+", "ssh ollama-host", sanitized)
-    sanitized = sanitized.replace(username, "$USER")
+def _sanitize_user_paths(text: str) -> str:
+    sanitized = re.sub(r"(?<![\w$])/(?:home|Users)/[^/\s\"'<>:]+", "$HOME", text)
+    sanitized = re.sub(r"(?<![\w$])[A-Za-z]:\\+Users\\+[^\\/\s\"'<>:]+", "$HOME", sanitized)
     return sanitized
 
 
-def _sanitize_source_reports(reports_root: Path) -> None:
-    for path in reports_root.rglob("*"):
+def _sanitize_local_username(text: str) -> str:
+    username = Path.home().name
+    if not username:
+        return text
+    return re.sub(rf"(?<![A-Za-z0-9_.-]){re.escape(username)}(?![A-Za-z0-9_.-])", "$USER", text)
+
+
+def _sanitize_report_text(text: str) -> str:
+    sanitized = _sanitize_user_paths(text)
+    sanitized = _sanitize_local_username(sanitized)
+    sanitized = re.sub(r"https?://[^/\s\"'<>:]+:11434", "http://ollama-host:11434", sanitized)
+    sanitized = re.sub(r"\bssh\s+[^/\s\"'<>:]+", "ssh ollama-host", sanitized)
+    return sanitized
+
+
+def _sanitize_tree_text_files(root_dir: Path) -> None:
+    for path in root_dir.rglob("*"):
         if not path.is_file():
             continue
-        if path.suffix.lower() not in {".html", ".md", ".json", ".txt"}:
+        if path.suffix.lower() not in _SANITIZED_TEXT_SUFFIXES:
             continue
         original = path.read_text(encoding="utf-8", errors="replace")
         updated = _sanitize_report_text(original)
         if updated != original:
             path.write_text(updated, encoding="utf-8")
+
+
+def _sanitize_source_reports(reports_root: Path) -> None:
+    _sanitize_tree_text_files(reports_root)
+
+
+def _sanitize_case_result(result: CaseResult) -> CaseResult:
+    def _sanitize_value(value: object) -> object:
+        if isinstance(value, str):
+            return _sanitize_report_text(value)
+        if isinstance(value, list):
+            return [_sanitize_value(item) for item in value]
+        if isinstance(value, dict):
+            return {key: _sanitize_value(item) for key, item in value.items()}
+        return value
+
+    payload = result.model_dump()
+    sanitized_payload = _sanitize_value(payload)
+    if not isinstance(sanitized_payload, dict):
+        return result
+    return CaseResult.model_validate(sanitized_payload)
 
 
 def discover_run_dirs(runs_root: Path) -> list[Path]:
@@ -646,17 +691,18 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
             aggregate_case_id = _prefixed_case_id(run_dir.name, result.case_id)
             aggregate_case_dir = cases_dir / aggregate_case_id
             _copy_case_dir(case_dir, aggregate_case_dir)
+            _sanitize_tree_text_files(aggregate_case_dir)
             aggregate_result = result.model_copy(
                 update={
                     "case_id": aggregate_case_id,
                     "run_id": run_dir.name,
                     "metadata": {
                         **result.metadata,
-                        "source_run_dir": str(run_dir),
                         "source_case_id": result.case_id,
                     },
                 }
             )
+            aggregate_result = _sanitize_case_result(aggregate_result)
             write_json(aggregate_case_dir / "case.json", aggregate_result.model_dump())
             aggregated_results.append(aggregate_result)
 
@@ -680,7 +726,7 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
     write_json(
         output_dir / "aggregate_manifest.json",
         {
-            "run_dirs": [str(path.resolve()) for path in run_dirs],
+            "run_dirs": [_sanitize_report_text(str(path.resolve())) for path in run_dirs],
             "runs": [path.name for path in run_dirs],
             "cases": len(aggregated_results),
         },

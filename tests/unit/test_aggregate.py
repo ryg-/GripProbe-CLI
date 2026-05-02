@@ -214,9 +214,11 @@ def test_aggregate_reports_sanitizes_source_report_private_values(tmp_path: Path
     source_case_html = run_dir / "reports" / "cases" / "case-1.html"
     source_case_html.write_text(
         "<html><body>"
-        "GET http://c:11434/api/ps "
-        "ssh c cat /proc/loadavg "
-        "/home/ryg/work/private"
+        "GET http://source-host:11434/api/ps "
+        "ssh source-host cat /proc/loadavg "
+        f"{Path.home()}/work/private "
+        "/home/source-user/work/private "
+        "/Users/source-user/work/private"
         "</body></html>",
         encoding="utf-8",
     )
@@ -224,12 +226,43 @@ def test_aggregate_reports_sanitizes_source_report_private_values(tmp_path: Path
     output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
     copied_html = (output_dir / "source_reports" / "run-a" / "cases" / "case-1.html").read_text(encoding="utf-8")
 
-    assert "http://c:11434" not in copied_html
-    assert "ssh c " not in copied_html
-    assert "/home/ryg" not in copied_html
+    assert "http://source-host:11434" not in copied_html
+    assert "ssh source-host " not in copied_html
+    assert str(Path.home()) not in copied_html
+    assert "/home/source-user" not in copied_html
+    assert "/Users/source-user" not in copied_html
     assert "http://ollama-host:11434" in copied_html
     assert "ssh ollama-host" in copied_html
     assert "$HOME/work/private" in copied_html
+
+
+def test_aggregate_reports_sanitizes_case_artifacts_and_detail_pages(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "FAIL")
+    case_dir = run_dir / "cases" / "case-1"
+    (case_dir / "expected.txt").write_text(
+        "/home/source-user/work/private\n/Users/source-user/work/private\n",
+        encoding="utf-8",
+    )
+    (case_dir / "observed.txt").write_text("mismatch\n", encoding="utf-8")
+    (case_dir / "measured.stdout").write_text(
+        "trace: /home/source-user/work/private\n",
+        encoding="utf-8",
+    )
+
+    case_payload = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
+    case_payload["metadata"]["failure_reason"] = "path leak at /home/source-user/work/private and /Users/source-user/work/private"
+    (case_dir / "case.json").write_text(json.dumps(case_payload), encoding="utf-8")
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
+    detail_html = (output_dir / "reports" / "cases" / "case-00001.html").read_text(encoding="utf-8")
+    aggregate_case_json = (output_dir / "cases" / "run-a__case-1" / "case.json").read_text(encoding="utf-8")
+
+    assert "/home/source-user" not in detail_html
+    assert "/Users/source-user" not in detail_html
+    assert "$HOME/work/private" in detail_html
+    assert "/home/source-user" not in aggregate_case_json
+    assert "/Users/source-user" not in aggregate_case_json
 
 
 def test_aggregate_reports_ignores_dangling_symlink_in_case_dir(tmp_path: Path) -> None:
@@ -333,15 +366,15 @@ def test_aggregate_reports_renders_hardware_profile_cards_from_yaml(tmp_path: Pa
     _write_case(run_dir, "case-1", "Case One", "PASS")
     case_path = run_dir / "cases" / "case-1" / "case.json"
     payload = json.loads(case_path.read_text(encoding="utf-8"))
-    payload["metadata"]["hardware_profile_id"] = "wombat_a100"
+    payload["metadata"]["hardware_profile_id"] = "benchmark_a100"
     case_path.write_text(json.dumps(payload), encoding="utf-8")
 
     specs_dir = tmp_path / "specs"
     specs_dir.mkdir(parents=True, exist_ok=True)
     (specs_dir / "hardware_profiles.yaml").write_text(
         "profiles:\n"
-        "  - id: wombat_a100\n"
-        "    label: Wombat A100\n"
+        "  - id: benchmark_a100\n"
+        "    label: Benchmark A100\n"
         "    cpu: AMD EPYC 7F52\n"
         "    gpu: NVIDIA A100 80GB\n"
         "    ram: 512GB\n"
@@ -353,7 +386,7 @@ def test_aggregate_reports_renders_hardware_profile_cards_from_yaml(tmp_path: Pa
     summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
 
     assert "Hardware Profiles" in summary_html
-    assert "wombat_a100" in summary_html
+    assert "benchmark_a100" in summary_html
     assert "AMD EPYC 7F52" in summary_html
     assert "NVIDIA A100 80GB" in summary_html
     assert "512GB" in summary_html

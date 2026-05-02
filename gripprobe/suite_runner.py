@@ -11,6 +11,7 @@ from gripprobe.runner import run
 from gripprobe.spec_loader import load_model_specs, load_shell_specs, load_suite_specs, load_test_specs
 
 SuiteRunKey = tuple[str, str, str, tuple[str, ...], tuple[str, ...]]
+SuiteCaseKey = tuple[str, str, str, str, str]
 
 
 def _find_suite(root: Path, suite_name: str) -> SuiteSpec:
@@ -74,14 +75,28 @@ def _filter_tests_by_tags(tests: list[TestSpec], selected_tags: list[str] | None
     return [test for test in tests if wanted.intersection(test.tags)]
 
 
-def _resolve_effective_tests(
+def _resolve_selected_tests(
     all_tests: list[TestSpec],
     tests_filter: list[str] | None,
     test_tags_filter: list[str] | None,
-) -> tuple[str, ...]:
+) -> list[TestSpec]:
     selected = _filter_tests_by_selection(all_tests, tests_filter)
-    selected = _filter_tests_by_tags(selected, test_tags_filter)
-    return tuple(test.id for test in selected)
+    return _filter_tests_by_tags(selected, test_tags_filter)
+
+
+def _effective_test_ids_for_format(
+    tests: list[TestSpec],
+    shell_id: str,
+    tool_format: str,
+) -> tuple[str, ...]:
+    test_ids: list[str] = []
+    for test in tests:
+        if test.supported_shells and shell_id not in test.supported_shells:
+            continue
+        if test.supported_formats and tool_format not in test.supported_formats:
+            continue
+        test_ids.append(test.id)
+    return tuple(test_ids)
 
 
 def _manifest_run_key(payload: dict[str, object], aliases: dict[str, str]) -> SuiteRunKey | None:
@@ -105,27 +120,73 @@ def _manifest_run_key(payload: dict[str, object], aliases: dict[str, str]) -> Su
     )
 
 
-def _load_completed_suite_keys(root: Path, suite_id: str, aliases: dict[str, str]) -> set[SuiteRunKey]:
+def _read_json_dict(path: Path) -> dict[str, object] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def _case_key_from_case_json(payload: dict[str, object], aliases: dict[str, str]) -> SuiteCaseKey | None:
+    shell = payload.get("shell")
+    tool_format = payload.get("format")
+    test_id = payload.get("test")
+    model_payload = payload.get("model")
+    if not isinstance(shell, str) or not isinstance(tool_format, str) or not isinstance(test_id, str):
+        return None
+    if not isinstance(model_payload, dict):
+        return None
+    model_id = model_payload.get("id")
+    backend = model_payload.get("backend")
+    if not isinstance(model_id, str) or not isinstance(backend, str):
+        return None
+    return (
+        shell,
+        _canonical_model_id(model_id, aliases),
+        backend,
+        tool_format,
+        test_id,
+    )
+
+
+def _expand_manifest_run_key_to_case_keys(run_key: SuiteRunKey) -> set[SuiteCaseKey]:
+    shell, model, backend, formats, tests = run_key
+    keys: set[SuiteCaseKey] = set()
+    for tool_format in formats:
+        for test_id in tests:
+            keys.add((shell, model, backend, tool_format, test_id))
+    return keys
+
+
+def _load_completed_case_keys(root: Path, aliases: dict[str, str]) -> set[SuiteCaseKey]:
     runs_root = root / "results" / "runs"
     if not runs_root.exists():
         return set()
-    completed: set[SuiteRunKey] = set()
+    completed: set[SuiteCaseKey] = set()
     for run_dir in sorted(runs_root.glob("*")):
+        run_case_keys: set[SuiteCaseKey] = set()
+        for case_json_path in sorted((run_dir / "cases").glob("*/case.json")):
+            case_payload = _read_json_dict(case_json_path)
+            if case_payload is None:
+                continue
+            key = _case_key_from_case_json(case_payload, aliases)
+            if key is not None:
+                run_case_keys.add(key)
+        if run_case_keys:
+            completed.update(run_case_keys)
+            continue
         manifest_path = run_dir / "manifest.json"
         if not manifest_path.exists():
             continue
-        try:
-            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        manifest = _read_json_dict(manifest_path)
+        if manifest is None:
             continue
-        if not isinstance(payload, dict):
-            continue
-        run_metadata = payload.get("run_metadata")
-        if not isinstance(run_metadata, dict) or run_metadata.get("suite") != suite_id:
-            continue
-        key = _manifest_run_key(payload, aliases)
-        if key is not None:
-            completed.add(key)
+        run_key = _manifest_run_key(manifest, aliases)
+        if run_key is not None:
+            completed.update(_expand_manifest_run_key_to_case_keys(run_key))
     return completed
 
 
@@ -148,6 +209,32 @@ def _select_items(
     return values or None
 
 
+def _missing_tests_by_format(
+    *,
+    shell_id: str,
+    model_name: str,
+    backend_name: str,
+    formats: tuple[str, ...],
+    selected_tests: list[TestSpec],
+    completed_case_keys: set[SuiteCaseKey],
+    aliases: dict[str, str],
+) -> dict[str, list[str]]:
+    model_id = _canonical_model_id(model_name, aliases)
+    missing: dict[str, list[str]] = {}
+    for tool_format in formats:
+        test_ids = _effective_test_ids_for_format(selected_tests, shell_id, tool_format)
+        if not test_ids:
+            continue
+        missing_tests = [
+            test_id
+            for test_id in test_ids
+            if (shell_id, model_id, backend_name, tool_format, test_id) not in completed_case_keys
+        ]
+        if missing_tests:
+            missing[tool_format] = missing_tests
+    return missing
+
+
 def run_suite(
     root: Path,
     suite_name: str,
@@ -167,7 +254,7 @@ def run_suite(
     model_aliases = _model_alias_map(root)
     model_by_id = {model.id: model for model in load_model_specs(root)}
     shell_by_id = {shell.id: shell for shell in load_shell_specs(root)}
-    completed_keys = _load_completed_suite_keys(root, suite.id, model_aliases) if resume_suite else set()
+    completed_case_keys = _load_completed_case_keys(root, model_aliases) if resume_suite else set()
 
     run_dirs: list[Path] = []
     used_run_ids: set[str] = set()
@@ -185,6 +272,7 @@ def run_suite(
         for entry in selected_entries:
             selected_tests = _select_items(tests, entry.tests, suite.tests)
             selected_test_tags = _select_items(test_tags, entry.test_tags, suite.test_tags)
+            selected_test_specs = _resolve_selected_tests(all_tests, selected_tests, selected_test_tags)
             selected_backend = entry.backend or suite.backend
             selected_formats = _select_items(
                 formats,
@@ -199,31 +287,54 @@ def run_suite(
                 model_by_id,
                 model_aliases,
             )
-            effective_tests = _resolve_effective_tests(
-                all_tests,
-                selected_tests,
-                selected_test_tags,
-            )
-            run_key: SuiteRunKey = (
-                entry.shell,
-                _canonical_model_id(entry.model, model_aliases),
-                selected_backend,
-                effective_formats,
-                effective_tests,
-            )
-            if resume_suite and run_key in completed_keys:
-                print(
-                    "SKIP "
-                    f"shell={entry.shell} "
-                    f"model={entry.model} "
-                    f"backend={selected_backend} "
-                    f"formats={','.join(effective_formats)} "
-                    f"tests={len(effective_tests)} "
-                    "reason=resume-suite",
-                    flush=True,
-                )
-                continue
             merged_metadata = {**suite.metadata, **entry.metadata, **(metadata or {})}
+            if resume_suite:
+                missing_by_format = _missing_tests_by_format(
+                    shell_id=entry.shell,
+                    model_name=entry.model,
+                    backend_name=selected_backend,
+                    formats=effective_formats,
+                    selected_tests=selected_test_specs,
+                    completed_case_keys=completed_case_keys,
+                    aliases=model_aliases,
+                )
+                if not missing_by_format:
+                    total_effective_tests = sum(
+                        len(_effective_test_ids_for_format(selected_test_specs, entry.shell, tool_format))
+                        for tool_format in effective_formats
+                    )
+                    print(
+                        "SKIP "
+                        f"shell={entry.shell} "
+                        f"model={entry.model} "
+                        f"backend={selected_backend} "
+                        f"formats={','.join(effective_formats)} "
+                        f"tests={total_effective_tests} "
+                        "reason=resume-suite",
+                        flush=True,
+                    )
+                    continue
+                for tool_format, missing_tests in missing_by_format.items():
+                    run_dir, _ = run(
+                        root,
+                        shell_name=entry.shell,
+                        model_name=entry.model,
+                        backend_name=selected_backend,
+                        run_id=_unique_run_id(used_run_ids),
+                        tests_filter=missing_tests,
+                        test_tags_filter=None,
+                        formats_filter=[tool_format],
+                        container_image=container_image,
+                        keep_system_messages=keep_system_messages,
+                        model_hash=model_hash,
+                        run_metadata=merged_metadata,
+                        progress=lambda line: print(line, flush=True),
+                    )
+                    run_dirs.append(run_dir)
+                    model_id = _canonical_model_id(entry.model, model_aliases)
+                    for test_id in missing_tests:
+                        completed_case_keys.add((entry.shell, model_id, selected_backend, tool_format, test_id))
+                continue
             run_dir, _ = run(
                 root,
                 shell_name=entry.shell,
@@ -240,8 +351,6 @@ def run_suite(
                 progress=lambda line: print(line, flush=True),
             )
             run_dirs.append(run_dir)
-            if resume_suite:
-                completed_keys.add(run_key)
         return run_dirs
 
     selected_shells = _resolve_shells(root, suite, shells)
@@ -252,6 +361,7 @@ def run_suite(
 
     selected_tests = _select_items(tests, None, suite.tests)
     selected_test_tags = _select_items(test_tags, None, suite.test_tags)
+    selected_test_specs = _resolve_selected_tests(all_tests, selected_tests, selected_test_tags)
     selected_formats = _select_items(formats, None, suite.formats)
     merged_metadata = {**suite.metadata, **(metadata or {})}
 
@@ -265,29 +375,52 @@ def run_suite(
                 model_by_id,
                 model_aliases,
             )
-            effective_tests = _resolve_effective_tests(
-                all_tests,
-                selected_tests,
-                selected_test_tags,
-            )
-            run_key: SuiteRunKey = (
-                shell_name,
-                _canonical_model_id(model_name, model_aliases),
-                suite.backend,
-                effective_formats,
-                effective_tests,
-            )
-            if resume_suite and run_key in completed_keys:
-                print(
-                    "SKIP "
-                    f"shell={shell_name} "
-                    f"model={model_name} "
-                    f"backend={suite.backend} "
-                    f"formats={','.join(effective_formats)} "
-                    f"tests={len(effective_tests)} "
-                    "reason=resume-suite",
-                    flush=True,
+            if resume_suite:
+                missing_by_format = _missing_tests_by_format(
+                    shell_id=shell_name,
+                    model_name=model_name,
+                    backend_name=suite.backend,
+                    formats=effective_formats,
+                    selected_tests=selected_test_specs,
+                    completed_case_keys=completed_case_keys,
+                    aliases=model_aliases,
                 )
+                if not missing_by_format:
+                    total_effective_tests = sum(
+                        len(_effective_test_ids_for_format(selected_test_specs, shell_name, tool_format))
+                        for tool_format in effective_formats
+                    )
+                    print(
+                        "SKIP "
+                        f"shell={shell_name} "
+                        f"model={model_name} "
+                        f"backend={suite.backend} "
+                        f"formats={','.join(effective_formats)} "
+                        f"tests={total_effective_tests} "
+                        "reason=resume-suite",
+                        flush=True,
+                    )
+                    continue
+                for tool_format, missing_tests in missing_by_format.items():
+                    run_dir, _ = run(
+                        root,
+                        shell_name=shell_name,
+                        model_name=model_name,
+                        backend_name=suite.backend,
+                        run_id=_unique_run_id(used_run_ids),
+                        tests_filter=missing_tests,
+                        test_tags_filter=None,
+                        formats_filter=[tool_format],
+                        container_image=container_image,
+                        keep_system_messages=keep_system_messages,
+                        model_hash=model_hash,
+                        run_metadata=merged_metadata,
+                        progress=lambda line: print(line, flush=True),
+                    )
+                    run_dirs.append(run_dir)
+                    model_id = _canonical_model_id(model_name, model_aliases)
+                    for test_id in missing_tests:
+                        completed_case_keys.add((shell_name, model_id, suite.backend, tool_format, test_id))
                 continue
             run_dir, _ = run(
                 root,
@@ -305,6 +438,4 @@ def run_suite(
                 progress=lambda line: print(line, flush=True),
             )
             run_dirs.append(run_dir)
-            if resume_suite:
-                completed_keys.add(run_key)
     return run_dirs

@@ -3,7 +3,40 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from gripprobe.spec_loader import load_suite_specs
 from gripprobe.suite_runner import run_suite
+
+
+def _suite_matrix_size(specs_root: Path, suite_id: str) -> int:
+    suites = load_suite_specs(specs_root)
+    for suite in suites:
+        if suite.id == suite_id:
+            return len(suite.matrix)
+    raise AssertionError(f"missing suite {suite_id}")
+
+
+def _write_case_json(
+    run_dir: Path,
+    *,
+    shell: str,
+    model_id: str,
+    backend: str,
+    tool_format: str,
+    test_id: str,
+) -> None:
+    case_dir = run_dir / "cases" / f"{shell}__{model_id}__{backend}__{tool_format}__{test_id}"
+    case_dir.mkdir(parents=True, exist_ok=True)
+    (case_dir / "case.json").write_text(
+        json.dumps(
+            {
+                "shell": shell,
+                "format": tool_format,
+                "test": test_id,
+                "model": {"id": model_id, "backend": backend},
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_run_suite_runs_all_shells_by_default(monkeypatch, specs_root: Path) -> None:
@@ -115,11 +148,13 @@ def test_run_suite_matrix_runs_only_explicit_combinations(monkeypatch, specs_roo
         models=None,
     )
 
-    assert len(run_dirs) == 17
-    assert len(calls) == 17
+    expected_size = _suite_matrix_size(specs_root, "aggregate_full_passed_matrix")
+    assert len(run_dirs) == expected_size
+    assert len(calls) == expected_size
     assert ("continue-cli", "local/qwen2.5:7b", ("markdown",)) in calls
     assert ("continue-cli", "local/qwen3.5:9b", ("markdown",)) in calls
-    assert ("continue-cli", "local/aravhawk/qwen3.5-opus-4.6-text:9b", ("markdown",)) in calls
+    assert ("continue-cli", "local/aravhawk/qwen3.5-opus-4.6-text:9b", ()) in calls
+    assert ("continue-cli", "local/aravhawk/qwen3.5-opus-4.6-text:9b", ("tool",)) in calls
     assert ("continue-cli", "local/ministral-3:8b", ("tool",)) in calls
     assert ("gptme", "local/qwen2.5:7b", ("tool",)) in calls
     assert ("gptme", "local/qwen3.5:9b", ("tool",)) in calls
@@ -143,7 +178,8 @@ def test_run_suite_resume_skips_completed_matrix_entries(monkeypatch, specs_root
         "web_search_json_ranked",
         "weekly_plan_next_week",
     ]
-    completed_manifest = specs_root / "results" / "runs" / "20260423T131238Z" / "manifest.json"
+    completed_run_dir = specs_root / "results" / "runs" / "20260423T131238Z"
+    completed_manifest = completed_run_dir / "manifest.json"
     completed_manifest.parent.mkdir(parents=True, exist_ok=True)
     completed_manifest.write_text(
         json.dumps(
@@ -158,8 +194,17 @@ def test_run_suite_resume_skips_completed_matrix_entries(monkeypatch, specs_root
         ),
         encoding="utf-8",
     )
+    for test_id in expected_non_sanity_tests:
+        _write_case_json(
+            completed_run_dir,
+            shell="continue-cli",
+            model_id="local_qwen2_5_7b",
+            backend="ollama",
+            tool_format="markdown",
+            test_id=test_id,
+        )
 
-    calls: list[tuple[str, str, tuple[str, ...]]] = []
+    calls: list[tuple[str, str, tuple[str, ...], tuple[str, ...]]] = []
 
     def _fake_run(
         root,
@@ -176,7 +221,7 @@ def test_run_suite_resume_skips_completed_matrix_entries(monkeypatch, specs_root
         run_metadata=None,
         progress=None,
     ):
-        calls.append((shell_name, model_name, tuple(formats_filter or ())))
+        calls.append((shell_name, model_name, tuple(formats_filter or ()), tuple(tests_filter or ())))
         return Path(root) / "results" / "runs" / str(run_id), []
 
     monkeypatch.setattr("gripprobe.suite_runner.run", _fake_run)
@@ -187,13 +232,18 @@ def test_run_suite_resume_skips_completed_matrix_entries(monkeypatch, specs_root
         resume_suite=True,
     )
 
-    assert len(run_dirs) == 16
-    assert len(calls) == 16
-    assert ("continue-cli", "local/qwen2.5:7b", ("markdown",)) not in calls
+    expected_size = _suite_matrix_size(specs_root, "aggregate_full_passed_matrix")
+    assert len(run_dirs) == expected_size - 1
+    assert len(calls) == expected_size - 1
+    assert not any(
+        shell == "continue-cli" and model == "local/qwen2.5:7b" and formats == ("markdown",)
+        for shell, model, formats, _tests in calls
+    )
 
 
 def test_run_suite_resume_does_not_skip_when_completed_tests_differ(monkeypatch, specs_root: Path) -> None:
-    completed_manifest = specs_root / "results" / "runs" / "20260423T131238Z" / "manifest.json"
+    completed_run_dir = specs_root / "results" / "runs" / "20260423T131238Z"
+    completed_manifest = completed_run_dir / "manifest.json"
     completed_manifest.parent.mkdir(parents=True, exist_ok=True)
     completed_manifest.write_text(
         json.dumps(
@@ -211,8 +261,24 @@ def test_run_suite_resume_does_not_skip_when_completed_tests_differ(monkeypatch,
         ),
         encoding="utf-8",
     )
+    _write_case_json(
+        completed_run_dir,
+        shell="continue-cli",
+        model_id="local_qwen2_5_7b",
+        backend="ollama",
+        tool_format="markdown",
+        test_id="patch_file_prepared",
+    )
+    _write_case_json(
+        completed_run_dir,
+        shell="continue-cli",
+        model_id="local_qwen2_5_7b",
+        backend="ollama",
+        tool_format="markdown",
+        test_id="python_file",
+    )
 
-    calls: list[tuple[str, str, tuple[str, ...]]] = []
+    calls: list[tuple[str, str, tuple[str, ...], tuple[str, ...]]] = []
 
     def _fake_run(
         root,
@@ -229,7 +295,7 @@ def test_run_suite_resume_does_not_skip_when_completed_tests_differ(monkeypatch,
         run_metadata=None,
         progress=None,
     ):
-        calls.append((shell_name, model_name, tuple(formats_filter or ())))
+        calls.append((shell_name, model_name, tuple(formats_filter or ()), tuple(tests_filter or ())))
         return Path(root) / "results" / "runs" / str(run_id), []
 
     monkeypatch.setattr("gripprobe.suite_runner.run", _fake_run)
@@ -240,6 +306,19 @@ def test_run_suite_resume_does_not_skip_when_completed_tests_differ(monkeypatch,
         resume_suite=True,
     )
 
-    assert len(run_dirs) == 17
-    assert len(calls) == 17
-    assert ("continue-cli", "local/qwen2.5:7b", ("markdown",)) in calls
+    expected_size = _suite_matrix_size(specs_root, "aggregate_full_passed_matrix")
+    assert len(run_dirs) == expected_size
+    assert len(calls) == expected_size
+
+    qwen25_call = next(
+        (
+            call
+            for call in calls
+            if call[0] == "continue-cli" and call[1] == "local/qwen2.5:7b" and call[2] == ("markdown",)
+        ),
+        None,
+    )
+    assert qwen25_call is not None
+    assert "patch_file_prepared" not in qwen25_call[3]
+    assert "python_file" not in qwen25_call[3]
+    assert len(qwen25_call[3]) > 0

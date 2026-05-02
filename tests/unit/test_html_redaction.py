@@ -39,7 +39,7 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
                 "metadata": {
                     "shell_executable_path": "$HOME/.local/bin/gptme",
                     "shell_version": "gptme v0.31.0",
-                    "failure_reason": "answered without invoking tool",
+                    "failure_reason": "answered without invoking tool at /home/source-user/work/private",
                     "runtime_snapshots": {
                         "before": {
                             "captured_at": "2026-04-21T12:49:21+02:00",
@@ -99,8 +99,9 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
             measured_stderr="measured.stderr",
         ),
         metadata={
-            "warmup_command": "tool --warmup",
+            "warmup_command": "cat /home/source-user/work/private/task.txt",
             "measured_command": "tool --measured",
+            "failure_reason": "summary reason path /home/source-user/work/private",
         },
     )
 
@@ -117,6 +118,8 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     assert "tool --measured" in detail_html
     assert "Failure Reason:" in detail_html
     assert "answered without invoking tool" in detail_html
+    assert "/home/source-user" not in detail_html
+    assert "$HOME/work/private" in detail_html
     assert "strongly_diverged" in detail_html
     assert "Model Modelfile (Ollama)" in detail_html
     assert "FROM qwen2.5:7b" in detail_html
@@ -124,5 +127,7 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     summary_html = (reports_dir / "summary.html").read_text(encoding="utf-8")
     assert "<th>Reason</th>" in summary_html
     assert "<th>Command</th>" not in summary_html
+    assert "/home/source-user" not in summary_html
+    assert "$HOME/work/private" in summary_html
     assert "GET http://127.0.0.1:11434/api/ps" in summary_html
     assert "qwen3:8b 100%" in summary_html

@@ -27,16 +27,7 @@ matrix:
     model: local/fredrezones55/qwen3.5-opus:9b
     format: markdown
   - shell: continue-cli
-    model: local/fredrezones55/qwen3.5-opus:27b
-    format: markdown
-  - shell: continue-cli
-    model: local/cryptidbleh/gemma4-claude-opus-4.6:latest
-    format: markdown
-  - shell: continue-cli
     model: local/aravhawk/qwen3.5-opus-4.6-text:9b
-  - shell: continue-cli
-    model: local/aravhawk/qwen3.5-opus-4.6-text:9b
-    format: tool
   - shell: continue-cli
     model: local/gemma4:e2b
     format: markdown

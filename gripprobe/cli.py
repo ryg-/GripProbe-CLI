@@ -170,7 +170,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_suite_p.add_argument(
         "--resume-suite",
         action="store_true",
-        help="Skip already completed suite entries detected in results/runs/*/manifest.json",
+        help="Resume per test case from existing results/runs: skip completed shell/model/format/test cases and run only missing ones",
     )
     run_suite_p.add_argument(
         "--model-hash",
