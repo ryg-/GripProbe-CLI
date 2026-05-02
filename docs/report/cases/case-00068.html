@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><title>20260421T211859Z__gptme__local_mistral_small_24b__ollama__tool__shell_pwd</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.timeout{background:#fde6c8;color:#7d4b00}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.invoked-no{background:#ececec;color:#555}
+.match-none{background:#f9d7d7;color:#7a1520}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>Shell PWD</h1>
+<p><strong>Case:</strong> <code>20260421T211859Z__gptme__local_mistral_small_24b__ollama__tool__shell_pwd</code></p>
+<p><span class='badge timeout'>TIMEOUT</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-no'>no</span> | <strong>Match:</strong> <span class='badge match-none'>0%</span></p>
+
+
+
+
+<section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul><h3>Current Case</h3><ul><li>no execution errors detected</li><li>no loop pattern detected</li><li>no contradictory completion text detected</li></ul></section>
+<section><h2>Run Comparison</h2><div class='grid'><p><strong>Consistency:</strong> strongly_diverged</p><div class='panel'><h3>Run 1</h3><ul><li><strong>Status:</strong> TIMEOUT</li><li><strong>invoked:</strong> yes</li><li><strong>tool_attempt_count:</strong> 2</li><li><strong>error_count:</strong> 0</li><li><strong>repeated_error_count:</strong> 0</li><li><strong>loop_detected:</strong> False</li><li><strong>markdown_tool_imitation:</strong> False</li><li><strong>no_tool_call_after_completion:</strong> False</li></ul></div><div class='panel'><h3>Run 2</h3><ul><li><strong>Status:</strong> TIMEOUT</li><li><strong>invoked:</strong> no</li><li><strong>tool_attempt_count:</strong> 0</li><li><strong>error_count:</strong> 0</li><li><strong>repeated_error_count:</strong> 0</li><li><strong>loop_detected:</strong> False</li><li><strong>markdown_tool_imitation:</strong> False</li><li><strong>no_tool_call_after_completion:</strong> False</li></ul></div></div></section>
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Use the shell tool. Run exactly this command: pwd &gt; pwd-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL and stop.
+If the command succeeds, reply only with DONE and stop.
+Do not continue reasoning after DONE.
+Do not call any additional tools after DONE.
+End your response immediately after DONE.
+</pre></div><div class='panel'><h2>Expected</h2><pre>$HOME/work/private/GripProbe-CLI/results/runs/20260421T211859Z/cases/gptme__local_mistral_small_24b__ollama__tool__shell_pwd/workspace
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<pre>--- expected
++++ observed
+@@ -1 +0,0 @@
+-$HOME/work/private/GripProbe-CLI/results/runs/20260421T211859Z/cases/gptme__local_mistral_small_24b__ollama__tool__shell_pwd/workspace</pre>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<section class='message'><h3>user</h3><pre>Use the shell tool. Run exactly this command: pwd &gt; pwd-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL and stop.
+If the command succeeds, reply only with DONE and stop.
+Do not continue reasoning after DONE.
+Do not call any additional tools after DONE.
+End your response immediately after DONE.</pre></section>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-04-21T23:31:01+02:00
+[23:31:02] WARNING  Skipping all confirmation prompts.                                                                                                                                                                                                                    cli.py:265
+[23:31:02] Using model: local/mistral-small:24b                                                                                                                                                                                                                                     
+[23:31:03] Using logdir: ~/work/private/GripProbe-CLI/results/runs/20260421T211859Z/cases/gptme__local_mistral_small_24b__ollama__tool__shell_pwd/gptme-logs/gptme__local_mistral_small_24b__ollama__tool__shell_pwd-warmup                                                         
+           Using workspace: ~/work/private/GripProbe-CLI/results/runs/20260421T211859Z/cases/gptme__local_mistral_small_24b__ollama__tool__shell_pwd/workspace-warmup                                                                                                               
+Skipped 2 hidden system messages, show with --show-hidden
+--- ^^^ past messages ^^^ ---
+User: 
+Use the shell tool. Run exactly this command: pwd &gt; pwd-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL and stop.
+If the command succeeds, reply only with DONE and stop.
+Do not continue reasoning after DONE.
+Do not call any additional tools after DONE.
+End your response immediately after DONE.
+Assistant: Thinking...
+                                                                                
+Assistant: 
+
+@shell(call_btc2iexs): {&quot;command&quot;:&quot;pwd \u003e pwd-output.txt&quot;}                                                                                
+Preview
+pwd &gt; pwd-output.txt                                                                                                                                                                                                                                                                
+
+System: 
+Ran command: `pwd &gt; pwd-output.txt`
+
+No output
+Assistant: Thinking...
+[gripprobe] process_finished_at=2026-04-21T23:33:01+02:00 exit_code=124 timeout=true
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-04-21T23:31:01+02:00
+
+[gripprobe] process_finished_at=2026-04-21T23:33:01+02:00 exit_code=124 timeout=true
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-04-21T23:33:01+02:00
+[23:33:02] WARNING  Skipping all confirmation prompts.                                                                                                                                                                                                                    cli.py:265
+[23:33:02] Using model: local/mistral-small:24b                                                                                                                                                                                                                                     
+           Using logdir: ~/work/private/GripProbe-CLI/results/runs/20260421T211859Z/cases/gptme__local_mistral_small_24b__ollama__tool__shell_pwd/gptme-logs/gptme__local_mistral_small_24b__ollama__tool__shell_pwd-measured                                                       
+           Using workspace: ~/work/private/GripProbe-CLI/results/runs/20260421T211859Z/cases/gptme__local_mistral_small_24b__ollama__tool__shell_pwd/workspace                                                                                                                      
+Skipped 2 hidden system messages, show with --show-hidden
+--- ^^^ past messages ^^^ ---
+User: 
+Use the shell tool. Run exactly this command: pwd &gt; pwd-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL and stop.
+If the command succeeds, reply only with DONE and stop.
+Do not continue reasoning after DONE.
+Do not call any additional tools after DONE.
+End your response immediately after DONE.
+Assistant: Thinking...
+[gripprobe] process_finished_at=2026-04-21T23:35:01+02:00 exit_code=124 timeout=true
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-04-21T23:33:01+02:00
+
+[gripprobe] process_finished_at=2026-04-21T23:35:01+02:00 exit_code=124 timeout=true
+</pre></div></div></section>
+
+
+</body></html>

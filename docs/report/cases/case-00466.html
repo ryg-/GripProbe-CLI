@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><title>20260425T103325Z__gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.muted{color:#666}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.timeout{background:#fde6c8;color:#7d4b00}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.invoked-yes{background:#d9ecff;color:#0b4f92}
+.match-none{background:#f9d7d7;color:#7a1520}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>Web Search JSON Ranked</h1>
+<p><strong>Case:</strong> <code>20260425T103325Z__gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked</code></p>
+<p><span class='badge timeout'>TIMEOUT</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-yes'>yes</span> | <strong>Match:</strong> <span class='badge match-none'>0%</span></p>
+
+
+<section><h2>Shell Commands</h2><h3>Warmup</h3><pre>gptme --non-interactive --no-confirm --name gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked-warmup --system short --workspace /work/results/runs/20260425T103325Z/cases/gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked/workspace-warmup --tools shell --tool-format tool -m local/gemma4:e4b &#x27;Use the shell tool.
+Read search-url.txt, query.txt, and required-token.txt from the current workspace.
+Call the search endpoint with query parameters:
+- q=&lt;urlencoded query from query.txt&gt;
+- format=json
+- limit=8
+The endpoint returns JSON with a results array.
+Select the result with the highest score among results whose snippet contains the exact required token.
+Write search-result.json in the current workspace as JSON with exactly these keys:
+- query
+- selected_id
+- selected_url
+- selected_score
+If successful, reply only DONE.
+If command execution fails, reply only FAIL.
+&#x27;</pre><h3>Measured</h3><pre>gptme --non-interactive --no-confirm --name gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked-measured --system short --workspace /work/results/runs/20260425T103325Z/cases/gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked/workspace --tools shell --tool-format tool -m local/gemma4:e4b &#x27;Use the shell tool.
+Read search-url.txt, query.txt, and required-token.txt from the current workspace.
+Call the search endpoint with query parameters:
+- q=&lt;urlencoded query from query.txt&gt;
+- format=json
+- limit=8
+The endpoint returns JSON with a results array.
+Select the result with the highest score among results whose snippet contains the exact required token.
+Write search-result.json in the current workspace as JSON with exactly these keys:
+- query
+- selected_id
+- selected_url
+- selected_score
+If successful, reply only DONE.
+If command execution fails, reply only FAIL.
+&#x27;</pre></section>
+
+<section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul><h3>Current Case</h3><ul><li>no execution errors detected</li><li>no loop pattern detected</li><li>no contradictory completion text detected</li></ul></section>
+<section><h2>Run Comparison</h2><div class='grid'><p><strong>Consistency:</strong> strongly_diverged</p><div class='panel'><h3>Run 1</h3><ul><li><strong>Status:</strong> TIMEOUT</li><li><strong>invoked:</strong> no</li><li><strong>tool_attempt_count:</strong> 0</li><li><strong>error_count:</strong> 0</li><li><strong>repeated_error_count:</strong> 0</li><li><strong>loop_detected:</strong> False</li><li><strong>markdown_tool_imitation:</strong> False</li><li><strong>no_tool_call_after_completion:</strong> False</li></ul></div><div class='panel'><h3>Run 2</h3><ul><li><strong>Status:</strong> TIMEOUT</li><li><strong>invoked:</strong> yes</li><li><strong>tool_attempt_count:</strong> 1</li><li><strong>error_count:</strong> 0</li><li><strong>repeated_error_count:</strong> 0</li><li><strong>loop_detected:</strong> False</li><li><strong>markdown_tool_imitation:</strong> False</li><li><strong>no_tool_call_after_completion:</strong> False</li></ul></div></div></section>
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Use the shell tool.
+Read search-url.txt, query.txt, and required-token.txt from the current workspace.
+Call the search endpoint with query parameters:
+- q=&lt;urlencoded query from query.txt&gt;
+- format=json
+- limit=8
+The endpoint returns JSON with a results array.
+Select the result with the highest score among results whose snippet contains the exact required token.
+Write search-result.json in the current workspace as JSON with exactly these keys:
+- query
+- selected_id
+- selected_url
+- selected_score
+If successful, reply only DONE.
+If command execution fails, reply only FAIL.
+</pre></div><div class='panel'><h2>Expected</h2><pre>{&quot;query&quot;: &quot;weekly plan 66f1eccf709f checkbox&quot;, &quot;selected_id&quot;: &quot;doc-191417a1&quot;, &quot;selected_score&quot;: 0.97, &quot;selected_url&quot;: &quot;https://kb.example/cd929097c2ba&quot;}
+REQUEST_HIT=/search/7rMsJqEQNrU1hJyAgl-_E-rm
+</pre></div><div class='panel'><h2>Observed</h2><pre>MISSING_FILE
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<pre>--- expected
++++ observed
+@@ -1,2 +1 @@
+-{&quot;query&quot;: &quot;weekly plan 66f1eccf709f checkbox&quot;, &quot;selected_id&quot;: &quot;doc-191417a1&quot;, &quot;selected_score&quot;: 0.97, &quot;selected_url&quot;: &quot;https://kb.example/cd929097c2ba&quot;}
+-REQUEST_HIT=/search/7rMsJqEQNrU1hJyAgl-_E-rm
++MISSING_FILE</pre>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<p class='muted'>No structured session transcript found.</p>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-04-25T10:33:26+00:00
+[10:33:27] Created config file at /work/results/runs/20260425T103325Z/cases/gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked/runtime/gptme/warmup/home/.config/gptme/config.toml                                                                                       
+[10:33:27] WARNING  Skipping all confirmation prompts.                                                                                                                                                                                                                    cli.py:265
+           Using model: local/gemma4:e4b                                                                                                                                                                                                                                            
+           Using logdir: /work/results/runs/20260425T103325Z/cases/gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked/runtime/gptme/warmup/state/gptme-logs/gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked-warmup                                         
+           Using workspace: /work/results/runs/20260425T103325Z/cases/gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked/workspace-warmup                                                                                                                                
+Skipped 2 hidden system messages, show with --show-hidden
+--- ^^^ past messages ^^^ ---
+User: 
+Use the shell tool.
+Read search-url.txt, query.txt, and required-token.txt from the current workspace.
+Call the search endpoint with query parameters:
+- q=&lt;urlencoded query from query.txt&gt;
+- format=json
+- limit=8
+The endpoint returns JSON with a results array.
+Select the result with the highest score among results whose snippet contains the exact required token.
+Write search-result.json in the current workspace as JSON with exactly these keys:
+- query
+- selected_id
+- selected_url
+- selected_score
+If successful, reply only DONE.
+If command execution fails, reply only FAIL.
+
+````search-url.txt
+http://127.0.0.1:39265/search/oZXO3ZmyyZ2NzCB9WMvISNhq
+````
+
+````query.txt
+warmup query 4f56f93c
+````
+
+````required-token.txt
+1f8bd2f6d6599d41
+````
+Assistant: Thinking...
+                                                                                
+Assistant: 
+&lt;think&gt;       
+&lt;think&gt;
+The user wants me to perform a multi-step task using the shell tool.
+The goal is to:
+1. Read three files: `search-url.txt`, `query.txt`, and `required-token.txt`.
+2. Construct a search query using the content of `query.txt` and URL-encode it.
+3. Call a search endpoint specified in `search-url.txt` with specific query parameters:
+    - `q=&lt;urlencoded query from query.txt&gt;`
+    - `format=json`
+    - `limit=8`
+4. Process the JSON response:
+    - Select the result from the `results` array that has the highest `score`.
+    - This result must also have a `snippet` that contains the exact token read from `required-token.txt`.
+5. Write the selected result&#x27;s metadata (query, id, url, score) into a new file named `search-result.json` with specific keys.
+6. If successful, reply only &quot;DONE&quot;.
+7. If any command execution fails, reply only &quot;FAIL&quot;.
+
+I need to use shell commands to achieve this. Since the task involves reading files, making an HTTP request, and processing JSON, I will likely need tools like `curl`, `jq`, and potentially some scripting logic (like `grep` or `awk` combined with shell variables).
+
+Let&#x27;s break down the steps for execution:
+
+Step 1: Read file contents.
+Step 2: URL-encode the query from `query.txt`.
+Step 3: Construct and execute the `curl` command.
+Step 4: Parse the JSON response using `jq` to find the best result.
+Step 5: Write the final JSON structure to `search-result.json`.
+
+I will start by listing the files to ensure they are present and then proceed with the logic.
+
+The files are provided in the prompt, so I assume they exist in the current working directory.
+
+**Step 1 &amp; 2: Reading and Encoding Query**
+The content of `query.txt` is `warmup query 4f56f93c`. I need to URL-encode this. I&#x27;ll use a combination of shell tools or a dedicated encoding function if available, but since I&#x27;m limited to standard shell tools, I&#x27;ll assume a mechanism or use a placeholder for encoding and focus on the structure. A common way to URL-encode in shell scripting is complex, but I&#x27;ll try to use `jq` or `curl`&#x27;s capabilities if possible, or rely on a simple substitution if the query is simple enough. Given the complexity, I&#x27;ll assume I can encode it first.
+
+Let&#x27;s assume the query encoding is handled by a function or tool that I can simulate or use `python` for if necessary, but I should stick to shell tools first.
+
+If I use `curl`, I can pass the encoded query directly.
+
+**Step 3: Constructing the API Call**
+*   Base URL: `search-url.txt` content: `http://127.0.0.1:39265/search/oZXO3ZmyyZ2NzCB9WMvISNhq`
+*   Query: `q=&lt;encoded_query&gt;`
+*   Parameters: `format=json`, `limit=8`
+
+The full URL will be constructed using the base URL and query parameters.
+
+**Step 4: Processing the Response**
+I need to iterate through the `results` array, filter by `snippet` containing `required-token.txt` content, and then find the maximum `score` among the filtered results.
+
+Let&#x27;s start by reading the files and then constructing the command.
+&lt;/think&gt;        
+&lt;/think&gt;
+
+&lt;thinking&gt;          
+&lt;thinking&gt;
+The user wants me to execute a complex task involving file reading, URL encoding, making an HTTP request, and JSON processing using shell tools.
+
+**Plan:**
+1.  Read the content of `search-url.txt`, `query.txt`, and `required-token.txt`.
+2.  URL-encode the content of `query.txt`.
+3.  Construct the full `curl` command using the base URL, the encoded query, and the required parameters (`format=json`, `limit=8`).
+4.  Execute the `curl` command.
+5.  Process the JSON output using `jq` to find the best result based on the criteria:
+    *   Snippet must contain the required token.
+    *   Among those, select the one with the highest score.
+6.  Extract `query`, `selected_id`, `selected_url`, and `selected_score` and write them to `search-result.json`.
+7.  If successful, output &quot;DONE&quot;. If any step fails, output &quot;FAIL&quot;.
+
+**Execution Details:**
+
+*   **File Contents:**
+    *   `search-url.txt`: `http://127.0.0.1:39265/search/oZXO3ZmyyZ2NzCB9WMvISNhq`
+    *   `query.txt`: `warmup query 4f56f93c`
+    *   `required-token.txt`: `1f8bd2f6d6599d41`
+
+*   **URL Encoding:** I need to encode `warmup query 4f56f93c`. I will use `python -c` within the shell tool to handle URL encoding reliably, as standard shell tools might be insufficient.
+
+*   **API Call:** The endpoint is in `search-url.txt`. The parameters are `q=&lt;encoded_query&gt;&amp;format=json&amp;limit=8`.
+
+*   **JSON Processing:** This is the hardest part. I need to use `jq` to:
+    1.  Filter `results[]` where `.snippet` contains the required token.
+    2.  Sort the filtered results by `score` descending.
+    3.  Take the first result.
+    4.  Extract the required fields.
+
+Let&#x27;s start by reading the files and encoding the query.
+&lt;channel|&gt;
+[gripprobe] process_finished_at=2026-04-25T10:35:26+00:00 exit_code=124 timeout=true
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-04-25T10:33:26+00:00
+
+[gripprobe] process_finished_at=2026-04-25T10:35:26+00:00 exit_code=124 timeout=true
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-04-25T10:35:26+00:00
+[10:35:27] Created config file at /work/results/runs/20260425T103325Z/cases/gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked/runtime/gptme/measured/home/.config/gptme/config.toml                                                                                     
+[10:35:27] WARNING  Skipping all confirmation prompts.                                                                                                                                                                                                                    cli.py:265
+           Using model: local/gemma4:e4b                                                                                                                                                                                                                                            
+           Using logdir: /work/results/runs/20260425T103325Z/cases/gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked/runtime/gptme/measured/state/gptme-logs/gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked-measured                                     
+           Using workspace: /work/results/runs/20260425T103325Z/cases/gptme__local_gemma4_e4b__ollama__tool__web_search_json_ranked/workspace                                                                                                                                       
+Skipped 2 hidden system messages, show with --show-hidden
+--- ^^^ past messages ^^^ ---
+User: 
+Use the shell tool.
+Read search-url.txt, query.txt, and required-token.txt from the current workspace.
+Call the search endpoint with query parameters:
+- q=&lt;urlencoded query from query.txt&gt;
+- format=json
+- limit=8
+The endpoint returns JSON with a results array.
+Select the result with the highest score among results whose snippet contains the exact required token.
+Write search-result.json in the current workspace as JSON with exactly these keys:
+- query
+- selected_id
+- selected_url
+- selected_score
+If successful, reply only DONE.
+If command execution fails, reply only FAIL.
+
+````search-url.txt
+http://127.0.0.1:39265/search/7rMsJqEQNrU1hJyAgl-_E-rm
+````
+
+````query.txt
+weekly plan 66f1eccf709f checkbox
+````
+
+````required-token.txt
+1f8bd2f6d6599d41
+````
+Assistant: Thinking...
+                                                                                
+Assistant: 
+&lt;think&gt;       
+&lt;think&gt;
+The user wants me to perform a multi-step task using the shell tool.
+The goal is to:
+1. Read three files: `search-url.txt`, `query.txt`, and `required-token.txt`.
+2. Construct a search request using the content of these files.
+3. Call a search endpoint (provided in `search-url.txt`) with specific query parameters:
+    - `q=&lt;urlencoded query from query.txt&gt;`
+    - `format=json`
+    - `limit=8`
+4. Process the JSON response:
+    - Select the result from the `results` array that has the highest score.
+    - This result must also have a snippet containing the exact required token (from `required-token.txt`).
+5. Write the selected result&#x27;s metadata (query, selected_id, selected_url, selected_score) into a new file named `search-result.json`.
+6. If successful, reply only &quot;DONE&quot;.
+7. If any command execution fails, reply only &quot;FAIL&quot;.
+
+I need to use shell commands to achieve this. Since the search endpoint is likely an API call, I will use `curl` or similar tools.
+
+Step 1: Read the files.
+Step 2: URL-encode the query from `query.txt`.
+Step 3: Construct the full URL and execute the search.
+Step 4: Parse the JSON response using tools like `jq` (assuming it&#x27;s available, which is standard for shell scripting tasks involving JSON).
+Step 5: Filter and select the best result.
+Step 6: Write the output to `search-result.json`.
+
+Let&#x27;s start by listing the files to confirm they are present and readable.
+&lt;/think&gt;        
+&lt;/think&gt;
+
+&lt;thinking&gt;          
+&lt;thinking&gt;
+The user wants me to execute a complex workflow involving reading multiple files, making an API call, parsing JSON, filtering results based on a score and a token match, and finally writing a specific JSON structure to a new file.
+
+I will break this down into steps:
+
+1.  **Read files:** I need the content of `search-url.txt`, `query.txt`, and `required-token.txt`.
+2.  **URL Encoding:** The query from `query.txt` must be URL-encoded.
+3.  **API Call:** Use `curl` to call the endpoint defined in `search-url.txt` with the parameters: `q=&lt;encoded_query&gt;&amp;format=json&amp;limit=8`.
+4.  **JSON Processing:** Use `jq` to process the returned JSON.
+    *   Filter `results` array: Keep only results where `snippet` contains the required token.
+    *   Find the best result: Among the filtered results, select the one with the maximum `score`.
+    *   Extract required fields: `query`, `id`, `url`, `score`.
+5.  **Output:** Write the final JSON structure to `search-result.json`.
+
+I will start by checking the current directory contents and then proceed with the execution.
+&lt;/thinking&gt;           
+&lt;/thinking&gt;
+
+@shell(call_8p9qgriz): {&quot;command&quot;:&quot;ls -l&quot;}                                                                                
+total 12
+-rw-r--r-- 1 1000 1000 34 Apr 25 10:33 query.txt
+-rw-r--r-- 1 1000 1000 17 Apr 25 10:33 required-token.txt
+-rw-r--r-- 1 1000 1000 55 Apr 25 10:33 search-url.txt
+System: 
+Ran allowlisted command: `ls -l`
+
+```stdout
+total 12
+-rw-r--r-- 1 1000 1000 34 Apr 25 10:33 query.txt
+-rw-r--r-- 1 1000 1000 17 Apr 25 10:33 required-token.txt
+-rw-r--r-- 1 1000 1000 55 Apr 25 10:33 search-url.txt
+```
+[10:36:12] ERROR    exception during auto-name                                                                                                                                                                                                                    auto_naming.py:100
+                    Traceback (most recent call last):                                                                                                                                                                                                                              
+                      File &quot;/opt/venvs/gptme/lib/python3.12/site-packages/gptme/util/auto_naming.py&quot;, line 97, in _generate_llm_name                                                                                                                                                
+                        summary_model_name = get_summary_model(current_model.provider)                                                                                                                                                                                              
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                                                                                                                                                                                              
+                      File &quot;/opt/venvs/gptme/lib/python3.12/site-packages/gptme/llm/models.py&quot;, line 576, in get_summary_model                                                                                                                                                      
+                        raise ValueError(f&quot;Provider {provider} did not have a summary model&quot;)                                                                                                                                                                                       
+                    ValueError: Provider local did not have a summary model                                                                                                                                                                                                         
+Assistant: Thinking...
+[10:36:29] INFO     Reasoning content: Thinking Process:                                                                                                                                                                                                           llm_openai.py:321
+                                                                                                                                                                                                                                                                                    
+                    1.  **Analyze the Request:** The user is instructing the assistant to use a &quot;shell tool&quot; to perform a specific, multi-step task.                                                                                                                                
+                    2.  **Identify Key Actions/Topics:**                                                                                                                                                                                                                            
+                        *   Using the shell tool.                                                                                                                                                                                                                                   
+                        *   Reading multiple files (`search-url.txt`, `query.txt`, `required-token.txt`).                                                                                                                                                                           
+                        *   Calling a search endpoint/API.                                                                                                                                                                                                                          
+                        *   The overall goal is executing a search query programmatically.                                                                                                                                                                                          
+                    3.  **Determine the Core Theme:** The conversation is about automating a search function using system tools and files.                                                                                                                                          
+                    4.  **Draft Potential Titles (Aiming for 2-4 words):**                                                                                                                                                                                                          
+                        *   Shell search execution                                                                                                                                                                                                                                  
+                        *   Automated search query                                                                                                                                                                                                                                  
+                        *   Using shell tool                                                                                                                                                                                                                                        
+                        *   Search API workflow                                                                                                                                                                                                                                     
+                    5.  **Select the Most Concise and Accurate Title:** &quot;Search API workflow&quot; or &quot;Shell search execution&quot; best captures the technical nature and the process involved. &quot;Search API workflow&quot; is slightly broader and more descriptive of the                        
+                    *process* the user is defining.                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                    
+                    6.  **Final Check:** (2-4 words, ONLY the title, captures the main topic). -&gt; &quot;Search API workflow&quot; (3 words).                                                                                                                                                  
+           INFO     Auto-generated conversation name: Search API workflow                                                                                                                                                                                                chat.py:332
+
+[gripprobe] process_finished_at=2026-04-25T10:37:26+00:00 exit_code=124 timeout=true
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-04-25T10:35:26+00:00
+
+[gripprobe] process_finished_at=2026-04-25T10:37:26+00:00 exit_code=124 timeout=true
+</pre></div></div></section>
+
+<section><h2>Model Modelfile (Ollama)</h2><pre># Modelfile generated by &quot;ollama show&quot;
+# To build a new Modelfile based on this, replace FROM with:
+# FROM gemma4:e4b
+
+FROM /usr/share/ollama/.ollama/models/blobs/sha256-4c27e0f5b5adf02ac956c7322bd2ee7636fe3f45a8512c9aba5385242cb6e09a
+TEMPLATE {{ .Prompt }}
+RENDERER gemma4
+PARSER gemma4
+PARAMETER temperature 1
+PARAMETER top_k 64
+PARAMETER top_p 0.95
+LICENSE &quot;&quot;&quot;                                Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      &quot;License&quot; shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      &quot;Licensor&quot; shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      &quot;Legal Entity&quot; shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      &quot;control&quot; means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      &quot;You&quot; (or &quot;Your&quot;) shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      &quot;Source&quot; form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      &quot;Object&quot; form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      &quot;Work&quot; shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      &quot;Derivative Works&quot; shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      &quot;Contribution&quot; shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, &quot;submitted&quot;
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as &quot;Not a Contribution.&quot;
+
+      &quot;Contributor&quot; shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a &quot;NOTICE&quot; text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an &quot;AS IS&quot; BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets &quot;[]&quot;
+      replaced with your own identifying information. (Don&#x27;t include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same &quot;printed page&quot; as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.&quot;&quot;&quot;
+</pre></section>
+</body></html>

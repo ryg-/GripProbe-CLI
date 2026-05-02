@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><title>20260422T125152Z__opencode__local_granite4_3b__ollama__tool__python_file_simple</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.muted{color:#666}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.fail{background:#f9d7d7;color:#7a1520}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.invoked-maybe{background:#efe3ff;color:#5b2f8f}
+.match-none{background:#f9d7d7;color:#7a1520}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>Python File Simple</h1>
+<p><strong>Case:</strong> <code>20260422T125152Z__opencode__local_granite4_3b__ollama__tool__python_file_simple</code></p>
+<p><span class='badge fail'>FAIL</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-maybe'>maybe</span> | <strong>Match:</strong> <span class='badge match-none'>0%</span></p>
+
+
+
+
+<section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul></section>
+
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Use the shell tool. Run exactly this command: python3 -c &#x27;from pathlib import Path; Path(&quot;python-output.txt&quot;).write_text(&quot;PYTHON_OK\n&quot;)&#x27;.
+Do not retry on error.
+If the command fails, reply only with FAIL.
+If the command succeeds, reply only with DONE.
+</pre></div><div class='panel'><h2>Expected</h2><pre>PYTHON_OK
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<pre>--- expected
++++ observed
+@@ -1 +0,0 @@
+-PYTHON_OK</pre>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<p class='muted'>No structured session transcript found.</p>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-04-22T12:52:23+00:00
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1776862349010,&quot;sessionID&quot;:&quot;ses_24ac045b4ffeX3TcQpqeY03qPz&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db53fc6cd001ohPgaPtN5RH7fp&quot;,&quot;messageID&quot;:&quot;msg_db53fbb54001fvDLLUoKwuLisc&quot;,&quot;sessionID&quot;:&quot;ses_24ac045b4ffeX3TcQpqeY03qPz&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;text&quot;,&quot;timestamp&quot;:1776862349946,&quot;sessionID&quot;:&quot;ses_24ac045b4ffeX3TcQpqeY03qPz&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db53fc6d0001gftQbKBg8WjaLb&quot;,&quot;messageID&quot;:&quot;msg_db53fbb54001fvDLLUoKwuLisc&quot;,&quot;sessionID&quot;:&quot;ses_24ac045b4ffeX3TcQpqeY03qPz&quot;,&quot;type&quot;:&quot;text&quot;,&quot;text&quot;:&quot;{\&quot;name\&quot;: \&quot;shell\&quot;, \&quot;arguments\&quot;: \&quot;{\\n  \\\&quot;command\\\&quot;: \\\&quot;python3 -c &#x27;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\\\n&#x27;)&#x27;\\\&quot;,\\n  \\\&quot;allow_stdin\\\&quot;: false\\n}\&quot;}\n&lt;/tool_call&gt;&quot;,&quot;time&quot;:{&quot;start&quot;:1776862349008,&quot;end&quot;:1776862349945}}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1776862349950,&quot;sessionID&quot;:&quot;ses_24ac045b4ffeX3TcQpqeY03qPz&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db53fca7b001Ya0lFymH2DZUuy&quot;,&quot;reason&quot;:&quot;stop&quot;,&quot;messageID&quot;:&quot;msg_db53fbb54001fvDLLUoKwuLisc&quot;,&quot;sessionID&quot;:&quot;ses_24ac045b4ffeX3TcQpqeY03qPz&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:4153,&quot;input&quot;:4096,&quot;output&quot;:57,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+
+[gripprobe] process_finished_at=2026-04-22T12:52:30+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-04-22T12:52:23+00:00
+Performing one time database migration, may take a few minutes...
+sqlite-migration:done
+Database migration complete.
+
+[gripprobe] process_finished_at=2026-04-22T12:52:30+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-04-22T12:52:30+00:00
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1776862354678,&quot;sessionID&quot;:&quot;ses_24ac02eddffeMqWnj1gpEBdU8X&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db53fdcf1001tn6H4pxZFCYwUY&quot;,&quot;messageID&quot;:&quot;msg_db53fd1c5001l7s1hZ35ua0sD4&quot;,&quot;sessionID&quot;:&quot;ses_24ac02eddffeMqWnj1gpEBdU8X&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;text&quot;,&quot;timestamp&quot;:1776862355461,&quot;sessionID&quot;:&quot;ses_24ac02eddffeMqWnj1gpEBdU8X&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db53fdcf3001IUtBVlAdlpzJeL&quot;,&quot;messageID&quot;:&quot;msg_db53fd1c5001l7s1hZ35ua0sD4&quot;,&quot;sessionID&quot;:&quot;ses_24ac02eddffeMqWnj1gpEBdU8X&quot;,&quot;type&quot;:&quot;text&quot;,&quot;text&quot;:&quot;{\&quot;name\&quot;: \&quot;shell\&quot;, \&quot;arguments\&quot;: \&quot;{\\n  \\\&quot;command\\\&quot;: \\\&quot;python3 -c &#x27;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\\\n&#x27;)&#x27;\\\&quot;\\n}\&quot;}\n&lt;/tool_call&gt;&quot;,&quot;time&quot;:{&quot;start&quot;:1776862354675,&quot;end&quot;:1776862355460}}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1776862355464,&quot;sessionID&quot;:&quot;ses_24ac02eddffeMqWnj1gpEBdU8X&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db53fe006001Ua6xQp3kX4NYRA&quot;,&quot;reason&quot;:&quot;stop&quot;,&quot;messageID&quot;:&quot;msg_db53fd1c5001l7s1hZ35ua0sD4&quot;,&quot;sessionID&quot;:&quot;ses_24ac02eddffeMqWnj1gpEBdU8X&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:4144,&quot;input&quot;:4096,&quot;output&quot;:48,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+
+[gripprobe] process_finished_at=2026-04-22T12:52:35+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-04-22T12:52:30+00:00
+Performing one time database migration, may take a few minutes...
+sqlite-migration:done
+Database migration complete.
+
+[gripprobe] process_finished_at=2026-04-22T12:52:35+00:00 exit_code=0
+</pre></div></div></section>
+
+
+</body></html>

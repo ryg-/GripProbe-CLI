@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><title>GripProbe Summary</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #ccc;padding:.5rem;text-align:left;vertical-align:top}
+th{background:#ece8dc}
+a{color:#0b57d0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem;margin-bottom:1rem}
+.panel h3,.panel h4{margin-top:0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.pass{background:#d9f2df;color:#115c23}
+.fail{background:#f9d7d7;color:#7a1520}
+.timeout{background:#fde6c8;color:#7d4b00}
+.timeout-artifact{background:#d8f0e1;color:#165a30}
+.notool{background:#e6e1ff;color:#44318d}
+.unsupported{background:#e6eefb;color:#1f4c8f}
+.skipped{background:#ececec;color:#555}
+.unknown{background:#eee;color:#333}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.traj-recovered{background:#fff0cc;color:#8a5a00}
+.traj-violated{background:#f7d6db;color:#8a1f2d}
+.invoked-yes{background:#d9ecff;color:#0b4f92}
+.invoked-no{background:#ececec;color:#555}
+.invoked-maybe{background:#efe3ff;color:#5b2f8f}
+.match-full{background:#d9f2df;color:#115c23}
+.match-partial{background:#fff0cc;color:#8a5a00}
+.match-none{background:#f9d7d7;color:#7a1520}
+</style></head><body>
+<h1>GripProbe Run Summary</h1>
+
+<table>
+<thead><tr><th>Shell</th><th>Model</th><th>Backend</th><th>Hash</th><th>Format</th><th>Test</th><th>Status</th><th>Reason</th><th>Trajectory</th><th>Invoked</th><th>Match</th><th>Warmup (s)</th><th>Measured (s)</th><th>Details</th></tr></thead>
+<tbody>
+<tr><td>opencode</td><td>local/gemma4:e2b</td><td>ollama</td><td>7fbdbf8f5e45a75bb122155ed546e765b4d9c53a1285f62fd9f506baa1c5a47e</td><td>tool</td><td>Patch File</td><td><span class='badge fail'>FAIL</span></td><td></td><td><span class='badge traj-clean'>clean</span></td><td><span class='badge invoked-maybe'>maybe</span></td><td><span class='badge match-none'>0%</span></td><td>56.394</td><td>15.001</td><td><a href='#'>details</a></td></tr><tr><td>opencode</td><td>local/gemma4:e2b</td><td>ollama</td><td>7fbdbf8f5e45a75bb122155ed546e765b4d9c53a1285f62fd9f506baa1c5a47e</td><td>tool</td><td>Python File Simple</td><td><span class='badge fail'>FAIL</span></td><td></td><td><span class='badge traj-clean'>clean</span></td><td><span class='badge invoked-maybe'>maybe</span></td><td><span class='badge match-none'>0%</span></td><td>53.283</td><td>13.546</td><td><a href='#'>details</a></td></tr><tr><td>opencode</td><td>local/gemma4:e2b</td><td>ollama</td><td>7fbdbf8f5e45a75bb122155ed546e765b4d9c53a1285f62fd9f506baa1c5a47e</td><td>tool</td><td>Shell Date</td><td><span class='badge fail'>FAIL</span></td><td></td><td><span class='badge traj-clean'>clean</span></td><td><span class='badge invoked-maybe'>maybe</span></td><td><span class='badge match-none'>0%</span></td><td>10.588</td><td>15.497</td><td><a href='#'>details</a></td></tr><tr><td>opencode</td><td>local/gemma4:e2b</td><td>ollama</td><td>7fbdbf8f5e45a75bb122155ed546e765b4d9c53a1285f62fd9f506baa1c5a47e</td><td>tool</td><td>Shell PWD</td><td><span class='badge fail'>FAIL</span></td><td></td><td><span class='badge traj-clean'>clean</span></td><td><span class='badge invoked-maybe'>maybe</span></td><td><span class='badge match-none'>0%</span></td><td>13.097</td><td>11.142</td><td><a href='#'>details</a></td></tr>
+</tbody></table></body></html>

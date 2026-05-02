@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><title>20260422T134839Z__opencode__local_nemotron_3_nano_4b__ollama__tool__shell_pwd</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.muted{color:#666}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.fail{background:#f9d7d7;color:#7a1520}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.invoked-maybe{background:#efe3ff;color:#5b2f8f}
+.match-none{background:#f9d7d7;color:#7a1520}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>Shell PWD</h1>
+<p><strong>Case:</strong> <code>20260422T134839Z__opencode__local_nemotron_3_nano_4b__ollama__tool__shell_pwd</code></p>
+<p><span class='badge fail'>FAIL</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-maybe'>maybe</span> | <strong>Match:</strong> <span class='badge match-none'>0%</span></p>
+
+
+
+
+<section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul></section>
+
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Use the shell tool. Run exactly this command: pwd &gt; pwd-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL and stop.
+If the command succeeds, reply only with DONE and stop.
+Do not continue reasoning after DONE.
+Do not call any additional tools after DONE.
+End your response immediately after DONE.
+</pre></div><div class='panel'><h2>Expected</h2><pre>/work/results/runs/20260422T134839Z/cases/opencode__local_nemotron_3_nano_4b__ollama__tool__shell_pwd/workspace
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<pre>--- expected
++++ observed
+@@ -1 +0,0 @@
+-/work/results/runs/20260422T134839Z/cases/opencode__local_nemotron_3_nano_4b__ollama__tool__shell_pwd/workspace</pre>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<p class='muted'>No structured session transcript found.</p>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-04-22T13:51:46+00:00
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1776865915209,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db5763144001my11wM2RPTgDl1&quot;,&quot;messageID&quot;:&quot;msg_db57616fa0018497t1h2XaQNsr&quot;,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;tool_use&quot;,&quot;timestamp&quot;:1776865916866,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;part&quot;:{&quot;type&quot;:&quot;tool&quot;,&quot;tool&quot;:&quot;invalid&quot;,&quot;callID&quot;:&quot;call_uiezxlok&quot;,&quot;state&quot;:{&quot;status&quot;:&quot;completed&quot;,&quot;input&quot;:{&quot;tool&quot;:&quot;Shell&quot;,&quot;error&quot;:&quot;Model tried to call unavailable tool &#x27;Shell&#x27;. Available tools: invalid, bash, read, glob, grep, edit, write, task, webfetch, todowrite, skill.&quot;},&quot;output&quot;:&quot;The arguments provided to the tool are invalid: Model tried to call unavailable tool &#x27;Shell&#x27;. Available tools: invalid, bash, read, glob, grep, edit, write, task, webfetch, todowrite, skill.&quot;,&quot;metadata&quot;:{&quot;truncated&quot;:false},&quot;title&quot;:&quot;Invalid Tool&quot;,&quot;time&quot;:{&quot;start&quot;:1776865916860,&quot;end&quot;:1776865916864}},&quot;id&quot;:&quot;prt_db57637b2001DqqNOrJfu7Vq51&quot;,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;messageID&quot;:&quot;msg_db57616fa0018497t1h2XaQNsr&quot;}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1776865916884,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db57637cf001P5vj4Nxq6qT95J&quot;,&quot;reason&quot;:&quot;tool-calls&quot;,&quot;messageID&quot;:&quot;msg_db57616fa0018497t1h2XaQNsr&quot;,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:4203,&quot;input&quot;:4096,&quot;output&quot;:107,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1776865920336,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db576454f001at9aR02XU7Th1s&quot;,&quot;messageID&quot;:&quot;msg_db57637da0010Imbbs7YFFTYOV&quot;,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;text&quot;,&quot;timestamp&quot;:1776865926083,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db57654950017ok1PqS6YnE5y4&quot;,&quot;messageID&quot;:&quot;msg_db57637da0010Imbbs7YFFTYOV&quot;,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;type&quot;:&quot;text&quot;,&quot;text&quot;:&quot;I&#x27;m unable to execute shell commands directly. The system doesn&#x27;t support running external commands or scripts through me.\n\nHowever, I can help you with:\n- Parsing shell commands using bash/glob/grep\n- Reading file contents with read  \n- Modifying files with edit/write\n- Searching for patterns with grep\n- Listing files with glob\n- Creating todo lists with todowrite\n- Or executing shell-like commands through the bash tool\n\nWhat specific shell command did you want to run? Or would you like help writing or understanding a shell command?&quot;,&quot;time&quot;:{&quot;start&quot;:1776865924245,&quot;end&quot;:1776865926082}}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1776865926085,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db5765bc30013mmJtRoc0nDAjW&quot;,&quot;reason&quot;:&quot;stop&quot;,&quot;messageID&quot;:&quot;msg_db57637da0010Imbbs7YFFTYOV&quot;,&quot;sessionID&quot;:&quot;ses_24a89e998ffe0c48w15Wmr5VUC&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:4458,&quot;input&quot;:4096,&quot;output&quot;:362,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+
+[gripprobe] process_finished_at=2026-04-22T13:52:06+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-04-22T13:51:46+00:00
+Performing one time database migration, may take a few minutes...
+sqlite-migration:done
+Database migration complete.
+
+[gripprobe] process_finished_at=2026-04-22T13:52:06+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-04-22T13:52:06+00:00
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1776865934472,&quot;sessionID&quot;:&quot;ses_24a899da5ffe0kPcPdDLoYWEdY&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db5767c830019tkDAsb673JZcH&quot;,&quot;messageID&quot;:&quot;msg_db5766311001zOImY7IVsa5GKu&quot;,&quot;sessionID&quot;:&quot;ses_24a899da5ffe0kPcPdDLoYWEdY&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;text&quot;,&quot;timestamp&quot;:1776865946131,&quot;sessionID&quot;:&quot;ses_24a899da5ffe0kPcPdDLoYWEdY&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db576a9f3001IT3fb8wjMBRNaE&quot;,&quot;messageID&quot;:&quot;msg_db5766311001zOImY7IVsa5GKu&quot;,&quot;sessionID&quot;:&quot;ses_24a899da5ffe0kPcPdDLoYWEdY&quot;,&quot;type&quot;:&quot;text&quot;,&quot;text&quot;:&quot;FAIL&quot;,&quot;time&quot;:{&quot;start&quot;:1776865946099,&quot;end&quot;:1776865946129}}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1776865946135,&quot;sessionID&quot;:&quot;ses_24a899da5ffe0kPcPdDLoYWEdY&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db576aa14001LNb16zrs3flzK4&quot;,&quot;reason&quot;:&quot;stop&quot;,&quot;messageID&quot;:&quot;msg_db5766311001zOImY7IVsa5GKu&quot;,&quot;sessionID&quot;:&quot;ses_24a899da5ffe0kPcPdDLoYWEdY&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:4831,&quot;input&quot;:4096,&quot;output&quot;:735,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+
+[gripprobe] process_finished_at=2026-04-22T13:52:26+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-04-22T13:52:06+00:00
+Performing one time database migration, may take a few minutes...
+sqlite-migration:done
+Database migration complete.
+
+[gripprobe] process_finished_at=2026-04-22T13:52:26+00:00 exit_code=0
+</pre></div></div></section>
+
+
+</body></html>

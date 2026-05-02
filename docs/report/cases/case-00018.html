@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><title>20260421T174523Z__continue-cli__local_gemma3_12b__ollama__markdown__python_file_simple</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.muted{color:#666}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.unsupported{background:#e6eefb;color:#1f4c8f}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.invoked-no{background:#ececec;color:#555}
+.match-none{background:#f9d7d7;color:#7a1520}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>Python File Simple</h1>
+<p><strong>Case:</strong> <code>20260421T174523Z__continue-cli__local_gemma3_12b__ollama__markdown__python_file_simple</code></p>
+<p><span class='badge unsupported'>TOOL_UNSUPPORTED</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-no'>no</span> | <strong>Match:</strong> <span class='badge match-none'>0%</span></p>
+<p><strong>Failure Reason:</strong> tool unsupported by backend</p>
+
+
+
+<section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul></section>
+
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Use the shell tool. Run exactly this command: python3 -c &#x27;from pathlib import Path; Path(&quot;python-output.txt&quot;).write_text(&quot;PYTHON_OK\n&quot;)&#x27;.
+Do not retry on error.
+If the command fails, reply only with FAIL.
+If the command succeeds, reply only with DONE.
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<p class='muted'>No expected/observed content.</p>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<p class='muted'>No structured session transcript found.</p>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-04-21T19:45:30+02:00
+
+[gripprobe] process_finished_at=2026-04-21T19:45:33+02:00 exit_code=1
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-04-21T19:45:30+02:00
+{&quot;status&quot;:&quot;error&quot;,&quot;message&quot;:&quot;400 registry.ollama.ai/library/gemma3:12b does not support tools&quot;}
+
+[gripprobe] process_finished_at=2026-04-21T19:45:33+02:00 exit_code=1
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-04-21T19:45:33+02:00
+
+[gripprobe] process_finished_at=2026-04-21T19:45:35+02:00 exit_code=1
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-04-21T19:45:33+02:00
+{&quot;status&quot;:&quot;error&quot;,&quot;message&quot;:&quot;400 registry.ollama.ai/library/gemma3:12b does not support tools&quot;}
+
+[gripprobe] process_finished_at=2026-04-21T19:45:35+02:00 exit_code=1
+</pre></div></div></section>
+
+
+</body></html>

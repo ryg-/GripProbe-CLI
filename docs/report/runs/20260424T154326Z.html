@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><title>GripProbe Summary</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #ccc;padding:.5rem;text-align:left;vertical-align:top}
+th{background:#ece8dc}
+a{color:#0b57d0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem;margin-bottom:1rem}
+.panel h3,.panel h4{margin-top:0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.pass{background:#d9f2df;color:#115c23}
+.fail{background:#f9d7d7;color:#7a1520}
+.timeout{background:#fde6c8;color:#7d4b00}
+.timeout-artifact{background:#d8f0e1;color:#165a30}
+.notool{background:#e6e1ff;color:#44318d}
+.unsupported{background:#e6eefb;color:#1f4c8f}
+.skipped{background:#ececec;color:#555}
+.unknown{background:#eee;color:#333}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.traj-recovered{background:#fff0cc;color:#8a5a00}
+.traj-violated{background:#f7d6db;color:#8a1f2d}
+.invoked-yes{background:#d9ecff;color:#0b4f92}
+.invoked-no{background:#ececec;color:#555}
+.invoked-maybe{background:#efe3ff;color:#5b2f8f}
+.match-full{background:#d9f2df;color:#115c23}
+.match-partial{background:#fff0cc;color:#8a5a00}
+.match-none{background:#f9d7d7;color:#7a1520}
+</style></head><body>
+<h1>GripProbe Run Summary</h1>
+
+<table>
+<thead><tr><th>Shell</th><th>Model</th><th>Backend</th><th>Hash</th><th>Format</th><th>Test</th><th>Status</th><th>Reason</th><th>Trajectory</th><th>Invoked</th><th>Match</th><th>Warmup (s)</th><th>Measured (s)</th><th>Details</th></tr></thead>
+<tbody>
+<tr><td>gptme</td><td>local/aravhawk/qwen3.5-opus-4.6-text:9b</td><td>ollama</td><td>74348a6ec8d24b1098799494443e2455f8f77e630c6de078429d731b2647df65</td><td>tool</td><td>Patch File From Prepared Patch</td><td><span class='badge fail'>FAIL</span></td><td></td><td><span class='badge traj-clean'>clean</span></td><td><span class='badge invoked-yes'>yes</span></td><td><span class='badge match-none'>0%</span></td><td>42.369</td><td>14.701</td><td><a href='#'>details</a></td></tr><tr><td>gptme</td><td>local/aravhawk/qwen3.5-opus-4.6-text:9b</td><td>ollama</td><td>74348a6ec8d24b1098799494443e2455f8f77e630c6de078429d731b2647df65</td><td>tool</td><td>Python File Quoted</td><td><span class='badge pass'>PASS</span></td><td></td><td><span class='badge traj-recovered'>recovered</span></td><td><span class='badge invoked-yes'>yes</span></td><td><span class='badge match-full'>100%</span></td><td>58.106</td><td>57.808</td><td><a href='#'>details</a></td></tr><tr><td>gptme</td><td>local/aravhawk/qwen3.5-opus-4.6-text:9b</td><td>ollama</td><td>74348a6ec8d24b1098799494443e2455f8f77e630c6de078429d731b2647df65</td><td>tool</td><td>Python File Quoted DE</td><td><span class='badge pass'>PASS</span></td><td></td><td><span class='badge traj-recovered'>recovered</span></td><td><span class='badge invoked-yes'>yes</span></td><td><span class='badge match-full'>100%</span></td><td>48.134</td><td>47.831</td><td><a href='#'>details</a></td></tr><tr><td>gptme</td><td>local/aravhawk/qwen3.5-opus-4.6-text:9b</td><td>ollama</td><td>74348a6ec8d24b1098799494443e2455f8f77e630c6de078429d731b2647df65</td><td>tool</td><td>Python File Quoted RU</td><td><span class='badge pass'>PASS</span></td><td></td><td><span class='badge traj-recovered'>recovered</span></td><td><span class='badge invoked-yes'>yes</span></td><td><span class='badge match-full'>100%</span></td><td>62.626</td><td>62.368</td><td><a href='#'>details</a></td></tr><tr><td>gptme</td><td>local/aravhawk/qwen3.5-opus-4.6-text:9b</td><td>ollama</td><td>74348a6ec8d24b1098799494443e2455f8f77e630c6de078429d731b2647df65</td><td>tool</td><td>Save File</td><td><span class='badge pass'>PASS</span></td><td></td><td><span class='badge traj-recovered'>recovered</span></td><td><span class='badge invoked-yes'>yes</span></td><td><span class='badge match-full'>100%</span></td><td>43.47</td><td>43.12</td><td><a href='#'>details</a></td></tr><tr><td>gptme</td><td>local/aravhawk/qwen3.5-opus-4.6-text:9b</td><td>ollama</td><td>74348a6ec8d24b1098799494443e2455f8f77e630c6de078429d731b2647df65</td><td>tool</td><td>Shell Date DE</td><td><span class='badge pass'>PASS</span></td><td></td><td><span class='badge traj-recovered'>recovered</span></td><td><span class='badge invoked-yes'>yes</span></td><td><span class='badge match-full'>100%</span></td><td>71.491</td><td>70.036</td><td><a href='#'>details</a></td></tr><tr><td>gptme</td><td>local/aravhawk/qwen3.5-opus-4.6-text:9b</td><td>ollama</td><td>74348a6ec8d24b1098799494443e2455f8f77e630c6de078429d731b2647df65</td><td>tool</td><td>Shell Date RU</td><td><span class='badge pass'>PASS</span></td><td></td><td><span class='badge traj-recovered'>recovered</span></td><td><span class='badge invoked-yes'>yes</span></td><td><span class='badge match-full'>100%</span></td><td>50.49</td><td>50.19</td><td><a href='#'>details</a></td></tr><tr><td>gptme</td><td>local/aravhawk/qwen3.5-opus-4.6-text:9b</td><td>ollama</td><td>74348a6ec8d24b1098799494443e2455f8f77e630c6de078429d731b2647df65</td><td>tool</td><td>Shell File</td><td><span class='badge pass'>PASS</span></td><td></td><td><span class='badge traj-recovered'>recovered</span></td><td><span class='badge invoked-yes'>yes</span></td><td><span class='badge match-full'>100%</span></td><td>39.209</td><td>46.38</td><td><a href='#'>details</a></td></tr><tr><td>gptme</td><td>local/aravhawk/qwen3.5-opus-4.6-text:9b</td><td>ollama</td><td>74348a6ec8d24b1098799494443e2455f8f77e630c6de078429d731b2647df65</td><td>tool</td><td>Web Nonce Proof</td><td><span class='badge timeout'>TIMEOUT</span> <span class='badge timeout-artifact'>artifact reached</span></td><td></td><td><span class='badge traj-recovered'>recovered</span></td><td><span class='badge invoked-yes'>yes</span></td><td><span class='badge match-full'>100%</span></td><td>120.008</td><td>120.01</td><td><a href='#'>details</a></td></tr>
+</tbody></table></body></html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><title>20260424T112753Z__opencode__local_aravhawk_qwen3_5_opus_4_6_text_9b__ollama__tool__shell_date</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.muted{color:#666}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.pass{background:#d9f2df;color:#115c23}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.invoked-yes{background:#d9ecff;color:#0b4f92}
+.match-full{background:#d9f2df;color:#115c23}
+.ok{color:#115c23;font-weight:600}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>Shell Date</h1>
+<p><strong>Case:</strong> <code>20260424T112753Z__opencode__local_aravhawk_qwen3_5_opus_4_6_text_9b__ollama__tool__shell_date</code></p>
+<p><span class='badge pass'>PASS</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-yes'>yes</span> | <strong>Match:</strong> <span class='badge match-full'>100%</span></p>
+
+
+<section><h2>Shell Commands</h2><h3>Warmup</h3><pre>opencode run --format json --dir /work/results/runs/20260424T112753Z/cases/opencode__local_aravhawk_qwen3_5_opus_4_6_text_9b__ollama__tool__shell_date/workspace-warmup --model ollama/aravhawk/qwen3.5-opus-4.6-text:9b --dangerously-skip-permissions &#x27;Use the shell tool. Run exactly this command: date +%F &gt; date-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL.
+If the command succeeds, reply only with DONE.
+&#x27;</pre><h3>Measured</h3><pre>opencode run --format json --dir /work/results/runs/20260424T112753Z/cases/opencode__local_aravhawk_qwen3_5_opus_4_6_text_9b__ollama__tool__shell_date/workspace --model ollama/aravhawk/qwen3.5-opus-4.6-text:9b --dangerously-skip-permissions &#x27;Use the shell tool. Run exactly this command: date +%F &gt; date-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL.
+If the command succeeds, reply only with DONE.
+&#x27;</pre></section>
+
+<section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul></section>
+
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Use the shell tool. Run exactly this command: date +%F &gt; date-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL.
+If the command succeeds, reply only with DONE.
+</pre></div><div class='panel'><h2>Expected</h2><pre>2026-04-24
+</pre></div><div class='panel'><h2>Observed</h2><pre>2026-04-24
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<p class='ok'>Expected and observed match.</p>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<p class='muted'>No structured session transcript found.</p>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-04-24T11:35:55+00:00
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1777030659259,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_dbf47fcb8001cJOEyoWgI5922k&quot;,&quot;messageID&quot;:&quot;msg_dbf466b35001ZQqBZ24sZnOPHU&quot;,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;tool_use&quot;,&quot;timestamp&quot;:1777030670463,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;part&quot;:{&quot;type&quot;:&quot;tool&quot;,&quot;tool&quot;:&quot;bash&quot;,&quot;callID&quot;:&quot;call_q8yrmmdp&quot;,&quot;state&quot;:{&quot;status&quot;:&quot;completed&quot;,&quot;input&quot;:{&quot;command&quot;:&quot;date +%F &gt; date-output.txt&quot;,&quot;description&quot;:&quot;Outputs current date to file&quot;},&quot;output&quot;:&quot;(no output)&quot;,&quot;metadata&quot;:{&quot;output&quot;:&quot;(no output)&quot;,&quot;exit&quot;:0,&quot;description&quot;:&quot;Outputs current date to file&quot;,&quot;truncated&quot;:false},&quot;title&quot;:&quot;Outputs current date to file&quot;,&quot;time&quot;:{&quot;start&quot;:1777030670452,&quot;end&quot;:1777030670462}},&quot;id&quot;:&quot;prt_dbf482853001zaTcajth2533Eo&quot;,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;messageID&quot;:&quot;msg_dbf466b35001ZQqBZ24sZnOPHU&quot;}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1777030670482,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_dbf48288e001CdlViX6Pd7blcA&quot;,&quot;reason&quot;:&quot;tool-calls&quot;,&quot;messageID&quot;:&quot;msg_dbf466b35001ZQqBZ24sZnOPHU&quot;,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:10926,&quot;input&quot;:10781,&quot;output&quot;:145,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+
+[gripprobe] process_finished_at=2026-04-24T11:37:55+00:00 exit_code=124 timeout=true
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1777030698585,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_dbf4896570017SyfYsKgJpZF3I&quot;,&quot;messageID&quot;:&quot;msg_dbf4828960013JgBwB3XVt6rZJ&quot;,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;text&quot;,&quot;timestamp&quot;:1777030698656,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_dbf489658001tGvnxUTP20J896&quot;,&quot;messageID&quot;:&quot;msg_dbf4828960013JgBwB3XVt6rZJ&quot;,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;type&quot;:&quot;text&quot;,&quot;text&quot;:&quot;DONE&quot;,&quot;time&quot;:{&quot;start&quot;:1777030698584,&quot;end&quot;:1777030698654}}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1777030698658,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_dbf4896a000135zXV6SIf1gzsZ&quot;,&quot;reason&quot;:&quot;stop&quot;,&quot;messageID&quot;:&quot;msg_dbf4828960013JgBwB3XVt6rZJ&quot;,&quot;sessionID&quot;:&quot;ses_240b9956dffe4YMICnGcCT4HTa&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:10853,&quot;input&quot;:10849,&quot;output&quot;:4,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-04-24T11:35:55+00:00
+Performing one time database migration, may take a few minutes...
+sqlite-migration:done
+Database migration complete.
+
+[gripprobe] process_finished_at=2026-04-24T11:37:55+00:00 exit_code=124 timeout=true
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-04-24T11:37:55+00:00
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1777030719051,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_dbf48e648001CIqVT97zofMVnV&quot;,&quot;messageID&quot;:&quot;msg_dbf483f6f001Rqat4D6H5EB1yV&quot;,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;tool_use&quot;,&quot;timestamp&quot;:1777030733365,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;part&quot;:{&quot;type&quot;:&quot;tool&quot;,&quot;tool&quot;:&quot;bash&quot;,&quot;callID&quot;:&quot;call_wikfcitu&quot;,&quot;state&quot;:{&quot;status&quot;:&quot;completed&quot;,&quot;input&quot;:{&quot;command&quot;:&quot;date +%F &gt; date-output.txt&quot;,&quot;description&quot;:&quot;Creates current date in file&quot;},&quot;output&quot;:&quot;(no output)&quot;,&quot;metadata&quot;:{&quot;output&quot;:&quot;(no output)&quot;,&quot;exit&quot;:0,&quot;description&quot;:&quot;Creates current date in file&quot;,&quot;truncated&quot;:false},&quot;title&quot;:&quot;Creates current date in file&quot;,&quot;time&quot;:{&quot;start&quot;:1777030733353,&quot;end&quot;:1777030733363}},&quot;id&quot;:&quot;prt_dbf491df1001xOinm3vi6BqIhy&quot;,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;messageID&quot;:&quot;msg_dbf483f6f001Rqat4D6H5EB1yV&quot;}}
+{&quot;type&quot;:&quot;text&quot;,&quot;timestamp&quot;:1777030733392,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_dbf490bf0001UuX7aq8OGnoPSJ&quot;,&quot;messageID&quot;:&quot;msg_dbf483f6f001Rqat4D6H5EB1yV&quot;,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;type&quot;:&quot;text&quot;,&quot;text&quot;:&quot;I&#x27;ll run the command to create the date output file.&quot;,&quot;time&quot;:{&quot;start&quot;:1777030728688,&quot;end&quot;:1777030733389}}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1777030733397,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_dbf491e52001jh7hJeuhlHQwAr&quot;,&quot;reason&quot;:&quot;tool-calls&quot;,&quot;messageID&quot;:&quot;msg_dbf483f6f001Rqat4D6H5EB1yV&quot;,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:10963,&quot;input&quot;:10778,&quot;output&quot;:185,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1777030757257,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_dbf497b87001r5sJmO3Svi6OBM&quot;,&quot;messageID&quot;:&quot;msg_dbf491e5a001WVhadmUyIbAVCX&quot;,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;text&quot;,&quot;timestamp&quot;:1777030757302,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_dbf497b88001xnc4T6wen1BwFx&quot;,&quot;messageID&quot;:&quot;msg_dbf491e5a001WVhadmUyIbAVCX&quot;,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;type&quot;:&quot;text&quot;,&quot;text&quot;:&quot;DONE&quot;,&quot;time&quot;:{&quot;start&quot;:1777030757256,&quot;end&quot;:1777030757301}}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1777030757304,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_dbf497bb6001BnZVN5iOmznAnE&quot;,&quot;reason&quot;:&quot;stop&quot;,&quot;messageID&quot;:&quot;msg_dbf491e5a001WVhadmUyIbAVCX&quot;,&quot;sessionID&quot;:&quot;ses_240b7c11cffe0niya7F7Obsll2&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:10863,&quot;input&quot;:10859,&quot;output&quot;:4,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+
+[gripprobe] process_finished_at=2026-04-24T11:39:17+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-04-24T11:37:55+00:00
+Performing one time database migration, may take a few minutes...
+sqlite-migration:done
+Database migration complete.
+
+[gripprobe] process_finished_at=2026-04-24T11:39:17+00:00 exit_code=0
+</pre></div></div></section>
+
+<section><h2>Model Modelfile (Ollama)</h2><pre># Modelfile generated by &quot;ollama show&quot;
+# To build a new Modelfile based on this, replace FROM with:
+# FROM aravhawk/qwen3.5-opus-4.6-text:9b
+
+FROM /usr/share/ollama/.ollama/models/blobs/sha256-d0ecd80b0e45b0d9e49c8cd1527b7f7d52d8d3bde2c569ab36aac59bb78f53f7
+TEMPLATE {{ .Prompt }}
+RENDERER qwen3.5
+PARSER qwen3.5
+PARAMETER num_ctx 32768
+PARAMETER presence_penalty 1.5
+PARAMETER stop &lt;|im_end|&gt;
+PARAMETER stop &lt;|im_start|&gt;
+PARAMETER temperature 1
+PARAMETER top_k 20
+PARAMETER top_p 0.95
+</pre></section>
+</body></html>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><title>20260421T175012Z__continue-cli__local_orieg_gemma3_tools_12b_ft_v2__ollama__markdown__patch_file</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.muted{color:#666}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.fail{background:#f9d7d7;color:#7a1520}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.invoked-no{background:#ececec;color:#555}
+.match-none{background:#f9d7d7;color:#7a1520}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>Patch File</h1>
+<p><strong>Case:</strong> <code>20260421T175012Z__continue-cli__local_orieg_gemma3_tools_12b_ft_v2__ollama__markdown__patch_file</code></p>
+<p><span class='badge fail'>FAIL</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-no'>no</span> | <strong>Match:</strong> <span class='badge match-none'>0%</span></p>
+
+
+
+
+<section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul></section>
+
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Use the read tool to inspect patch-target.txt in the current workspace.
+Then use the patch tool to replace the exact line STATUS=old with STATUS=new in patch-target.txt in the current workspace.
+Do not retry on error.
+If the edit fails, reply only with FAIL.
+If the edit succeeds, reply only with DONE.
+</pre></div><div class='panel'><h2>Expected</h2><pre>STATUS=new
+</pre></div><div class='panel'><h2>Observed</h2><pre>STATUS=old
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<pre>--- expected
++++ observed
+@@ -1 +1 @@
+-STATUS=new
++STATUS=old</pre>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<p class='muted'>No structured session transcript found.</p>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-04-21T19:50:14+02:00
+FAIL
+
+[gripprobe] process_finished_at=2026-04-21T19:53:26+02:00 exit_code=0
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-04-21T19:50:14+02:00
+
+[gripprobe] process_finished_at=2026-04-21T19:53:26+02:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-04-21T19:53:26+02:00
+ImportError: No module named &#x27;edit&#x27;
+
+Traceback (most recent call last):
+  File &quot;&lt;string&gt;&quot;, line 10, in &lt;module&gt;
+    {&quot;name&quot;: &quot;Edit&quot;, &quot;arguments&quot;: {&quot;filepath&quot;: &quot;patch-target.txt&quot;, &quot;new_value&quot;: &quot;new&quot;, &quot;old_value&quot;: &quot;old&quot;, &quot;replace_all&quot;: false}}
+  File &quot;$HOME/work/private/GripProbe-CLI/results/runs/20260421T175012Z/cases/continue-cli__local_orieg_gemma3_tools_12b_ft_v2__ollama__markdown__patch_file/workspace/.continue/tools/tool_call_manager.py&quot;, line 86, in run_tool
+    result = self._execute(tool)
+  File &quot;$HOME/work/private/GripProbe-CLI/results/runs/20260421T175012Z/cases/continue-cli__local_orieg_gemma3_tools_12b_ft_v2__ollama__markdown__patch_file/workspace/.continue/tools/tool_call_manager.py&quot;, line 56, in _execute
+    importlib.import_module(tool[&quot;function&quot;][&quot;name&quot;])
+  File &quot;$HOME/work/private/GripProbe-CLI/results/runs/20260421T175012Z/cases/continue-cli__local_orieg_gemma3_tools_12b_ft_v2__ollama__markdown__patch_file/workspace/.continue/tools/edit.py&quot;, line 4, in &lt;module&gt;
+    from .read import Read
+  File &quot;$HOME/work/private/GripProbe-CLI/results/runs/20260421T175012Z/cases/continue-cli__local_orieg_gemma3_tools_12b_ft_v2__ollama__markdown__patch_file/workspace/.continue/tools/read.py&quot;, line 7, in &lt;module&gt;
+    import os
+ModuleNotFoundError: No module named &#x27;os&#x27;
+
+[gripprobe] process_finished_at=2026-04-21T19:59:12+02:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-04-21T19:53:26+02:00
+
+[gripprobe] process_finished_at=2026-04-21T19:59:12+02:00 exit_code=0
+</pre></div></div></section>
+
+
+</body></html>
