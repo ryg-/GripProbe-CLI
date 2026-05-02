@@ -108,6 +108,7 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     write_html_summary([result], reports_dir / "summary.html")
 
     detail_html = (reports_dir / "cases" / "case-1.html").read_text(encoding="utf-8")
+    assert "<html lang='en'>" in detail_html
     assert "$HOME/.local/bin/gptme" not in detail_html
     assert "[hidden in HTML]" in detail_html
     assert "Runtime Snapshots" in detail_html
@@ -124,7 +125,12 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     assert "Model Modelfile (Ollama)" in detail_html
     assert "FROM qwen2.5:7b" in detail_html
     assert detail_html.rfind("Model Modelfile (Ollama)") > detail_html.rfind("Raw Artifacts")
+    assert ".timeout-artifact{" not in detail_html
+    assert ".unsupported{" not in detail_html
+    assert ".invoked-maybe{" not in detail_html
+    assert ".match-none{" not in detail_html
     summary_html = (reports_dir / "summary.html").read_text(encoding="utf-8")
+    assert "<html lang='en'>" in summary_html
     assert "<th>Reason</th>" in summary_html
     assert "<th>Command</th>" not in summary_html
     assert "/home/source-user" not in summary_html

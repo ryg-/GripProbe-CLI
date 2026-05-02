@@ -69,40 +69,19 @@ def _copy_case_dir(src: Path, dst: Path) -> None:
     )
 
 
-def _copy_source_reports(run_dir: Path, output_dir: Path) -> None:
-    reports_dir = run_dir / "reports"
-    if not reports_dir.exists():
+def _copy_public_run_summary(run_dir: Path, output_dir: Path) -> None:
+    source_summary = run_dir / "reports" / "summary.html"
+    if not source_summary.exists():
         return
-    target_root = output_dir / "source_reports" / run_dir.name
-    if target_root.exists():
-        shutil.rmtree(target_root)
-    shutil.copytree(reports_dir, target_root, ignore_dangling_symlinks=True)
-    _strip_sections_from_source_reports(target_root)
-    _sanitize_source_reports(target_root)
-
-
-def _strip_named_section_from_html(html_path: Path, heading: str) -> None:
-    text = html_path.read_text(encoding="utf-8")
-    marker = f"<h2>{heading}</h2>"
-    start = text.find(marker)
-    if start == -1:
-        return
-    section_start = text.rfind("<section>", 0, start)
-    section_end = text.find("</section>", start)
-    if section_start == -1 or section_end == -1:
-        return
-    updated = text[:section_start] + text[section_end + len("</section>"):]
-    html_path.write_text(updated, encoding="utf-8")
-
-
-def _strip_sections_from_source_reports(reports_root: Path) -> None:
-    cases_dir = reports_root / "cases"
-    if not cases_dir.exists():
-        return
-    for html_path in cases_dir.glob("*.html"):
-        _strip_named_section_from_html(html_path, "Raw Artifacts")
-        _strip_named_section_from_html(html_path, "Runtime Snapshots")
-        _strip_named_section_from_html(html_path, "Case JSON")
+    runs_dir = output_dir / "reports" / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    target_summary = runs_dir / f"{run_dir.name}.html"
+    text = source_summary.read_text(encoding="utf-8", errors="replace")
+    text = _sanitize_report_text(text)
+    text = re.sub(r"<html(?![^>]*\blang=)", "<html lang='en'", text, count=1)
+    # Copied run summaries are published without per-run detail pages.
+    text = re.sub(r"""href=(['"])cases/[^'"]+\1""", "href='#'", text)
+    target_summary.write_text(text, encoding="utf-8")
 
 
 def _sanitize_user_paths(text: str) -> str:
@@ -136,10 +115,6 @@ def _sanitize_tree_text_files(root_dir: Path) -> None:
         updated = _sanitize_report_text(original)
         if updated != original:
             path.write_text(updated, encoding="utf-8")
-
-
-def _sanitize_source_reports(reports_root: Path) -> None:
-    _sanitize_tree_text_files(reports_root)
 
 
 def _sanitize_case_result(result: CaseResult) -> CaseResult:
@@ -217,7 +192,7 @@ def _display_failure_reason(value: object) -> str:
 
 
 def _source_summary_relpath(output_dir: Path, run_id: str) -> str:
-    target = output_dir / "source_reports" / run_id / "summary.html"
+    target = output_dir / "reports" / "runs" / f"{run_id}.html"
     return escape(os.path.relpath(target, output_dir / "reports"))
 
 
@@ -608,7 +583,7 @@ def write_aggregate_html_summary(
     scope_summary_html = _render_scope_summary(shells_value, formats_value)
 
     html = f"""<!doctype html>
-<html><head><meta charset='utf-8'><title>GripProbe Compatibility Report</title>
+<html lang='en'><head><meta charset='utf-8'><title>GripProbe Compatibility Report</title>
 <style>
 body{{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;font-size:14px}}
 table{{border-collapse:collapse;width:100%}}
@@ -795,7 +770,7 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
 
     aggregated_results: list[CaseResult] = []
     for run_dir in [path.resolve() for path in run_dirs]:
-        _copy_source_reports(run_dir, output_dir)
+        _copy_public_run_summary(run_dir, output_dir)
         source_cases_dir = run_dir / "cases"
         if not source_cases_dir.exists():
             continue

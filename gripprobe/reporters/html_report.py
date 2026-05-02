@@ -42,6 +42,72 @@ INVOKED_CLASS = {
     "maybe": "invoked-maybe",
 }
 
+_CLASS_ATTR_PATTERN = re.compile(r"class=['\"]([^'\"]+)['\"]")
+_CSS_CLASS_ORDER = (
+    "muted",
+    "badge",
+    "pass",
+    "fail",
+    "timeout",
+    "timeout-artifact",
+    "notool",
+    "unsupported",
+    "skipped",
+    "unknown",
+    "traj-clean",
+    "traj-recovered",
+    "traj-violated",
+    "invoked-yes",
+    "invoked-no",
+    "invoked-maybe",
+    "match-full",
+    "match-partial",
+    "match-none",
+    "ok",
+)
+_CSS_CLASS_RULES = {
+    "muted": ".muted{color:#666}",
+    "badge": ".badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}",
+    "pass": ".pass{background:#d9f2df;color:#115c23}",
+    "fail": ".fail{background:#f9d7d7;color:#7a1520}",
+    "timeout": ".timeout{background:#fde6c8;color:#7d4b00}",
+    "timeout-artifact": ".timeout-artifact{background:#d8f0e1;color:#165a30}",
+    "notool": ".notool{background:#e6e1ff;color:#44318d}",
+    "unsupported": ".unsupported{background:#e6eefb;color:#1f4c8f}",
+    "skipped": ".skipped{background:#ececec;color:#555}",
+    "unknown": ".unknown{background:#eee;color:#333}",
+    "traj-clean": ".traj-clean{background:#dff3e4;color:#1f6b33}",
+    "traj-recovered": ".traj-recovered{background:#fff0cc;color:#8a5a00}",
+    "traj-violated": ".traj-violated{background:#f7d6db;color:#8a1f2d}",
+    "invoked-yes": ".invoked-yes{background:#d9ecff;color:#0b4f92}",
+    "invoked-no": ".invoked-no{background:#ececec;color:#555}",
+    "invoked-maybe": ".invoked-maybe{background:#efe3ff;color:#5b2f8f}",
+    "match-full": ".match-full{background:#d9f2df;color:#115c23}",
+    "match-partial": ".match-partial{background:#fff0cc;color:#8a5a00}",
+    "match-none": ".match-none{background:#f9d7d7;color:#7a1520}",
+    "ok": ".ok{color:#115c23;font-weight:600}",
+}
+
+
+def _collect_css_classes(html_fragment: str) -> set[str]:
+    classes: set[str] = set()
+    for match in _CLASS_ATTR_PATTERN.finditer(html_fragment):
+        for token in match.group(1).split():
+            if token:
+                classes.add(token)
+    return classes
+
+
+def _render_conditional_css(html_fragment: str) -> str:
+    classes = _collect_css_classes(html_fragment)
+    rules: list[str] = []
+    for class_name in _CSS_CLASS_ORDER:
+        if class_name in classes:
+            rule = _CSS_CLASS_RULES.get(class_name)
+            if rule:
+                rules.append(rule)
+    return "\n".join(rules)
+
 def _sanitize_user_paths(text: str) -> str:
     sanitized = re.sub(r"(?<![\w$])/(?:home|Users)/[^/\s\"'<>:]+", "$HOME", text)
     sanitized = re.sub(r"(?<![\w$])[A-Za-z]:\\+Users\\+[^\\/\s\"'<>:]+", "$HOME", sanitized)
@@ -434,49 +500,16 @@ def _write_case_detail(
         if panel
     )
     diff_html = _render_diff(expected_raw, observed_raw)
-
-    html = f"""<!doctype html>
-<html><head><meta charset='utf-8'><title>{escape(result.case_id)}</title>
-<style>
-body{{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}}
-a{{color:#0b57d0}}
-pre{{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}}
-code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
-section{{margin:1.5rem 0}}
-.message{{border-top:1px solid #d6d1c4;padding-top:1rem}}
-.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}}
-.panel{{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}}
-.muted{{color:#666}}
-.badge{{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}}
-.pass{{background:#d9f2df;color:#115c23}}
-.fail{{background:#f9d7d7;color:#7a1520}}
-.timeout{{background:#fde6c8;color:#7d4b00}}
-.timeout-artifact{{background:#d8f0e1;color:#165a30}}
-.notool{{background:#e6e1ff;color:#44318d}}
-.unsupported{{background:#e6eefb;color:#1f4c8f}}
-.skipped{{background:#ececec;color:#555}}
-.unknown{{background:#eee;color:#333}}
-.traj-clean{{background:#dff3e4;color:#1f6b33}}
-.traj-recovered{{background:#fff0cc;color:#8a5a00}}
-.traj-violated{{background:#f7d6db;color:#8a1f2d}}
-.invoked-yes{{background:#d9ecff;color:#0b4f92}}
-.invoked-no{{background:#ececec;color:#555}}
-.invoked-maybe{{background:#efe3ff;color:#5b2f8f}}
-.match-full{{background:#d9f2df;color:#115c23}}
-.match-partial{{background:#fff0cc;color:#8a5a00}}
-.match-none{{background:#f9d7d7;color:#7a1520}}
-.ok{{color:#115c23;font-weight:600}}
-</style></head><body>
-<p><a href='{summary_rel}'>Back to summary</a></p>
+    detail_body = f"""<p><a href='{summary_rel}'>Back to summary</a></p>
 <h1>{escape(result.title)}</h1>
 <p><strong>Case:</strong> <code>{escape(result.case_id)}</code></p>
-    <p>{_status_badges(result)} <strong>Trajectory:</strong> <span class='badge {trajectory_class}'>{escape(result.trajectory)}</span> | <strong>Invoked:</strong> <span class='badge {invoked_class}'>{escape(result.invoked)}</span> | <strong>Match:</strong> <span class='badge {match_class}'>{result.match_percent}%</span></p>
-    {failure_reason_html}
-    {("<p class='ok'>The expected workspace artifact was present before the harness timeout elapsed.</p>") if _timeout_artifact_reached(result) else ''}
-    {('<section><h2>Shell Commands</h2>' + shell_commands_html + '</section>') if shell_commands_html else ''}
-    {('<section><h2>Runtime Snapshots</h2>' + runtime_snapshots_html + '</section>') if runtime_snapshots_html else ''}
-    {('<section><h2>Trajectory Hints</h2>' + trajectory_hints_html + '</section>') if trajectory_hints_html else ''}
-    {('<section><h2>Run Comparison</h2>' + run_comparison_html + '</section>') if run_comparison_html else ''}
+<p>{_status_badges(result)} <strong>Trajectory:</strong> <span class='badge {trajectory_class}'>{escape(result.trajectory)}</span> | <strong>Invoked:</strong> <span class='badge {invoked_class}'>{escape(result.invoked)}</span> | <strong>Match:</strong> <span class='badge {match_class}'>{result.match_percent}%</span></p>
+{failure_reason_html}
+{("<p class='ok'>The expected workspace artifact was present before the harness timeout elapsed.</p>") if _timeout_artifact_reached(result) else ''}
+{('<section><h2>Shell Commands</h2>' + shell_commands_html + '</section>') if shell_commands_html else ''}
+{('<section><h2>Runtime Snapshots</h2>' + runtime_snapshots_html + '</section>') if runtime_snapshots_html else ''}
+{('<section><h2>Trajectory Hints</h2>' + trajectory_hints_html + '</section>') if trajectory_hints_html else ''}
+{('<section><h2>Run Comparison</h2>' + run_comparison_html + '</section>') if run_comparison_html else ''}
 {('<div class="grid">' + top_panels + '</div>') if top_panels else ''}
 <section>
 <h2>Expected vs Observed</h2>
@@ -488,7 +521,23 @@ section{{margin:1.5rem 0}}
 </section>
 {('<section><h2>Tool / Process Output</h2><div class="grid">' + output_panels + '</div></section>') if output_panels else ''}
 {('<section><h2>Raw Artifacts</h2>' + artifact_links + '</section>') if artifact_links else ''}
-{('<section><h2>Model Modelfile (Ollama)</h2>' + _pre_block(modelfile_raw) + '</section>') if modelfile_raw.strip() else ''}
+{('<section><h2>Model Modelfile (Ollama)</h2>' + _pre_block(modelfile_raw) + '</section>') if modelfile_raw.strip() else ''}"""
+    badge_css = _render_conditional_css(detail_body)
+
+    html = f"""<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><title>{escape(result.case_id)}</title>
+<style>
+body{{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}}
+a{{color:#0b57d0}}
+pre{{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}}
+code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
+section{{margin:1.5rem 0}}
+.message{{border-top:1px solid #d6d1c4;padding-top:1rem}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}}
+.panel{{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}}
+{badge_css}
+</style></head><body>
+{detail_body}
 </body></html>"""
     detail_path.write_text(html, encoding="utf-8")
     return str(detail_path.relative_to(reports_dir))
@@ -546,8 +595,16 @@ def write_html_summary(results: list[CaseResult], path: Path) -> None:
             f"<td><a href='{escape(detail_rel)}'>details</a></td>"
             "</tr>"
         )
+    summary_body = f"""<h1>GripProbe Run Summary</h1>
+{('<section><h1>Runtime Snapshots</h1>' + run_runtime_snapshots_html + '</section>') if run_runtime_snapshots_html else ''}
+<table>
+<thead><tr><th>Shell</th><th>Model</th><th>Backend</th><th>Hash</th><th>Format</th><th>Test</th><th>Status</th><th>Reason</th><th>Trajectory</th><th>Invoked</th><th>Match</th><th>Warmup (s)</th><th>Measured (s)</th><th>Details</th></tr></thead>
+<tbody>
+{''.join(rows)}
+</tbody></table>"""
+    badge_css = _render_conditional_css(summary_body)
     html = f"""<!doctype html>
-<html><head><meta charset='utf-8'><title>GripProbe Summary</title>
+<html lang='en'><head><meta charset='utf-8'><title>GripProbe Summary</title>
 <style>
 body{{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111}}
 table{{border-collapse:collapse;width:100%}}
@@ -559,30 +616,8 @@ a{{color:#0b57d0}}
 .panel h3,.panel h4{{margin-top:0}}
 pre{{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}}
 code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
-.badge{{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}}
-.pass{{background:#d9f2df;color:#115c23}}
-.fail{{background:#f9d7d7;color:#7a1520}}
-.timeout{{background:#fde6c8;color:#7d4b00}}
-.timeout-artifact{{background:#d8f0e1;color:#165a30}}
-.notool{{background:#e6e1ff;color:#44318d}}
-.unsupported{{background:#e6eefb;color:#1f4c8f}}
-.skipped{{background:#ececec;color:#555}}
-.unknown{{background:#eee;color:#333}}
-.traj-clean{{background:#dff3e4;color:#1f6b33}}
-.traj-recovered{{background:#fff0cc;color:#8a5a00}}
-.traj-violated{{background:#f7d6db;color:#8a1f2d}}
-.invoked-yes{{background:#d9ecff;color:#0b4f92}}
-.invoked-no{{background:#ececec;color:#555}}
-.invoked-maybe{{background:#efe3ff;color:#5b2f8f}}
-.match-full{{background:#d9f2df;color:#115c23}}
-.match-partial{{background:#fff0cc;color:#8a5a00}}
-.match-none{{background:#f9d7d7;color:#7a1520}}
+{badge_css}
 </style></head><body>
-<h1>GripProbe Run Summary</h1>
-{('<section><h1>Runtime Snapshots</h1>' + run_runtime_snapshots_html + '</section>') if run_runtime_snapshots_html else ''}
-<table>
-<thead><tr><th>Shell</th><th>Model</th><th>Backend</th><th>Hash</th><th>Format</th><th>Test</th><th>Status</th><th>Reason</th><th>Trajectory</th><th>Invoked</th><th>Match</th><th>Warmup (s)</th><th>Measured (s)</th><th>Details</th></tr></thead>
-<tbody>
-{''.join(rows)}
-</tbody></table></body></html>"""
+{summary_body}
+</body></html>"""
     path.write_text(html, encoding="utf-8")

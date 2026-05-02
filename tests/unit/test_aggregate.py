@@ -78,8 +78,9 @@ def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     assert len(results) == 2
     assert (output_dir / "reports" / "summary.html").exists()
     assert (output_dir / "reports" / "summary.md").exists()
-    assert (output_dir / "source_reports" / "run-a" / "summary.html").exists()
-    assert (output_dir / "source_reports" / "run-b" / "cases" / "case-1.html").exists()
+    assert (output_dir / "reports" / "runs" / "run-a.html").exists()
+    assert (output_dir / "reports" / "runs" / "run-b.html").exists()
+    assert not (output_dir / "source_reports").exists()
     assert (output_dir / "cases" / "run-a__case-1" / "case.json").exists()
     assert (output_dir / "cases" / "run-b__case-1" / "case.json").exists()
 
@@ -94,7 +95,7 @@ def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     assert case_b["case_id"] == "run-b__case-1"
     assert manifest["cases"] == 2
     assert _tbody_row_count(summary_html) == 1
-    assert "source_reports/run-b/summary.html" in summary_html
+    assert "runs/run-b.html" in summary_html
     assert "cases/case-00001.html" in summary_html
     assert "Case One" in summary_html
     assert "Case Two" in summary_html
@@ -229,26 +230,30 @@ def test_aggregate_reports_keeps_different_formats_on_separate_rows(tmp_path: Pa
 def test_aggregate_reports_sanitizes_source_report_private_values(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs" / "run-a"
     _write_case(run_dir, "case-1", "Case One", "PASS")
-    source_case_html = run_dir / "reports" / "cases" / "case-1.html"
-    source_case_html.write_text(
+    source_summary_html = run_dir / "reports" / "summary.html"
+    source_summary_html.write_text(
         "<html><body>"
         "GET http://source-host:11434/api/ps "
         "ssh source-host cat /proc/loadavg "
         f"{Path.home()}/work/private "
         "/home/source-user/work/private "
-        "/Users/source-user/work/private"
+        "/Users/source-user/work/private "
+        "<a href='cases/case-1.html'>details</a>"
         "</body></html>",
         encoding="utf-8",
     )
 
     output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
-    copied_html = (output_dir / "source_reports" / "run-a" / "cases" / "case-1.html").read_text(encoding="utf-8")
+    copied_html = (output_dir / "reports" / "runs" / "run-a.html").read_text(encoding="utf-8")
 
+    assert "<html lang='en'>" in copied_html
     assert "http://source-host:11434" not in copied_html
     assert "ssh source-host " not in copied_html
     assert str(Path.home()) not in copied_html
     assert "/home/source-user" not in copied_html
     assert "/Users/source-user" not in copied_html
+    assert "href='cases/case-1.html'" not in copied_html
+    assert "href='#'" in copied_html
     assert "http://ollama-host:11434" in copied_html
     assert "ssh ollama-host" in copied_html
     assert "$HOME/work/private" in copied_html
