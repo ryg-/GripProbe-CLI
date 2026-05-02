@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><title>20260502T125252Z__continue-cli__local_cryptidbleh_gemma4_claude_opus_4_6_latest__ollama__markdown__json_rank_from_file</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.muted{color:#666}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.fail{background:#f9d7d7;color:#7a1520}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.invoked-no{background:#ececec;color:#555}
+.match-none{background:#f9d7d7;color:#7a1520}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>JSON Rank From File</h1>
+<p><strong>Case:</strong> <code>20260502T125252Z__continue-cli__local_cryptidbleh_gemma4_claude_opus_4_6_latest__ollama__markdown__json_rank_from_file</code></p>
+<p><span class='badge fail'>FAIL</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-no'>no</span> | <strong>Match:</strong> <span class='badge match-none'>0%</span></p>
+
+
+<section><h2>Shell Commands</h2><h3>Warmup</h3><pre>cn --allow shell --config /work/results/runs/20260502T125252Z/cases/continue-cli__local_cryptidbleh_gemma4_claude_opus_4_6_latest__ollama__markdown__json_rank_from_file/runtime/continue-cli/warmup/home/.continue/config.yaml -p --auto --silent &#x27;Use the shell tool.
+Read search-response.json and required-token.txt from the current workspace.
+From results in search-response.json, select the item with highest score among snippets that contain the exact required token.
+Write search-result.json in the current workspace as JSON with exactly these keys:
+- query
+- selected_id
+- selected_url
+- selected_score
+If successful, reply only DONE.
+If command execution fails, reply only FAIL.
+&#x27;</pre><h3>Measured</h3><pre>cn --allow shell --config /work/results/runs/20260502T125252Z/cases/continue-cli__local_cryptidbleh_gemma4_claude_opus_4_6_latest__ollama__markdown__json_rank_from_file/runtime/continue-cli/measured/home/.continue/config.yaml -p --auto --silent &#x27;Use the shell tool.
+Read search-response.json and required-token.txt from the current workspace.
+From results in search-response.json, select the item with highest score among snippets that contain the exact required token.
+Write search-result.json in the current workspace as JSON with exactly these keys:
+- query
+- selected_id
+- selected_url
+- selected_score
+If successful, reply only DONE.
+If command execution fails, reply only FAIL.
+&#x27;</pre></section>
+
+<section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul></section>
+
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Use the shell tool.
+Read search-response.json and required-token.txt from the current workspace.
+From results in search-response.json, select the item with highest score among snippets that contain the exact required token.
+Write search-result.json in the current workspace as JSON with exactly these keys:
+- query
+- selected_id
+- selected_url
+- selected_score
+If successful, reply only DONE.
+If command execution fails, reply only FAIL.
+</pre></div><div class='panel'><h2>Expected</h2><pre>{&quot;query&quot;: &quot;weekly plan static fixture checkbox&quot;, &quot;selected_id&quot;: &quot;doc-static-top&quot;, &quot;selected_score&quot;: 0.98, &quot;selected_url&quot;: &quot;https://kb.example/static-top&quot;}
+</pre></div><div class='panel'><h2>Observed</h2><pre>MISSING_FILE
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<pre>--- expected
++++ observed
+@@ -1 +1 @@
+-{&quot;query&quot;: &quot;weekly plan static fixture checkbox&quot;, &quot;selected_id&quot;: &quot;doc-static-top&quot;, &quot;selected_score&quot;: 0.98, &quot;selected_url&quot;: &quot;https://kb.example/static-top&quot;}
++MISSING_FILE</pre>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<p class='muted'>No structured session transcript found.</p>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-05-02T12:52:55+00:00
+DONE
+
+[gripprobe] process_finished_at=2026-05-02T12:54:19+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-05-02T12:52:55+00:00
+
+[gripprobe] process_finished_at=2026-05-02T12:54:19+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-05-02T12:54:19+00:00
+
+[gripprobe] process_finished_at=2026-05-02T12:55:37+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-05-02T12:54:19+00:00
+
+[gripprobe] process_finished_at=2026-05-02T12:55:37+00:00 exit_code=0
+</pre></div></div></section>
+
+<section><h2>Model Modelfile (Ollama)</h2><pre># Modelfile generated by &quot;ollama show&quot;
+# To build a new Modelfile based on this, replace FROM with:
+# FROM cryptidbleh/gemma4-claude-opus-4.6:latest
+
+FROM /usr/share/ollama/.ollama/models/blobs/sha256-5eda4e4d50e51a341a55b589273be150639cc5684a3472db0e4699fb0f5a3820
+TEMPLATE {{ .Prompt }}
+SYSTEM &quot;
+you are gemma4 e2b (2 billion effective parameters), distilled from Claude Opus 4.6. 
+You are a master software engineer. When coding provide concise, production-ready code.
+&quot;
+RENDERER gemma4
+PARSER gemma4
+PARAMETER stop &lt;turn|&gt;
+PARAMETER num_batch 2048
+PARAMETER num_ctx 131072
+PARAMETER num_gpu 99
+</pre></section>
+</body></html>

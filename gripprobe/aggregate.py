@@ -649,7 +649,10 @@ a:hover{{text-decoration:underline}}
 .scope-summary th{{color:#555;width:54px;font-weight:700}}
 .models-summary table{{display:block;max-height:180px;overflow:auto}}
 .models-summary tr{{display:table;width:100%;table-layout:fixed}}
-</style></head><body>
+</style>
+<script data-goatcounter="https://ryg-.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</head><body>
 <div class='page-head'>
 <div>
 <h1>GripProbe Compatibility Report</h1>

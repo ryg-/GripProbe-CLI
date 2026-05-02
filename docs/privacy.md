@@ -56,6 +56,17 @@ Current aggregate sanitization includes:
 - replacing local usernames with `$USER`
 - removing `Raw Artifacts` sections from aggregate case pages and copied source-report case pages
 
+## Report Visit Counter
+
+Published `summary.html` pages include a simple GoatCounter script:
+
+```html
+<script data-goatcounter="https://ryg-.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+```
+
+This counter is privacy-friendly and is used only to understand interest in the published report.
+
 ## Operational Rule
 
 Use the layers like this:

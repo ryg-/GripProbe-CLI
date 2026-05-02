@@ -617,7 +617,10 @@ a{{color:#0b57d0}}
 pre{{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}}
 code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
 {badge_css}
-</style></head><body>
+</style>
+<script data-goatcounter="https://ryg-.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</head><body>
 {summary_body}
 </body></html>"""
     path.write_text(html, encoding="utf-8")

@@ -76,8 +76,8 @@ def test_run_suite_runs_all_shells_by_default(monkeypatch, specs_root: Path) -> 
         shells=None,
     )
 
-    assert len(run_dirs) == 4
-    assert {shell for shell, _, _, _ in calls} == {"aider", "continue-cli", "gptme", "opencode"}
+    assert len(run_dirs) == 5
+    assert {shell for shell, _, _, _ in calls} == {"aider", "codex", "continue-cli", "gptme", "opencode"}
     assert all(model == "local/qwen2.5:7b" for _, model, _, _ in calls)
     assert all(formats == ("tool",) for _, _, _, formats in calls)
 

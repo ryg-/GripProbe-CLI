@@ -767,5 +767,31 @@
 | gptme | local/granite4:3b | ollama | 89962fcc75239ac434cdebceb6b7e0669397f92eaef9c487774b718bc36a3e5f | tool | Python File Simple | FAIL |  | recovered | yes | 0 | 10.737 | 10.738 |
 | gptme | local/granite4:3b | ollama | 89962fcc75239ac434cdebceb6b7e0669397f92eaef9c487774b718bc36a3e5f | tool | Shell Date | PASS |  | clean | yes | 100 | 9.484 | 9.435 |
 | gptme | local/granite4:3b | ollama | 89962fcc75239ac434cdebceb6b7e0669397f92eaef9c487774b718bc36a3e5f | tool | Shell PWD | PASS |  | recovered | yes | 100 | 10.139 | 10.389 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | JSON Rank From File | FAIL |  | clean | no | 0 | 83.945 | 77.64 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Patch File From Prepared Patch | FAIL |  | clean | no | 0 | 48.418 | 49.425 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Python File Quoted | PASS |  | clean | yes | 100 | 36.095 | 36.745 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Python File Quoted DE | PASS |  | clean | yes | 100 | 36.194 | 36.393 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Python File Quoted RU | PASS |  | clean | yes | 100 | 38.048 | 36.691 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Save File | PASS |  | clean | yes | 100 | 36.092 | 35.594 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Shell Date DE | PASS |  | clean | yes | 100 | 35.789 | 35.091 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Shell Date RU | PASS |  | clean | yes | 100 | 35.489 | 35.792 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Shell File | PASS |  | clean | yes | 100 | 35.592 | 35.291 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Web Fetch JSON Raw | FAIL |  | clean | no | 0 | 42.403 | 65.907 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Web Nonce Proof | FAIL | answered without invoking tool | clean | no | 0 | 50.473 | 48.015 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Web Search JSON Ranked | FAIL | answered without invoking tool | clean | no | 0 | 46.915 | 54.276 |
+| continue-cli | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | markdown | Weekly Plan Next Week | FAIL | answered without invoking tool | clean | no | 0 | 35.942 | 40.702 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | JSON Rank From File | PASS |  | recovered | yes | 100 | 48.665 | 68.657 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Patch File From Prepared Patch | FAIL |  | clean | yes | 0 | 9.533 | 9.284 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Python File Quoted | PASS |  | recovered | yes | 100 | 19.507 | 17.0 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Python File Quoted DE | FAIL |  | clean | no | 0 | 22.359 | 2.369 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Python File Quoted RU | PASS |  | recovered | yes | 100 | 17.0 | 17.85 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Save File | PASS |  | recovered | yes | 100 | 16.799 | 16.55 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Shell Date DE | PASS |  | recovered | yes | 100 | 19.155 | 19.804 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Shell Date RU | PASS |  | recovered | yes | 100 | 18.602 | 18.352 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Shell File | PASS |  | recovered | yes | 100 | 17.351 | 17.201 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Web Fetch JSON Raw | PASS |  | recovered | yes | 100 | 36.79 | 42.548 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Web Nonce Proof | TIMEOUT |  | clean | yes | 0 | 2.168 | 120.009 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Web Search JSON Ranked | TIMEOUT |  | clean | yes | 0 | 93.659 | 120.006 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Weekly Plan Next Week | FAIL |  | recovered | yes | 0 | 15.547 | 23.967 |
 
-generated at 2026-05-02 12:38:16 UTC | git commit 9ff2a2d
+generated at 2026-05-02 13:35:23 UTC | git commit b842644
