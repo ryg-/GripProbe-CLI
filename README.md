@@ -16,7 +16,7 @@ Publication rule:
 - treat `results/runs/...` as internal diagnostic data
 
 Reports:
-- HTML report: [GitHub Pages link]
+- HTML report: [https://ryg-.github.io/GripProbe-CLI/report/summary.html]
 - Markdown summary: report/summary.md
 
 ## What GripProbe Measures
