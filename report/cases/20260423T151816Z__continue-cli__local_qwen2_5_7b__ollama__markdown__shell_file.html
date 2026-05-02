@@ -1,0 +1,82 @@
+<!doctype html>
+<html><head><meta charset='utf-8'><title>20260423T151816Z__continue-cli__local_qwen2_5_7b__ollama__markdown__shell_file</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.muted{color:#666}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.pass{background:#d9f2df;color:#115c23}
+.fail{background:#f9d7d7;color:#7a1520}
+.timeout{background:#fde6c8;color:#7d4b00}
+.timeout-artifact{background:#d8f0e1;color:#165a30}
+.notool{background:#e6e1ff;color:#44318d}
+.unsupported{background:#e6eefb;color:#1f4c8f}
+.skipped{background:#ececec;color:#555}
+.unknown{background:#eee;color:#333}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.traj-recovered{background:#fff0cc;color:#8a5a00}
+.traj-violated{background:#f7d6db;color:#8a1f2d}
+.invoked-yes{background:#d9ecff;color:#0b4f92}
+.invoked-no{background:#ececec;color:#555}
+.invoked-maybe{background:#efe3ff;color:#5b2f8f}
+.match-full{background:#d9f2df;color:#115c23}
+.match-partial{background:#fff0cc;color:#8a5a00}
+.match-none{background:#f9d7d7;color:#7a1520}
+.ok{color:#115c23;font-weight:600}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>Shell File</h1>
+<p><strong>Case:</strong> <code>20260423T151816Z__continue-cli__local_qwen2_5_7b__ollama__markdown__shell_file</code></p>
+    <p><span class='badge pass'>PASS</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-yes'>yes</span> | <strong>Match:</strong> <span class='badge match-full'>100%</span></p>
+    
+    
+    <section><h2>Shell Commands</h2><h3>Warmup</h3><pre>cn --allow shell --config /work/results/runs/20260423T151816Z/cases/continue-cli__local_qwen2_5_7b__ollama__markdown__shell_file/runtime/continue-cli/warmup/home/.continue/config.yaml -p --auto --silent &#x27;Use the shell tool. Run exactly this command: printf &#x27;&quot;&#x27;&quot;&#x27;SHELL_OK\n&#x27;&quot;&#x27;&quot;&#x27; &gt; shell-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL.
+If the command succeeds, reply only with DONE.
+&#x27;</pre><h3>Measured</h3><pre>cn --allow shell --config /work/results/runs/20260423T151816Z/cases/continue-cli__local_qwen2_5_7b__ollama__markdown__shell_file/runtime/continue-cli/measured/home/.continue/config.yaml -p --auto --silent &#x27;Use the shell tool. Run exactly this command: printf &#x27;&quot;&#x27;&quot;&#x27;SHELL_OK\n&#x27;&quot;&#x27;&quot;&#x27; &gt; shell-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL.
+If the command succeeds, reply only with DONE.
+&#x27;</pre></section>
+    
+    <section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul></section>
+    
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Use the shell tool. Run exactly this command: printf &#x27;SHELL_OK\n&#x27; &gt; shell-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL.
+If the command succeeds, reply only with DONE.
+</pre></div><div class='panel'><h2>Expected</h2><pre>SHELL_OK
+</pre></div><div class='panel'><h2>Observed</h2><pre>SHELL_OK
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<p class='ok'>Expected and observed match.</p>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<p class='muted'>No structured session transcript found.</p>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-04-23T15:20:19+00:00
+DONE
+
+[gripprobe] process_finished_at=2026-04-23T15:20:25+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-04-23T15:20:19+00:00
+
+[gripprobe] process_finished_at=2026-04-23T15:20:25+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-04-23T15:20:25+00:00
+DONE
+
+[gripprobe] process_finished_at=2026-04-23T15:20:30+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-04-23T15:20:25+00:00
+
+[gripprobe] process_finished_at=2026-04-23T15:20:30+00:00 exit_code=0
+</pre></div></div></section>
+
+</body></html>

@@ -1,0 +1,139 @@
+<!doctype html>
+<html><head><meta charset='utf-8'><title>20260421T205444Z__gptme__local_gemma3_12b__ollama__tool__patch_file</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.muted{color:#666}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.pass{background:#d9f2df;color:#115c23}
+.fail{background:#f9d7d7;color:#7a1520}
+.timeout{background:#fde6c8;color:#7d4b00}
+.timeout-artifact{background:#d8f0e1;color:#165a30}
+.notool{background:#e6e1ff;color:#44318d}
+.unsupported{background:#e6eefb;color:#1f4c8f}
+.skipped{background:#ececec;color:#555}
+.unknown{background:#eee;color:#333}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.traj-recovered{background:#fff0cc;color:#8a5a00}
+.traj-violated{background:#f7d6db;color:#8a1f2d}
+.invoked-yes{background:#d9ecff;color:#0b4f92}
+.invoked-no{background:#ececec;color:#555}
+.invoked-maybe{background:#efe3ff;color:#5b2f8f}
+.match-full{background:#d9f2df;color:#115c23}
+.match-partial{background:#fff0cc;color:#8a5a00}
+.match-none{background:#f9d7d7;color:#7a1520}
+.ok{color:#115c23;font-weight:600}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>Patch File</h1>
+<p><strong>Case:</strong> <code>20260421T205444Z__gptme__local_gemma3_12b__ollama__tool__patch_file</code></p>
+    <p><span class='badge unsupported'>TOOL_UNSUPPORTED</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-no'>no</span> | <strong>Match:</strong> <span class='badge match-none'>0%</span></p>
+    <p><strong>Failure Reason:</strong> tool unsupported by backend</p>
+    
+    
+    
+    <section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul><h3>Current Case</h3><ul><li>no execution errors detected</li><li>no loop pattern detected</li><li>no contradictory completion text detected</li></ul></section>
+    <section><h2>Run Comparison</h2><div class='grid'><p><strong>Consistency:</strong> consistent</p><div class='panel'><h3>Run 1</h3><ul><li><strong>Status:</strong> TOOL_UNSUPPORTED</li><li><strong>invoked:</strong> maybe</li><li><strong>tool_attempt_count:</strong> 0</li><li><strong>error_count:</strong> 0</li><li><strong>repeated_error_count:</strong> 0</li><li><strong>loop_detected:</strong> False</li><li><strong>markdown_tool_imitation:</strong> False</li><li><strong>no_tool_call_after_completion:</strong> False</li></ul></div><div class='panel'><h3>Run 2</h3><ul><li><strong>Status:</strong> TOOL_UNSUPPORTED</li><li><strong>invoked:</strong> maybe</li><li><strong>tool_attempt_count:</strong> 0</li><li><strong>error_count:</strong> 0</li><li><strong>repeated_error_count:</strong> 0</li><li><strong>loop_detected:</strong> False</li><li><strong>markdown_tool_imitation:</strong> False</li><li><strong>no_tool_call_after_completion:</strong> False</li></ul></div></div></section>
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Use the read tool to inspect patch-target.txt in the current workspace.
+Then use the patch tool to replace the exact line STATUS=old with STATUS=new in patch-target.txt in the current workspace.
+Do not retry on error.
+If the edit fails, reply only with FAIL.
+If the edit succeeds, reply only with DONE.
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<p class='muted'>No expected/observed content.</p>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<section class='message'><h3>user</h3><pre>Use the read tool to inspect patch-target.txt in the current workspace.
+Then use the patch tool to replace the exact line STATUS=old with STATUS=new in patch-target.txt in the current workspace.
+Do not retry on error.
+If the edit fails, reply only with FAIL.
+If the edit succeeds, reply only with DONE.
+
+````patch-target.txt
+STATUS=old
+
+````
+
+````patch-target.txt
+STATUS=old
+
+````</pre></section>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-04-21T22:54:45+02:00
+[22:54:46] WARNING  Skipping all confirmation prompts.                                                                                                                                                                                                                    cli.py:265
+[22:54:46] Using model: local/gemma3:12b                                                                                                                                                                                                                                            
+           Using logdir: ~/work/private/GripProbe-CLI/results/runs/20260421T205444Z/cases/gptme__local_gemma3_12b__ollama__tool__patch_file/gptme-logs/gptme__local_gemma3_12b__ollama__tool__patch_file-warmup                                                                     
+           Using workspace: ~/work/private/GripProbe-CLI/results/runs/20260421T205444Z/cases/gptme__local_gemma3_12b__ollama__tool__patch_file/workspace-warmup                                                                                                                     
+Skipped 2 hidden system messages, show with --show-hidden
+--- ^^^ past messages ^^^ ---
+User: 
+Use the read tool to inspect patch-target.txt in the current workspace.
+Then use the patch tool to replace the exact line STATUS=old with STATUS=new in patch-target.txt in the current workspace.
+Do not retry on error.
+If the edit fails, reply only with FAIL.
+If the edit succeeds, reply only with DONE.
+
+````patch-target.txt
+STATUS=old
+````
+
+````patch-target.txt
+STATUS=old
+````
+Assistant: Thinking...
+                                                                                
+[22:54:47] ERROR    Fatal error occurred                                                                                                                                                                                                                                  cli.py:416
+           ERROR    Error code: 400 - {&#x27;error&#x27;: {&#x27;message&#x27;: &#x27;registry.ollama.ai/library/gemma3:12b does not support tools&#x27;, &#x27;type&#x27;: &#x27;invalid_request_error&#x27;, &#x27;param&#x27;: None, &#x27;code&#x27;: None}}                                                                                cli.py:420
+           ERROR      at $HOME/.local/share/pipx/venvs/gptme/lib/python3.13/site-packages/gptme/llm/llm_openai.py:383 in stream                                                                                                                                       cli.py:436
+
+Goodbye! (resume with: gptme --name gptme__local_gemma3_12b__ollama__tool__patch_file-warmup)
+
+[gripprobe] process_finished_at=2026-04-21T22:54:47+02:00 exit_code=1
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-04-21T22:54:45+02:00
+
+[gripprobe] process_finished_at=2026-04-21T22:54:47+02:00 exit_code=1
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-04-21T22:54:47+02:00
+[22:54:48] WARNING  Skipping all confirmation prompts.                                                                                                                                                                                                                    cli.py:265
+[22:54:48] Using model: local/gemma3:12b                                                                                                                                                                                                                                            
+[22:54:49] Using logdir: ~/work/private/GripProbe-CLI/results/runs/20260421T205444Z/cases/gptme__local_gemma3_12b__ollama__tool__patch_file/gptme-logs/gptme__local_gemma3_12b__ollama__tool__patch_file-measured                                                                   
+           Using workspace: ~/work/private/GripProbe-CLI/results/runs/20260421T205444Z/cases/gptme__local_gemma3_12b__ollama__tool__patch_file/workspace                                                                                                                            
+Skipped 2 hidden system messages, show with --show-hidden
+--- ^^^ past messages ^^^ ---
+User: 
+Use the read tool to inspect patch-target.txt in the current workspace.
+Then use the patch tool to replace the exact line STATUS=old with STATUS=new in patch-target.txt in the current workspace.
+Do not retry on error.
+If the edit fails, reply only with FAIL.
+If the edit succeeds, reply only with DONE.
+
+````patch-target.txt
+STATUS=old
+````
+
+````patch-target.txt
+STATUS=old
+````
+Assistant: Thinking...
+                                                                                
+[22:54:49] ERROR    Fatal error occurred                                                                                                                                                                                                                                  cli.py:416
+           ERROR    Error code: 400 - {&#x27;error&#x27;: {&#x27;message&#x27;: &#x27;registry.ollama.ai/library/gemma3:12b does not support tools&#x27;, &#x27;type&#x27;: &#x27;invalid_request_error&#x27;, &#x27;param&#x27;: None, &#x27;code&#x27;: None}}                                                                                cli.py:420
+           ERROR      at $HOME/.local/share/pipx/venvs/gptme/lib/python3.13/site-packages/gptme/llm/llm_openai.py:383 in stream                                                                                                                                       cli.py:436
+
+Goodbye! (resume with: gptme --name gptme__local_gemma3_12b__ollama__tool__patch_file-measured)
+
+[gripprobe] process_finished_at=2026-04-21T22:54:50+02:00 exit_code=1
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-04-21T22:54:47+02:00
+
+[gripprobe] process_finished_at=2026-04-21T22:54:50+02:00 exit_code=1
+</pre></div></div></section>
+
+</body></html>

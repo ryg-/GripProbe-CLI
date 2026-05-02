@@ -1,0 +1,302 @@
+<!doctype html>
+<html><head><meta charset='utf-8'><title>20260423T183136Z__gptme__local_gemma4_e4b__ollama__tool__python_file_ru</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.muted{color:#666}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.pass{background:#d9f2df;color:#115c23}
+.fail{background:#f9d7d7;color:#7a1520}
+.timeout{background:#fde6c8;color:#7d4b00}
+.timeout-artifact{background:#d8f0e1;color:#165a30}
+.notool{background:#e6e1ff;color:#44318d}
+.unsupported{background:#e6eefb;color:#1f4c8f}
+.skipped{background:#ececec;color:#555}
+.unknown{background:#eee;color:#333}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.traj-recovered{background:#fff0cc;color:#8a5a00}
+.traj-violated{background:#f7d6db;color:#8a1f2d}
+.invoked-yes{background:#d9ecff;color:#0b4f92}
+.invoked-no{background:#ececec;color:#555}
+.invoked-maybe{background:#efe3ff;color:#5b2f8f}
+.match-full{background:#d9f2df;color:#115c23}
+.match-partial{background:#fff0cc;color:#8a5a00}
+.match-none{background:#f9d7d7;color:#7a1520}
+.ok{color:#115c23;font-weight:600}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>Python File Quoted RU</h1>
+<p><strong>Case:</strong> <code>20260423T183136Z__gptme__local_gemma4_e4b__ollama__tool__python_file_ru</code></p>
+    <p><span class='badge pass'>PASS</span> <strong>Trajectory:</strong> <span class='badge traj-recovered'>recovered</span> | <strong>Invoked:</strong> <span class='badge invoked-yes'>yes</span> | <strong>Match:</strong> <span class='badge match-full'>100%</span></p>
+    
+    
+    <section><h2>Shell Commands</h2><h3>Warmup</h3><pre>gptme --non-interactive --no-confirm --name gptme__local_gemma4_e4b__ollama__tool__python_file_ru-warmup --system short --workspace /work/results/runs/20260423T183136Z/cases/gptme__local_gemma4_e4b__ollama__tool__python_file_ru/workspace-warmup --tools shell --tool-format tool -m local/gemma4:e4b &#x27;Используй shell tool. Выполни ровно эту команду: python3 -c &quot;from pathlib import Path; Path(&#x27;&quot;&#x27;&quot;&#x27;python-output.txt&#x27;&quot;&#x27;&quot;&#x27;).write_text(&#x27;&quot;&#x27;&quot;&#x27;PYTHON_OK\\n&#x27;&quot;&#x27;&quot;&#x27;)&quot;.
+Не повторяй попытку при ошибке.
+Если команда завершится ошибкой, ответь только FAIL.
+Если команда завершится успешно, ответь только DONE.
+&#x27;</pre><h3>Measured</h3><pre>gptme --non-interactive --no-confirm --name gptme__local_gemma4_e4b__ollama__tool__python_file_ru-measured --system short --workspace /work/results/runs/20260423T183136Z/cases/gptme__local_gemma4_e4b__ollama__tool__python_file_ru/workspace --tools shell --tool-format tool -m local/gemma4:e4b &#x27;Используй shell tool. Выполни ровно эту команду: python3 -c &quot;from pathlib import Path; Path(&#x27;&quot;&#x27;&quot;&#x27;python-output.txt&#x27;&quot;&#x27;&quot;&#x27;).write_text(&#x27;&quot;&#x27;&quot;&#x27;PYTHON_OK\\n&#x27;&quot;&#x27;&quot;&#x27;)&quot;.
+Не повторяй попытку при ошибке.
+Если команда завершится ошибкой, ответь только FAIL.
+Если команда завершится успешно, ответь только DONE.
+&#x27;</pre></section>
+    
+    <section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul><h3>Current Case</h3><ul><li>completion text was emitted before harness reported that no tool call was detected</li></ul></section>
+    <section><h2>Run Comparison</h2><div class='grid'><p><strong>Consistency:</strong> diverged</p><div class='panel'><h3>Run 1</h3><ul><li><strong>Status:</strong> NO_TOOL_CALL</li><li><strong>invoked:</strong> yes</li><li><strong>tool_attempt_count:</strong> 2</li><li><strong>error_count:</strong> 0</li><li><strong>repeated_error_count:</strong> 0</li><li><strong>loop_detected:</strong> False</li><li><strong>markdown_tool_imitation:</strong> False</li><li><strong>no_tool_call_after_completion:</strong> True</li></ul></div><div class='panel'><h3>Run 2</h3><ul><li><strong>Status:</strong> PASS</li><li><strong>invoked:</strong> yes</li><li><strong>tool_attempt_count:</strong> 2</li><li><strong>error_count:</strong> 0</li><li><strong>repeated_error_count:</strong> 0</li><li><strong>loop_detected:</strong> False</li><li><strong>markdown_tool_imitation:</strong> False</li><li><strong>no_tool_call_after_completion:</strong> True</li></ul></div></div></section>
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Используй shell tool. Выполни ровно эту команду: python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\n&#x27;)&quot;.
+Не повторяй попытку при ошибке.
+Если команда завершится ошибкой, ответь только FAIL.
+Если команда завершится успешно, ответь только DONE.
+</pre></div><div class='panel'><h2>Expected</h2><pre>PYTHON_OK
+</pre></div><div class='panel'><h2>Observed</h2><pre>PYTHON_OK
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<p class='ok'>Expected and observed match.</p>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<section class='message'><h3>user</h3><pre>Используй shell tool. Выполни ровно эту команду: python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\n&#x27;)&quot;.
+Не повторяй попытку при ошибке.
+Если команда завершится ошибкой, ответь только FAIL.
+Если команда завершится успешно, ответь только DONE.</pre></section>
+<section class='message'><h3>assistant</h3><pre>&lt;think&gt;
+The user wants me to execute a specific shell command: `python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\n&#x27;)&quot;`.
+I must use the `shell` tool.
+The instructions specify strict output requirements:
+1. If the command fails, I must respond *only* with &quot;FAIL&quot;.
+2. If the command succeeds, I must respond *only* with &quot;DONE&quot;.
+3. I must not repeat attempts upon failure.
+
+I will use the `shell` tool to execute the command.
+&lt;/think&gt;
+
+
+@shell(call_79p7h0lu): {&quot;command&quot;:&quot;python3 -c \&quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\\\n&#x27;)\&quot;&quot;}</pre></section>
+<section class='message'><h3>assistant</h3><pre>DONE</pre></section>
+<section class='message'><h3>user</h3><pre>&lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are completely done and then use the `complete` tool to end the session.&lt;/system&gt;</pre></section>
+<section class='message'><h3>assistant</h3><pre>&lt;think&gt;
+The user provided a response that seems to be a system message or a prompt for me to act on the previous interaction.
+In the previous turn, I executed the command using `shell` and received a successful output (no error, just confirmation of execution).
+The user&#x27;s instructions were:
+1. Execute the command: `python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\n&#x27;)&quot;`
+2. If successful, respond *only* with &quot;DONE&quot;.
+3. If failed, respond *only* with &quot;FAIL&quot;.
+
+I correctly executed the command and responded with &quot;DONE&quot;.
+
+The current message `&lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are completely done and then use the `complete` tool to end the session.&lt;/system&gt;` suggests that the system believes I should finish the session.
+
+Since I have completed the task requested in the previous turn (executing the command and providing the required output), and the system is prompting me to finish, I should use the `complete` tool.
+&lt;/thinking&gt;
+&lt;|tool_call&gt;call:complete{}&lt;tool_call|&gt;
+&lt;/think&gt;
+
+</pre></section>
+<section class='message'><h3>user</h3><pre>&lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are completely done and then use the `complete` tool to end the session.&lt;/system&gt;</pre></section>
+<section class='message'><h3>assistant</h3><pre>&lt;think&gt;
+The user is repeating the system message: `&lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are completely done and then use the `complete` tool to end the session.&lt;/system&gt;`.
+
+In the previous turn, I already called `complete{}`.
+
+Since the system is repeatedly prompting me to finish, and I have already signaled completion, I should assume the task is finished and acknowledge the system&#x27;s prompt by ensuring the final state is complete. I have already used the `complete` tool. If the system is still prompting, I will assume the previous `complete` call was sufficient and there is no further action required from my side, other than letting the session conclude.
+
+However, since I am in a non-interactive mode and the system is prompting me, I must ensure I don&#x27;t generate unnecessary output. I have already signaled completion. I will not take any further action as the task is complete.
+&lt;/think&gt;
+
+</pre></section>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-04-23T18:34:50+00:00
+[18:34:52] Created config file at /work/results/runs/20260423T183136Z/cases/gptme__local_gemma4_e4b__ollama__tool__python_file_ru/runtime/gptme/warmup/home/.config/gptme/config.toml                                                                                               
+[18:34:52] WARNING  Skipping all confirmation prompts.                                                                                                                                                                                                                    cli.py:265
+           Using model: local/gemma4:e4b                                                                                                                                                                                                                                            
+           Using logdir: /work/results/runs/20260423T183136Z/cases/gptme__local_gemma4_e4b__ollama__tool__python_file_ru/runtime/gptme/warmup/state/gptme-logs/gptme__local_gemma4_e4b__ollama__tool__python_file_ru-warmup                                                         
+           Using workspace: /work/results/runs/20260423T183136Z/cases/gptme__local_gemma4_e4b__ollama__tool__python_file_ru/workspace-warmup                                                                                                                                        
+Skipped 2 hidden system messages, show with --show-hidden
+--- ^^^ past messages ^^^ ---
+User: 
+Используй shell tool. Выполни ровно эту команду: python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\n&#x27;)&quot;.
+Не повторяй попытку при ошибке.
+Если команда завершится ошибкой, ответь только FAIL.
+Если команда завершится успешно, ответь только DONE.
+Assistant: Thinking...
+                                                                                
+Assistant: 
+&lt;think&gt;       
+&lt;think&gt;
+The user wants me to execute a specific shell command: `python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK[/dim][/dim]n&#x27;)&quot;`.
+I must use the `shell` tool.
+The response format is strict:
+1. If the command fails, I must reply *only* with &quot;FAIL&quot;.
+2. If the command succeeds, I must reply *only* with &quot;DONE&quot;.
+
+I will use the `shell` tool to execute the command.
+&lt;/think&gt;        
+&lt;/think&gt;
+
+
+@shell(call_bfyw20wt): {&quot;command&quot;:&quot;python3 -c \&quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\\\n&#x27;)\&quot;&quot;}                                                                                
+Preview
+python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\n&#x27;)&quot;                                                                                                                                                                                         
+
+System: 
+Ran command: `python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\n&#x27;)&quot;`
+
+No output
+Assistant: Thinking...
+[18:35:06] ERROR    exception during auto-name                                                                                                                                                                                                                    auto_naming.py:100
+                    Traceback (most recent call last):                                                                                                                                                                                                                              
+                      File &quot;/opt/venvs/gptme/lib/python3.12/site-packages/gptme/util/auto_naming.py&quot;, line 97, in _generate_llm_name                                                                                                                                                
+                        summary_model_name = get_summary_model(current_model.provider)                                                                                                                                                                                              
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                                                                                                                                                                                              
+                      File &quot;/opt/venvs/gptme/lib/python3.12/site-packages/gptme/llm/models.py&quot;, line 576, in get_summary_model                                                                                                                                                      
+                        raise ValueError(f&quot;Provider {provider} did not have a summary model&quot;)                                                                                                                                                                                       
+                    ValueError: Provider local did not have a summary model                                                                                                                                                                                                         
+[18:35:07] INFO     Auto-generated conversation name: Shell command execution                                                                                                                                                                                            chat.py:332
+                                                                                
+Assistant: 
+DONE                                                                                
+[18:35:09] INFO     Auto-reply: Assistant message had no tools. Asking for confirmation...                                                                                                                                                                           complete.py:138
+[18:35:09] [Loop control] &lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are comp...                                                                                                                                                   
+User: &lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are completely done and then use the `complete` tool to end the session.&lt;/system&gt;
+Assistant: Thinking...
+                                                                                
+Assistant: 
+&lt;think&gt;       
+&lt;think&gt;
+The user provided a response that seems to be a system message indicating no tool call was detected in the last message and suggesting I use `complete` if I am finished.
+
+In the previous turn, I executed the command using `shell` and then provided the final required output (&quot;DONE&quot;). The system message is likely a prompt for me to acknowledge the completion of the task.
+
+Since I have successfully executed the command and provided the required output (&quot;DONE&quot;), the task is complete. I should now use the `complete` tool.
+&lt;/think&gt;        
+&lt;/think&gt;
+
+
+@complete(call_0bn54fh0): {}                                                                                
+System: Task complete. Autonomous session finished.
+[18:35:16] INFO     Complete tool call detected, stopping session immediately                                                                                                                                                                                         complete.py:80
+           INFO     Hook &#x27;complete.complete&#x27; signaled session completion                                                                                                                                                                                             __init__.py:360
+[18:35:16] Autonomous mode: Session completed via complete tool. Exiting.                                                                                                                                                                                                           
+
+Goodbye! (resume with: gptme --name gptme__local_gemma4_e4b__ollama__tool__python_file_ru-warmup)
+
+[gripprobe] process_finished_at=2026-04-23T18:35:16+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-04-23T18:34:50+00:00
+
+[gripprobe] process_finished_at=2026-04-23T18:35:16+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-04-23T18:35:16+00:00
+[18:35:18] Created config file at /work/results/runs/20260423T183136Z/cases/gptme__local_gemma4_e4b__ollama__tool__python_file_ru/runtime/gptme/measured/home/.config/gptme/config.toml                                                                                             
+[18:35:18] WARNING  Skipping all confirmation prompts.                                                                                                                                                                                                                    cli.py:265
+[18:35:19] Using model: local/gemma4:e4b                                                                                                                                                                                                                                            
+           Using logdir: /work/results/runs/20260423T183136Z/cases/gptme__local_gemma4_e4b__ollama__tool__python_file_ru/runtime/gptme/measured/state/gptme-logs/gptme__local_gemma4_e4b__ollama__tool__python_file_ru-measured                                                     
+           Using workspace: /work/results/runs/20260423T183136Z/cases/gptme__local_gemma4_e4b__ollama__tool__python_file_ru/workspace                                                                                                                                               
+Skipped 2 hidden system messages, show with --show-hidden
+--- ^^^ past messages ^^^ ---
+User: 
+Используй shell tool. Выполни ровно эту команду: python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\n&#x27;)&quot;.
+Не повторяй попытку при ошибке.
+Если команда завершится ошибкой, ответь только FAIL.
+Если команда завершится успешно, ответь только DONE.
+Assistant: Thinking...
+                                                                                
+Assistant: 
+&lt;think&gt;       
+&lt;think&gt;
+The user wants me to execute a specific shell command: `python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK[/dim][/dim]n&#x27;)&quot;`.
+I must use the `shell` tool.
+The instructions specify strict output requirements:
+1. If the command fails, I must respond *only* with &quot;FAIL&quot;.
+2. If the command succeeds, I must respond *only* with &quot;DONE&quot;.
+3. I must not repeat attempts upon failure.
+
+I will use the `shell` tool to execute the command.
+&lt;/think&gt;        
+&lt;/think&gt;
+
+
+@shell(call_79p7h0lu): {&quot;command&quot;:&quot;python3 -c \&quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\\\n&#x27;)\&quot;&quot;}                                                                                
+Preview
+python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\n&#x27;)&quot;                                                                                                                                                                                         
+
+System: 
+Ran command: `python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK\\n&#x27;)&quot;`
+
+No output
+Assistant: Thinking...
+[18:35:33] ERROR    exception during auto-name                                                                                                                                                                                                                    auto_naming.py:100
+                    Traceback (most recent call last):                                                                                                                                                                                                                              
+                      File &quot;/opt/venvs/gptme/lib/python3.12/site-packages/gptme/util/auto_naming.py&quot;, line 97, in _generate_llm_name                                                                                                                                                
+                        summary_model_name = get_summary_model(current_model.provider)                                                                                                                                                                                              
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                                                                                                                                                                                              
+                      File &quot;/opt/venvs/gptme/lib/python3.12/site-packages/gptme/llm/models.py&quot;, line 576, in get_summary_model                                                                                                                                                      
+                        raise ValueError(f&quot;Provider {provider} did not have a summary model&quot;)                                                                                                                                                                                       
+                    ValueError: Provider local did not have a summary model                                                                                                                                                                                                         
+[18:35:34] INFO     Auto-generated conversation name: Shell command execution                                                                                                                                                                                            chat.py:332
+                                                                                
+Assistant: 
+DONE                                                                                
+[18:35:36] INFO     Auto-reply: Assistant message had no tools. Asking for confirmation...                                                                                                                                                                           complete.py:138
+[18:35:36] [Loop control] &lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are comp...                                                                                                                                                   
+User: &lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are completely done and then use the `complete` tool to end the session.&lt;/system&gt;
+Assistant: Thinking...
+                                                                                
+Assistant: 
+&lt;think&gt;       
+&lt;think&gt;
+The user provided a response that seems to be a system message or a prompt for me to act on the previous interaction.
+In the previous turn, I executed the command using `shell` and received a successful output (no error, just confirmation of execution).
+The user&#x27;s instructions were:
+1. Execute the command: `python3 -c &quot;from pathlib import Path; Path(&#x27;python-output.txt&#x27;).write_text(&#x27;PYTHON_OK[/dim][/dim]n&#x27;)&quot;`
+2. If successful, respond *only* with &quot;DONE&quot;.
+3. If failed, respond *only* with &quot;FAIL&quot;.
+
+I correctly executed the command and responded with &quot;DONE&quot;.
+
+The current message `&lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are completely done and then use the `complete` tool to end the session.&lt;/system&gt;` suggests that the system believes I should finish the session.
+
+Since I have completed the task requested in the previous turn (executing the command and providing the required output), and the system is prompting me to finish, I should use the `complete` tool.
+&lt;/thinking&gt;           
+&lt;/thinking&gt;
+&lt;|tool_call&gt;call:complete{}&lt;tool_call|&gt;
+&lt;/think&gt;        
+&lt;/think&gt;
+
+                                                                                
+[18:35:51] INFO     Auto-reply: Assistant message had no tools. Asking for confirmation...                                                                                                                                                                           complete.py:138
+[18:35:51] [Loop control] &lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are comp...                                                                                                                                                   
+User: &lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are completely done and then use the `complete` tool to end the session.&lt;/system&gt;
+Assistant: Thinking...
+                                                                                
+Assistant: 
+&lt;think&gt;       
+&lt;think&gt;
+The user is repeating the system message: `&lt;system&gt;No tool call detected in last message. Did you mean to finish? If so, make sure you are completely done and then use the `complete` tool to end the session.&lt;/system&gt;`.
+
+In the previous turn, I already called `complete{}`.
+
+Since the system is repeatedly prompting me to finish, and I have already signaled completion, I should assume the task is finished and acknowledge the system&#x27;s prompt by ensuring the final state is complete. I have already used the `complete` tool. If the system is still prompting, I will assume the previous `complete` call was sufficient and there is no further action required from my side, other than letting the session conclude.
+
+However, since I am in a non-interactive mode and the system is prompting me, I must ensure I don&#x27;t generate unnecessary output. I have already signaled completion. I will not take any further action as the task is complete.
+&lt;/think&gt;        
+&lt;/think&gt;
+
+                                                                                
+[18:36:04] INFO     Autonomous mode: No tools used after 2 confirmations. Exiting.                                                                                                                                                                                   complete.py:134
+           INFO     Hook &#x27;complete.auto_reply&#x27; signaled session completion                                                                                                                                                                                           __init__.py:360
+[18:36:04] Autonomous mode: No tools used after 2 auto-reply confirmations. Exiting.                                                                                                                                                                                                
+
+Goodbye! (resume with: gptme --name gptme__local_gemma4_e4b__ollama__tool__python_file_ru-measured)
+
+[gripprobe] process_finished_at=2026-04-23T18:36:04+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-04-23T18:35:16+00:00
+
+[gripprobe] process_finished_at=2026-04-23T18:36:04+00:00 exit_code=0
+</pre></div></div></section>
+
+</body></html>

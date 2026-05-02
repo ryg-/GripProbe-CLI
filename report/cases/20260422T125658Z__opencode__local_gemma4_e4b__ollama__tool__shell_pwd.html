@@ -1,0 +1,95 @@
+<!doctype html>
+<html><head><meta charset='utf-8'><title>20260422T125658Z__opencode__local_gemma4_e4b__ollama__tool__shell_pwd</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;line-height:1.45}
+a{color:#0b57d0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+section{margin:1.5rem 0}
+.message{border-top:1px solid #d6d1c4;padding-top:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}
+.muted{color:#666}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}
+.pass{background:#d9f2df;color:#115c23}
+.fail{background:#f9d7d7;color:#7a1520}
+.timeout{background:#fde6c8;color:#7d4b00}
+.timeout-artifact{background:#d8f0e1;color:#165a30}
+.notool{background:#e6e1ff;color:#44318d}
+.unsupported{background:#e6eefb;color:#1f4c8f}
+.skipped{background:#ececec;color:#555}
+.unknown{background:#eee;color:#333}
+.traj-clean{background:#dff3e4;color:#1f6b33}
+.traj-recovered{background:#fff0cc;color:#8a5a00}
+.traj-violated{background:#f7d6db;color:#8a1f2d}
+.invoked-yes{background:#d9ecff;color:#0b4f92}
+.invoked-no{background:#ececec;color:#555}
+.invoked-maybe{background:#efe3ff;color:#5b2f8f}
+.match-full{background:#d9f2df;color:#115c23}
+.match-partial{background:#fff0cc;color:#8a5a00}
+.match-none{background:#f9d7d7;color:#7a1520}
+.ok{color:#115c23;font-weight:600}
+</style></head><body>
+<p><a href='../summary.html'>Back to summary</a></p>
+<h1>Shell PWD</h1>
+<p><strong>Case:</strong> <code>20260422T125658Z__opencode__local_gemma4_e4b__ollama__tool__shell_pwd</code></p>
+    <p><span class='badge fail'>FAIL</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-maybe'>maybe</span> | <strong>Match:</strong> <span class='badge match-none'>0%</span></p>
+    
+    
+    
+    
+    <section><h2>Trajectory Hints</h2><ul><li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li><li><strong>recovered</strong>: result reached but trace shows errors, retries, or contradictory completion text</li><li><strong>violated</strong>: result reached after breaking an explicit structured rule such as no_retry_on_error</li></ul></section>
+    
+<div class="grid"><div class='panel'><h2>Prompt</h2><pre>Use the shell tool. Run exactly this command: pwd &gt; pwd-output.txt.
+Do not retry on error.
+If the command fails, reply only with FAIL and stop.
+If the command succeeds, reply only with DONE and stop.
+Do not continue reasoning after DONE.
+Do not call any additional tools after DONE.
+End your response immediately after DONE.
+</pre></div><div class='panel'><h2>Expected</h2><pre>/work/results/runs/20260422T125658Z/cases/opencode__local_gemma4_e4b__ollama__tool__shell_pwd/workspace
+</pre></div></div>
+<section>
+<h2>Expected vs Observed</h2>
+<pre>--- expected
++++ observed
+@@ -1 +0,0 @@
+-/work/results/runs/20260422T125658Z/cases/opencode__local_gemma4_e4b__ollama__tool__shell_pwd/workspace</pre>
+</section>
+<section>
+<h2>Session Transcript</h2>
+<p class='muted'>No structured session transcript found.</p>
+</section>
+<section><h2>Tool / Process Output</h2><div class="grid"><div class='panel'><h2>Warmup stdout</h2><pre>[gripprobe] process_started_at=2026-04-22T13:01:22+00:00
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1776862912212,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db5485ecf001moPtYBjLRXjvkT&quot;,&quot;messageID&quot;:&quot;msg_db547f333001TNUnhQwxFCEtSv&quot;,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;tool_use&quot;,&quot;timestamp&quot;:1776862912218,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;part&quot;:{&quot;type&quot;:&quot;tool&quot;,&quot;tool&quot;:&quot;invalid&quot;,&quot;callID&quot;:&quot;call_d5tcfkvv&quot;,&quot;state&quot;:{&quot;status&quot;:&quot;completed&quot;,&quot;input&quot;:{&quot;tool&quot;:&quot;shell&quot;,&quot;error&quot;:&quot;Model tried to call unavailable tool &#x27;shell&#x27;. Available tools: invalid, bash, read, glob, grep, edit, write, task, webfetch, todowrite, skill.&quot;},&quot;output&quot;:&quot;The arguments provided to the tool are invalid: Model tried to call unavailable tool &#x27;shell&#x27;. Available tools: invalid, bash, read, glob, grep, edit, write, task, webfetch, todowrite, skill.&quot;,&quot;metadata&quot;:{&quot;truncated&quot;:false},&quot;title&quot;:&quot;Invalid Tool&quot;,&quot;time&quot;:{&quot;start&quot;:1776862912215,&quot;end&quot;:1776862912217}},&quot;id&quot;:&quot;prt_db5485ed10010RD5kjwh7KC9Fl&quot;,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;messageID&quot;:&quot;msg_db547f333001TNUnhQwxFCEtSv&quot;}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1776862912301,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db5485f2a001x9bPoVVrSFKTM1&quot;,&quot;reason&quot;:&quot;tool-calls&quot;,&quot;messageID&quot;:&quot;msg_db547f333001TNUnhQwxFCEtSv&quot;,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:4113,&quot;input&quot;:4096,&quot;output&quot;:17,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1776862917775,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db548748d00114Qe3x5s75JA0b&quot;,&quot;messageID&quot;:&quot;msg_db5485f32001tlBvpZM2wTpA2I&quot;,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;text&quot;,&quot;timestamp&quot;:1776862924001,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db548748e001W2KNuFP6SgIbEp&quot;,&quot;messageID&quot;:&quot;msg_db5485f32001tlBvpZM2wTpA2I&quot;,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;type&quot;:&quot;text&quot;,&quot;text&quot;:&quot;Hello! I&#x27;m ready to help you with your coding questions or tasks.\n\nTo get started, please tell me:\n\n1.  **What are you trying to achieve?** (The goal or the problem you want to solve.)\n2.  **Do you have any existing code, or are we starting from scratch?**\n3.  **What programming language are you using?**\n\nThe more details you provide, the better I can assist you!&quot;,&quot;time&quot;:{&quot;start&quot;:1776862917774,&quot;end&quot;:1776862923999}}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1776862924003,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db5488ce1001svmUD5mqPAvrFj&quot;,&quot;reason&quot;:&quot;stop&quot;,&quot;messageID&quot;:&quot;msg_db5485f32001tlBvpZM2wTpA2I&quot;,&quot;sessionID&quot;:&quot;ses_24ab80d98fferm4aaxvrEhjdhi&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:4193,&quot;input&quot;:4096,&quot;output&quot;:97,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+
+[gripprobe] process_finished_at=2026-04-22T13:02:04+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Warmup stderr</h2><pre>[gripprobe] process_started_at=2026-04-22T13:01:22+00:00
+Performing one time database migration, may take a few minutes...
+sqlite-migration:done
+Database migration complete.
+
+[gripprobe] process_finished_at=2026-04-22T13:02:04+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stdout</h2><pre>[gripprobe] process_started_at=2026-04-22T13:02:04+00:00
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1776862958473,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db5491383001UhlVHUsqiOxmre&quot;,&quot;messageID&quot;:&quot;msg_db54893c00010Vp6bMQAriN8sF&quot;,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;tool_use&quot;,&quot;timestamp&quot;:1776862958478,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;part&quot;:{&quot;type&quot;:&quot;tool&quot;,&quot;tool&quot;:&quot;invalid&quot;,&quot;callID&quot;:&quot;call_py2anxmp&quot;,&quot;state&quot;:{&quot;status&quot;:&quot;completed&quot;,&quot;input&quot;:{&quot;tool&quot;:&quot;run_bash&quot;,&quot;error&quot;:&quot;Model tried to call unavailable tool &#x27;run_bash&#x27;. Available tools: invalid, bash, read, glob, grep, edit, write, task, webfetch, todowrite, skill.&quot;},&quot;output&quot;:&quot;The arguments provided to the tool are invalid: Model tried to call unavailable tool &#x27;run_bash&#x27;. Available tools: invalid, bash, read, glob, grep, edit, write, task, webfetch, todowrite, skill.&quot;,&quot;metadata&quot;:{&quot;truncated&quot;:false},&quot;title&quot;:&quot;Invalid Tool&quot;,&quot;time&quot;:{&quot;start&quot;:1776862958475,&quot;end&quot;:1776862958477}},&quot;id&quot;:&quot;prt_db5491386001ffW3r83pg963lG&quot;,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;messageID&quot;:&quot;msg_db54893c00010Vp6bMQAriN8sF&quot;}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1776862958493,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db549139b0013DW42ES4BtijBz&quot;,&quot;reason&quot;:&quot;tool-calls&quot;,&quot;messageID&quot;:&quot;msg_db54893c00010Vp6bMQAriN8sF&quot;,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:4111,&quot;input&quot;:4096,&quot;output&quot;:15,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+{&quot;type&quot;:&quot;step_start&quot;,&quot;timestamp&quot;:1776862964087,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db54929740018qkxrgwvS7Zx6b&quot;,&quot;messageID&quot;:&quot;msg_db54913a1001ArcJCs12bFICNh&quot;,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;type&quot;:&quot;step-start&quot;}}
+{&quot;type&quot;:&quot;text&quot;,&quot;timestamp&quot;:1776862966665,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db549297500155XVwfCFkHOay9&quot;,&quot;messageID&quot;:&quot;msg_db54913a1001ArcJCs12bFICNh&quot;,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;type&quot;:&quot;text&quot;,&quot;text&quot;:&quot;Hello! I&#x27;m ready to help you with your coding tasks. Feel free to provide the code, what you&#x27;d like to achieve, or any specific questions you have. I look forward to working with you!&quot;,&quot;time&quot;:{&quot;start&quot;:1776862964085,&quot;end&quot;:1776862966663}}}
+{&quot;type&quot;:&quot;step_finish&quot;,&quot;timestamp&quot;:1776862966669,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;part&quot;:{&quot;id&quot;:&quot;prt_db549338a00147ocuRm3tPk3Ni&quot;,&quot;reason&quot;:&quot;stop&quot;,&quot;messageID&quot;:&quot;msg_db54913a1001ArcJCs12bFICNh&quot;,&quot;sessionID&quot;:&quot;ses_24ab76d70ffeo8uf0Hh3F155WC&quot;,&quot;type&quot;:&quot;step-finish&quot;,&quot;tokens&quot;:{&quot;total&quot;:4141,&quot;input&quot;:4096,&quot;output&quot;:45,&quot;reasoning&quot;:0,&quot;cache&quot;:{&quot;write&quot;:0,&quot;read&quot;:0}},&quot;cost&quot;:0}}
+
+[gripprobe] process_finished_at=2026-04-22T13:02:46+00:00 exit_code=0
+</pre></div><div class='panel'><h2>Measured stderr</h2><pre>[gripprobe] process_started_at=2026-04-22T13:02:04+00:00
+Performing one time database migration, may take a few minutes...
+sqlite-migration:done
+Database migration complete.
+
+[gripprobe] process_finished_at=2026-04-22T13:02:46+00:00 exit_code=0
+</pre></div></div></section>
+
+</body></html>
