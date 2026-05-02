@@ -131,6 +131,16 @@ This file lists the primary run metadata keys used in reports.
 - `Outliers`: number of tests in the row whose representative time exceeds baseline median for that test by factor `2.5`.
   - displayed as `count/total_tests_in_row`.
 
+## Aggregate report methodology and reproducibility
+
+- HTML and Markdown aggregate summaries include:
+  - status code glossary (`PASS`, `FAIL`, `TIMEOUT`, `NO_TOOL_CALL`, `TOOL_UNSUPPORTED`, `SHELL_ERROR`, `HARNESS_ERROR`, `SKIPPED`)
+  - resume semantics note (`--resume-suite` resumes by case key `shell+model+backend+format+test`)
+  - reproducibility block (`generated at`, git commit, suite id, test tags, shell set, model set, format set, hardware profile id)
+- Aggregate HTML includes links to:
+  - test descriptions (`docs/tests.md`) when available
+  - hardware profile spec (`specs/hardware_profiles.yaml`) when available
+
 ## User-provided keys (`--metadata key=value`)
 
 - `hardware_profile_id`: profile id from `specs/hardware_profiles.yaml`. Used by aggregate HTML for hardware cards and row grouping.
@@ -156,11 +166,11 @@ python3 -m gripprobe.cli --root . run-suite \
   --suite default_cli_matrix \
   --metadata hardware_profile_id=unspecified
 ```
-## Current Limitations
+## Current Notes
 
-- `continue-cli` adapter is scaffolded but not yet implemented end-to-end
-- container execution is scaffolded in `docker/`, but the first runner executes on the host
-- publication sanitization policy is not yet implemented in code
+- `--resume-suite` works per case (`shell+model+backend+format+test`) and skips already completed cases from `results/runs/...`.
+- `default_cli_matrix` is sanity-first and currently runs with `formats: tool`.
+- For publication/share, use `results/aggregate/...`; keep `results/runs/...` as internal diagnostic artifacts.
 
 ## Shell Configuration
 

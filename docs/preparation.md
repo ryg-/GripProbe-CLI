@@ -24,8 +24,8 @@ Useful overrides:
 
 ```bash
 python3 scripts/print_hardware_profile.py \
-  --id wombat_a100 \
-  --label "Wombat A100 host" \
+  --id benchmark_a100 \
+  --label "Benchmark A100 host" \
   --notes "Dedicated benchmark machine"
 ```
 
@@ -38,7 +38,7 @@ python3 -m gripprobe.cli --root . run \
   --shell gptme \
   --model local/qwen2.5:7b \
   --backend ollama \
-  --metadata hardware_profile_id=wombat_a100
+  --metadata hardware_profile_id=benchmark_a100
 ```
 
 For suites:
@@ -46,6 +46,6 @@ For suites:
 ```bash
 python3 -m gripprobe.cli --root . run-suite \
   --suite default_cli_matrix \
-  --metadata hardware_profile_id=wombat_a100
+  --metadata hardware_profile_id=benchmark_a100
 ```
 

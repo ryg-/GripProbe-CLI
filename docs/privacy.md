@@ -51,7 +51,7 @@ Default policy:
 Current aggregate sanitization includes:
 
 - replacing Ollama HTTP endpoints with neutral placeholders such as `http://ollama-host:11434`
-- replacing SSH targets such as `ssh c ...` with neutral placeholders such as `ssh ollama-host ...`
+- replacing SSH targets such as `ssh source-host ...` with neutral placeholders such as `ssh ollama-host ...`
 - replacing local home paths with `$HOME`
 - replacing local usernames with `$USER`
 - removing `Raw Artifacts` sections from aggregate case pages and copied source-report case pages
