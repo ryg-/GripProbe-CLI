@@ -740,5 +740,32 @@
 | continue-cli | local/gpt-oss:20b | ollama | 17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7 | tool | Shell Date | PASS |  | clean | yes | 100 | 120.539 | 124.54 |
 | continue-cli | local/gpt-oss:20b | ollama | 17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7 | tool | Shell PWD | TIMEOUT |  | clean | no | 0 | 377.754 | 600.032 |
 | continue-cli | local/mistral-small:24b | ollama | 8039dd90c1138d772437a0779a33b7349efd5d9cca71edcd26e4dd463f90439d | tool | Patch File | TIMEOUT |  | clean | no | 0 | 600.016 | 600.016 |
+| continue-cli | local/mistral-small:24b | ollama | 8039dd90c1138d772437a0779a33b7349efd5d9cca71edcd26e4dd463f90439d | tool | Python File Simple | FAIL | answered without invoking tool | clean | no | 0 | 600.015 | 390.275 |
+| continue-cli | local/mistral-small:24b | ollama | 8039dd90c1138d772437a0779a33b7349efd5d9cca71edcd26e4dd463f90439d | tool | Shell Date | TIMEOUT |  | clean | yes | 100 | 346.318 | 600.019 |
+| continue-cli | local/mistral-small:24b | ollama | 8039dd90c1138d772437a0779a33b7349efd5d9cca71edcd26e4dd463f90439d | tool | Shell PWD | FAIL | answered without invoking tool | clean | no | 0 | 600.033 | 568.011 |
+| continue-cli | local/orieg/gemma3-tools:12b-ft-v2 | ollama | 13652b120c21fabfd312df93597ac875b0fcd49fe4d3da4d4a703fdabbbd071d | tool | Patch File | TIMEOUT |  | clean | no | 0 | 600.014 | 600.02 |
+| continue-cli | local/orieg/gemma3-tools:12b-ft-v2 | ollama | 13652b120c21fabfd312df93597ac875b0fcd49fe4d3da4d4a703fdabbbd071d | tool | Python File Simple | TIMEOUT |  | clean | no | 0 | 600.031 | 600.025 |
+| continue-cli | local/orieg/gemma3-tools:12b-ft-v2 | ollama | 13652b120c21fabfd312df93597ac875b0fcd49fe4d3da4d4a703fdabbbd071d | tool | Shell Date | TIMEOUT |  | clean | no | 0 | 600.02 | 600.019 |
+| continue-cli | local/orieg/gemma3-tools:12b-ft-v2 | ollama | 13652b120c21fabfd312df93597ac875b0fcd49fe4d3da4d4a703fdabbbd071d | tool | Shell PWD | TIMEOUT |  | clean | no | 0 | 600.037 | 600.018 |
+| gptme | local/qwen3:14b | ollama | bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8 | tool | Patch File | TIMEOUT |  | clean | yes | 0 | 120.009 | 120.017 |
+| gptme | local/qwen3:14b | ollama | bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8 | tool | Python File Simple | TIMEOUT |  | clean | no | 0 | 120.008 | 120.009 |
+| gptme | local/qwen3:14b | ollama | bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8 | tool | Shell Date | TIMEOUT |  | clean | no | 0 | 120.009 | 120.008 |
+| gptme | local/qwen3:14b | ollama | bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8 | tool | Shell PWD | TIMEOUT |  | clean | yes | 100 | 120.009 | 120.008 |
+| gptme | local/fredrezones55/qwen3.5-opus:9b | ollama | 8d160636f9cbca81667d7c5582952bfc471b66891ac623c751fd3b0a9ced3f59 | tool | Patch File | FAIL |  | clean | yes | 0 | 43.817 | 14.296 |
+| gptme | local/fredrezones55/qwen3.5-opus:9b | ollama | 8d160636f9cbca81667d7c5582952bfc471b66891ac623c751fd3b0a9ced3f59 | tool | Python File Simple | PASS |  | recovered | yes | 100 | 42.26 | 42.36 |
+| gptme | local/fredrezones55/qwen3.5-opus:9b | ollama | 8d160636f9cbca81667d7c5582952bfc471b66891ac623c751fd3b0a9ced3f59 | tool | Shell Date | PASS |  | recovered | yes | 100 | 33.69 | 38.95 |
+| gptme | local/fredrezones55/qwen3.5-opus:9b | ollama | 8d160636f9cbca81667d7c5582952bfc471b66891ac623c751fd3b0a9ced3f59 | tool | Shell PWD | PASS |  | recovered | yes | 100 | 44.515 | 44.675 |
+| gptme | local/fredrezones55/qwen3.5-opus:27b | ollama | 914789b72c24baadc39a9f14a49b8ed5364d62e44635936ed19932beb7b4261d | tool | Patch File | TIMEOUT |  | clean | maybe | 0 | 120.016 | 120.018 |
+| gptme | local/fredrezones55/qwen3.5-opus:27b | ollama | 914789b72c24baadc39a9f14a49b8ed5364d62e44635936ed19932beb7b4261d | tool | Python File Simple | TIMEOUT |  | clean | no | 0 | 120.011 | 120.019 |
+| gptme | local/fredrezones55/qwen3.5-opus:27b | ollama | 914789b72c24baadc39a9f14a49b8ed5364d62e44635936ed19932beb7b4261d | tool | Shell Date | TIMEOUT |  | clean | no | 0 | 120.029 | 120.028 |
+| gptme | local/fredrezones55/qwen3.5-opus:27b | ollama | 914789b72c24baadc39a9f14a49b8ed5364d62e44635936ed19932beb7b4261d | tool | Shell PWD | FAIL |  | clean | no | 0 | 120.018 | 5.137 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Patch File | FAIL |  | clean | yes | 0 | 65.891 | 9.241 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Python File Simple | PASS |  | recovered | yes | 100 | 19.659 | 18.556 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Shell Date | PASS |  | recovered | yes | 100 | 19.764 | 17.91 |
+| gptme | local/cryptidbleh/gemma4-claude-opus-4.6:latest | ollama | 0961fd31e5ae57fe3f7bba84ec4dbda92fbd90c1151b31e002864a423e297cf4 | tool | Shell PWD | PASS |  | recovered | yes | 100 | 18.757 | 19.107 |
+| gptme | local/granite4:3b | ollama | 89962fcc75239ac434cdebceb6b7e0669397f92eaef9c487774b718bc36a3e5f | tool | Patch File | FAIL |  | clean | yes | 0 | 26.775 | 10.238 |
+| gptme | local/granite4:3b | ollama | 89962fcc75239ac434cdebceb6b7e0669397f92eaef9c487774b718bc36a3e5f | tool | Python File Simple | FAIL |  | recovered | yes | 0 | 10.737 | 10.738 |
+| gptme | local/granite4:3b | ollama | 89962fcc75239ac434cdebceb6b7e0669397f92eaef9c487774b718bc36a3e5f | tool | Shell Date | PASS |  | clean | yes | 100 | 9.484 | 9.435 |
+| gptme | local/granite4:3b | ollama | 89962fcc75239ac434cdebceb6b7e0669397f92eaef9c487774b718bc36a3e5f | tool | Shell PWD | PASS |  | recovered | yes | 100 | 10.139 | 10.389 |
 
-generated at 2026-05-02 09:54:23 UTC | git commit e074805
+generated at 2026-05-02 12:38:16 UTC | git commit 9ff2a2d

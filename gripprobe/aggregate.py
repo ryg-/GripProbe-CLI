@@ -20,6 +20,7 @@ SANITY_WEIGHT = 0.8
 DEFAULT_TEST_WEIGHT = 1.0
 OUTLIER_FACTOR = 2.5
 DEFAULT_HARDWARE_PROFILE_ID = "unspecified"
+TESTS_DOC_PUBLIC_URL = "https://raw.githubusercontent.com/ryg-/GripProbe-CLI/refs/heads/main/docs/tests.md"
 _SANITIZED_TEXT_SUFFIXES = {
     ".html",
     ".md",
@@ -800,12 +801,9 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
     resolved_root = root.resolve() if root is not None else None
     hardware_profile_map, default_hardware_profile_id = _load_hardware_profile_data(resolved_root)
 
-    tests_doc_relpath: str | None = None
+    tests_doc_relpath: str | None = TESTS_DOC_PUBLIC_URL
     hardware_profiles_relpath: str | None = None
     if resolved_root is not None:
-        tests_doc_path = resolved_root / "docs" / "tests.md"
-        if tests_doc_path.exists():
-            tests_doc_relpath = os.path.relpath(tests_doc_path, reports_dir)
         hardware_profiles_path = resolved_root / "specs" / "hardware_profiles.yaml"
         if hardware_profiles_path.exists():
             hardware_profiles_relpath = os.path.relpath(hardware_profiles_path, reports_dir)
