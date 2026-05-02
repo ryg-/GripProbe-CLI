@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 from collections import defaultdict
 from datetime import datetime, timezone
 from html import escape
@@ -12,7 +13,6 @@ from statistics import median
 
 from gripprobe.models import CaseResult, HardwareProfileSpec
 from gripprobe.reporters.html_report import write_case_detail_pages
-from gripprobe.reporters.markdown import write_markdown_summary
 from gripprobe.results import write_json
 from gripprobe.spec_loader import load_hardware_profiles
 
@@ -320,6 +320,37 @@ def _has_extended_test_tags(item: CaseResult) -> bool:
     return isinstance(tags, list) and "non_sanity" in tags
 
 
+def _render_scope_summary(shells: list[str], formats: list[str]) -> str:
+    shell_text = ", ".join(shells) if shells else "none"
+    format_text = ", ".join(formats) if formats else "none"
+    return (
+        "<aside class='scope-summary'>"
+        "<div class='scope-title'>Scope</div>"
+        "<table>"
+        f"<tr><th>Shells</th><td>{escape(shell_text)}</td></tr>"
+        f"<tr><th>Formats</th><td>{escape(format_text)}</td></tr>"
+        "</table>"
+        "</aside>"
+    )
+
+
+def _git_commit_sha(root: Path | None) -> str:
+    if root is None:
+        return "unknown"
+    try:
+        probe = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    value = (probe.stdout or "").strip()
+    return value or "unknown"
+
+
 def _is_sanity_case(item: CaseResult) -> bool:
     tags = item.metadata.get("test_tags", [])
     return isinstance(tags, list) and "sanity" in tags
@@ -374,12 +405,60 @@ def _group_typical_time_and_outliers(
     return typical_time, outliers, len(representative_times)
 
 
+def _write_aggregate_markdown_summary(
+    results: list[CaseResult],
+    path: Path,
+    *,
+    generated_at: str,
+    commit_sha: str,
+    shells: list[str],
+    models: list[str],
+    formats: list[str],
+    hardware_profile_ids: list[str],
+    hardware_profiles_relpath: str | None,
+) -> None:
+    lines = [
+        "# GripProbe Compatibility Report",
+        "",
+        "## Reproducibility",
+        f"- Shells: `{', '.join(shells) if shells else 'none'}`",
+        f"- Models: `{', '.join(models) if models else 'none'}`",
+        f"- Formats: `{', '.join(formats) if formats else 'none'}`",
+        f"- Hardware profile id: `{', '.join(hardware_profile_ids) if hardware_profile_ids else 'unspecified'}`",
+    ]
+    if hardware_profiles_relpath:
+        lines.append(f"- Hardware profile spec: [{hardware_profiles_relpath}]({hardware_profiles_relpath})")
+    lines.extend(
+        [
+            "",
+            "## Cases",
+            "",
+            "| Shell | Model | Backend | Hash | Format | Test | Status | Reason | Trajectory | Invoked | Match | Warmup (s) | Measured (s) |",
+            "|---|---|---|---|---|---|---|---|---|---|---:|---:|---:|",
+        ]
+    )
+    for item in results:
+        lines.append(
+            f"| {item.shell} | {item.model.label} | {item.model.backend} | {item.model.model_hash} | {item.format} | {item.title} | {item.status} | {item.metadata.get('failure_reason') or ''} | {item.trajectory} | {item.invoked} | {item.match_percent} | {item.timings.warmup_seconds} | {item.timings.measured_seconds} |"
+        )
+    lines.extend(
+        [
+            "",
+            f"generated at {generated_at} | git commit {commit_sha}",
+        ]
+    )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def write_aggregate_html_summary(
     results: list[CaseResult],
     output_dir: Path,
     hardware_profile_map: dict[str, HardwareProfileSpec] | None = None,
     default_hardware_profile_id: str = DEFAULT_HARDWARE_PROFILE_ID,
     tests_doc_relpath: str | None = None,
+    generated_at: str | None = None,
+    commit_sha: str = "unknown",
+    hardware_profiles_relpath: str | None = None,
 ) -> None:
     reports_dir = output_dir / "reports"
     cases_dir = output_dir / "cases"
@@ -441,6 +520,15 @@ def write_aggregate_html_summary(
         [
             "<option value='all'>all</option>",
             *[f"<option value='{escape(shell)}'>{escape(shell)}</option>" for shell in sorted({item.shell for item in results})],
+        ]
+    )
+    model_filter_options = "".join(
+        [
+            "<option value='all'>all</option>",
+            *[
+                f"<option value='{escape(model)}'>{escape(model)}</option>"
+                for model in sorted({item.model.label for item in results})
+            ],
         ]
     )
 
@@ -512,10 +600,15 @@ def write_aggregate_html_summary(
         )
 
     header_tests = "".join(f"<th>{escape(title)}</th>" for title in tests)
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    generated_at_value = generated_at or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    shells_value = sorted({item.shell for item in results})
+    models_value = sorted({item.model.label for item in results})
+    formats_value = sorted({item.format for item in results})
+    hardware_ids_value = sorted({_hardware_profile_id(item, default_hardware_profile_id) for item in results})
+    scope_summary_html = _render_scope_summary(shells_value, formats_value)
 
     html = f"""<!doctype html>
-<html><head><meta charset='utf-8'><title>GripProbe Aggregate Summary</title>
+<html><head><meta charset='utf-8'><title>GripProbe Compatibility Report</title>
 <style>
 body{{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;font-size:14px}}
 table{{border-collapse:collapse;width:100%}}
@@ -545,6 +638,7 @@ a:hover{{text-decoration:underline}}
 .row-hidden{{display:none}}
 .page-head{{display:flex;justify-content:space-between;align-items:flex-start;gap:1.2rem}}
 .head-side{{display:flex;align-items:flex-start;gap:.8rem}}
+.context-side{{display:flex;align-items:flex-start;gap:.8rem}}
 .hardware-side{{display:flex;flex-direction:column;gap:.35rem}}
 .tests-doc-link-line{{margin:.05rem 0 0 .1rem;font-size:.78rem}}
 .legend{{border:1px solid #d7d1c3;background:#faf7ef;border-radius:8px;padding:.45rem .6rem;min-width:250px}}
@@ -572,15 +666,25 @@ a:hover{{text-decoration:underline}}
 .hw-card th{{color:#555;width:48px;font-weight:700}}
 .hw-note{{font-size:.68rem;color:#666;margin:.25rem 0 0 0}}
 .generated-at{{margin-top:1rem;color:#666;font-size:.84rem}}
+.scope-summary,.models-summary{{border:1px solid #d7d1c3;background:#faf7ef;border-radius:8px;padding:.45rem .6rem;min-width:230px}}
+.scope-title,.models-title{{font-size:.75rem;font-weight:700;color:#444;margin-bottom:.28rem;text-transform:uppercase;letter-spacing:.02em}}
+.scope-summary table,.models-summary table{{border-collapse:collapse;width:100%;font-size:.72rem}}
+.scope-summary th,.scope-summary td,.models-summary td{{text-align:left;padding:.08rem .2rem;border:none;vertical-align:top}}
+.scope-summary th{{color:#555;width:54px;font-weight:700}}
+.models-summary table{{display:block;max-height:180px;overflow:auto}}
+.models-summary tr{{display:table;width:100%;table-layout:fixed}}
 </style></head><body>
 <div class='page-head'>
 <div>
-<h1>GripProbe Aggregate Summary</h1>
+<h1>GripProbe Compatibility Report</h1>
 </div>
 <div class='head-side'>
+<div class='context-side'>
+{scope_summary_html}
 <div class='hardware-side'>
 {hardware_cards_html}
 {tests_doc_link_html}
+</div>
 </div>
 <aside class='legend'>
 <div class='legend-title'>Failure Colors</div>
@@ -599,6 +703,10 @@ a:hover{{text-decoration:underline}}
 </div>
 <div class='controls'>
 <p class='meta'>One row per shell/model/hash/format group. Test cells link to a concrete case detail page. Group links open the source run summary.</p>
+<label for='model-filter'>Model</label>
+<select id='model-filter'>
+{model_filter_options}
+</select>
 <label for='shell-filter'>Shell</label>
 <select id='shell-filter'>
 {shell_filter_options}
@@ -618,7 +726,7 @@ a:hover{{text-decoration:underline}}
 <tbody>
 {''.join(rows)}
 </tbody></table>
-<p class='generated-at'>generated at {escape(generated_at)}</p>
+<p class='generated-at'>generated at {escape(generated_at_value)} | git commit {escape(commit_sha)}</p>
 <script>
 function sortRows(key, direction) {{
   var tbody = document.querySelector("#aggregate-table tbody");
@@ -643,14 +751,18 @@ function sortRows(key, direction) {{
 function applyRowFilters() {{
   var includePartialRuns = document.getElementById("include-partial-runs");
   var includePartial = Boolean(includePartialRuns && includePartialRuns.checked);
+  var modelFilter = document.getElementById("model-filter");
+  var selectedModel = String((modelFilter && modelFilter.value) || "all");
   var shellFilter = document.getElementById("shell-filter");
   var selectedShell = String((shellFilter && shellFilter.value) || "all");
   var rows = Array.prototype.slice.call(document.querySelectorAll("#aggregate-table tbody tr"));
   rows.forEach(function(row) {{
     var hasExtended = (row.getAttribute("data-extended") || "no") === "yes";
+    var rowModel = String(row.getAttribute("data-model") || "");
+    var modelMatches = selectedModel === "all" || rowModel === selectedModel;
     var rowShell = String(row.getAttribute("data-shell") || "");
     var shellMatches = selectedShell === "all" || rowShell === selectedShell;
-    row.classList.toggle("row-hidden", (!includePartial && !hasExtended) || !shellMatches);
+    row.classList.toggle("row-hidden", (!includePartial && !hasExtended) || !shellMatches || !modelMatches);
   }});
 }}
 
@@ -661,6 +773,10 @@ if (includePartialRunsCheckbox) {{
 var shellFilterSelect = document.getElementById("shell-filter");
 if (shellFilterSelect) {{
   shellFilterSelect.addEventListener("change", applyRowFilters);
+}}
+var modelFilterSelect = document.getElementById("model-filter");
+if (modelFilterSelect) {{
+  modelFilterSelect.addEventListener("change", applyRowFilters);
 }}
 applyRowFilters();
 </script>
@@ -710,18 +826,42 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
     hardware_profile_map, default_hardware_profile_id = _load_hardware_profile_data(resolved_root)
 
     tests_doc_relpath: str | None = None
+    hardware_profiles_relpath: str | None = None
     if resolved_root is not None:
         tests_doc_path = resolved_root / "docs" / "tests.md"
         if tests_doc_path.exists():
             tests_doc_relpath = os.path.relpath(tests_doc_path, reports_dir)
+        hardware_profiles_path = resolved_root / "specs" / "hardware_profiles.yaml"
+        if hardware_profiles_path.exists():
+            hardware_profiles_relpath = os.path.relpath(hardware_profiles_path, reports_dir)
 
-    write_markdown_summary(aggregated_results, reports_dir / "summary.md")
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    shells = sorted({item.shell for item in aggregated_results})
+    models = sorted({item.model.label for item in aggregated_results})
+    formats = sorted({item.format for item in aggregated_results})
+    hardware_profile_ids = sorted({_hardware_profile_id(item, default_hardware_profile_id) for item in aggregated_results})
+    commit_sha = _git_commit_sha(resolved_root)
+
+    _write_aggregate_markdown_summary(
+        aggregated_results,
+        reports_dir / "summary.md",
+        generated_at=generated_at,
+        commit_sha=commit_sha,
+        shells=shells,
+        models=models,
+        formats=formats,
+        hardware_profile_ids=hardware_profile_ids,
+        hardware_profiles_relpath=hardware_profiles_relpath,
+    )
     write_aggregate_html_summary(
         aggregated_results,
         output_dir,
         hardware_profile_map=hardware_profile_map,
         default_hardware_profile_id=default_hardware_profile_id,
         tests_doc_relpath=tests_doc_relpath,
+        generated_at=generated_at,
+        commit_sha=commit_sha,
+        hardware_profiles_relpath=hardware_profiles_relpath,
     )
     write_json(
         output_dir / "aggregate_manifest.json",

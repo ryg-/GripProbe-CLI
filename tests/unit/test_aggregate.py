@@ -87,6 +87,7 @@ def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     case_b = json.loads((output_dir / "cases" / "run-b__case-1" / "case.json").read_text(encoding="utf-8"))
     manifest = json.loads((output_dir / "aggregate_manifest.json").read_text(encoding="utf-8"))
     summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+    summary_md = (output_dir / "reports" / "summary.md").read_text(encoding="utf-8")
 
     assert case_a["case_id"] == "run-a__case-1"
     assert case_a["metadata"]["source_case_id"] == "case-1"
@@ -100,13 +101,30 @@ def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     assert "model-meta" in summary_html
     assert "845dbda" in summary_html
     assert "845dbda0ea48" not in summary_html
+    assert "GripProbe Compatibility Report" in summary_html
     assert "Failure Colors" in summary_html
     assert "Aggregate Metrics" in summary_html
+    assert "Scope" in summary_html
+    assert "Hardware Profiles" in summary_html
+    assert "Methodology" not in summary_html
+    assert "Status codes:" not in summary_html
+    assert "Resume behavior:" not in summary_html
+    assert "id='model-filter'" in summary_html
+    assert "<label for='model-filter'>Model</label>" in summary_html
+    assert "Suite id:" not in summary_html
+    assert "Test tags:" not in summary_html
     assert "<strong>Score</strong>" in summary_html
     assert "<strong>Typical Time</strong>" in summary_html
     assert "<strong>Outliers</strong>" in summary_html
     assert "generated at " in summary_html
+    assert "git commit " in summary_html
     assert "<td class='agg-fail-soft'" in summary_html
+    assert "# GripProbe Compatibility Report" in summary_md
+    assert "## Reproducibility" in summary_md
+    assert "## Methodology" not in summary_md
+    assert "- Suite id:" not in summary_md
+    assert "- Test tags in report:" not in summary_md
+    assert "Resume behavior:" not in summary_md
 
 
 def test_discover_run_dirs_finds_case_directories(tmp_path: Path) -> None:
@@ -297,8 +315,11 @@ def test_aggregate_reports_marks_and_filters_extended_rows(tmp_path: Path) -> No
     summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
 
     assert "include-partial-runs" in summary_html
+    assert "id='model-filter'" in summary_html
+    assert "<option value='all'>all</option>" in summary_html
     assert "id='shell-filter'" in summary_html
     assert "<option value='all'>all</option>" in summary_html
+    assert "modelFilterSelect.addEventListener(\"change\", applyRowFilters);" in summary_html
     assert "shellFilterSelect.addEventListener(\"change\", applyRowFilters);" in summary_html
     assert "Show partial (sanity-only) runs in addition to extended test runs" in summary_html
     assert "id='include-partial-runs' type='checkbox'" in summary_html
