@@ -1,8 +1,9 @@
 # GripProbe-CLI
-Guthib project [https://github.com/ryg-/GripProbe-CLI/]
+[GitHub project](https://github.com/ryg-/GripProbe-CLI/)
+
 ## Published Reports:
-- HTML report: [https://ryg-.github.io/GripProbe-CLI/docs/report/summary.html]
-- Markdown summary: [https://github.com/ryg-/GripProbe-CLI/blob/main/docs/report/summary.md]
+- [HTML report](docs/report/summary.html)
+- [Markdown summary](docs/report/summary.html)
 
 
 GripProbe is a benchmark framework for CLI AI agents, focused on small and local models and on artifact-first evaluation of tool use.
