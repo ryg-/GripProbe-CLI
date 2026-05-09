@@ -1,0 +1,12 @@
+title: GripProbe Reports
+description: GripProbe CLI benchmark reports for model x shell compatibility.
+url: "https://ryg-.github.io"
+baseurl: "/GripProbe-CLI"
+google_site_verification: "zpbEZcqiQfU8rpibLey6EeB5beWnV9ARc_gtfeCZi30"
+webmaster_verifications:
+  google: "zpbEZcqiQfU8rpibLey6EeB5beWnV9ARc_gtfeCZi30"
+
+plugins:
+  - jekyll-sitemap
+
+markdown: kramdown
