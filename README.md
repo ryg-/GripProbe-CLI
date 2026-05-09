@@ -1,4 +1,9 @@
 # GripProbe-CLI
+Guthib project [https://github.com/ryg-/GripProbe-CLI/]
+## Published Reports:
+- HTML report: [https://ryg-.github.io/GripProbe-CLI/docs/report/summary.html]
+- Markdown summary: [https://github.com/ryg-/GripProbe-CLI/blob/main/docs/report/summary.md]
+
 
 GripProbe is a benchmark framework for CLI AI agents, focused on small and local models and on artifact-first evaluation of tool use.
 
@@ -12,10 +17,6 @@ Typical tool-calling benchmarks evaluate parsed tool calls in synthetic, API-lik
 GripProbe evaluates observable side effects in real CLI agent environments.
 It distinguishes textual success from executed success.
 It is aimed at model/shell/backend compatibility rather than model-only ranking.
-
-## Published Reports:
-- HTML report: [https://ryg-.github.io/GripProbe-CLI/report/summary.html]
-- Markdown summary: report/summary.md
 
 ### Early observations
 
