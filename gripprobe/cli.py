@@ -6,6 +6,7 @@ from pathlib import Path
 from gripprobe.aggregate import aggregate_reports, discover_run_dirs
 from gripprobe.backfill import backfill_model_hashes
 from gripprobe.rebuild import rebuild_reports
+from gripprobe.run_listing import list_runs_rows
 from gripprobe.runner import DEFAULT_BACKEND, run
 from gripprobe.spec_loader import load_hardware_profiles, load_model_specs, load_shell_specs, load_suite_specs, load_test_specs
 from gripprobe.suite_runner import run_suite
@@ -104,6 +105,17 @@ def cmd_backfill_model_hashes(run_dirs: list[Path]) -> int:
     return 0
 
 
+def cmd_list_runs(root: Path, run_dirs: list[Path], shell: str | None, suite: str | None) -> int:
+    print("path\tshell\tsuite")
+    for rel_path, row_shell, row_suite in list_runs_rows(root, run_dirs):
+        if shell and row_shell != shell:
+            continue
+        if suite and row_suite != suite:
+            continue
+        print(f"{rel_path}\t{row_shell}\t{row_suite}")
+    return 0
+
+
 def cmd_run_suite(
     root: Path,
     suite: str,
@@ -188,6 +200,10 @@ def build_parser() -> argparse.ArgumentParser:
     aggregate_p.add_argument("--run-dirs", nargs="+")
     aggregate_p.add_argument("--runs-root")
     aggregate_p.add_argument("--output-dir", required=True)
+    list_p = sub.add_parser("list-runs")
+    list_p.add_argument("--runs-root")
+    list_p.add_argument("--shell")
+    list_p.add_argument("--suite")
     return parser
 
 
@@ -266,6 +282,10 @@ def main() -> int:
             run_dirs,
             Path(ns.output_dir).resolve(),
         )
+    if ns.cmd == "list-runs":
+        runs_root = Path(ns.runs_root).resolve() if ns.runs_root else root / "results" / "runs"
+        run_dirs = discover_run_dirs(runs_root)
+        return cmd_list_runs(root, run_dirs, ns.shell, ns.suite)
     parser.error("unknown command")
 
 

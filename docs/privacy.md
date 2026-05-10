@@ -62,7 +62,7 @@ Published `summary.html` pages include a simple GoatCounter script:
 
 ```html
 <script data-goatcounter="https://ryg-.goatcounter.com/count"
-        async src="//gc.zgo.at/count.js"></script>
+        async src="https://gc.zgo.at/count.js"></script>
 ```
 
 This counter is privacy-friendly and is used only to understand interest in the published report.

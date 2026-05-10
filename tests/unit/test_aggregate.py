@@ -66,6 +66,13 @@ def _tbody_row_count(summary_html: str) -> int:
     return match.group(1).count("<tr")
 
 
+def _shell_filter_options(summary_html: str) -> list[str]:
+    match = re.search(r"<select id='shell-filter'>(.*?)</select>", summary_html, flags=re.DOTALL)
+    if not match:
+        return []
+    return re.findall(r"<option value='([^']*)'>", match.group(1))
+
+
 def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     run_a = tmp_path / "runs" / "run-a"
     run_b = tmp_path / "runs" / "run-b"
@@ -168,6 +175,15 @@ def test_aggregate_reports_cli_accepts_runs_root(tmp_path: Path) -> None:
     assert ns.cmd == "aggregate-reports"
     assert ns.runs_root == str(runs_root)
     assert ns.run_dirs is None
+
+
+def test_aggregate_reports_fails_when_run_summary_is_missing_for_case_run(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "broken-run"
+    _write_case(run_dir, "case-1", "Case One", "PASS")
+    (run_dir / "reports" / "summary.html").unlink()
+
+    with pytest.raises(ValueError, match="missing reports/summary\\.html"):
+        aggregate_reports([run_dir], tmp_path / "aggregate")
 
 
 def test_aggregate_reports_formats_run_time_and_pass_cell_time(tmp_path: Path) -> None:
@@ -323,6 +339,9 @@ def test_aggregate_reports_marks_and_filters_extended_rows(tmp_path: Path) -> No
     assert "id='model-filter'" in summary_html
     assert "<option value='all'>all</option>" in summary_html
     assert "id='shell-filter'" in summary_html
+    assert "<label for='shell-filter'>CLI Agent</label>" in summary_html
+    assert "<option value='gptme'>gptme</option>" in summary_html
+    assert "<option value='gptme unknown'>gptme unknown</option>" in summary_html
     assert "<option value='all'>all</option>" in summary_html
     assert "modelFilterSelect.addEventListener(\"change\", applyRowFilters);" in summary_html
     assert "shellFilterSelect.addEventListener(\"change\", applyRowFilters);" in summary_html
@@ -335,8 +354,55 @@ def test_aggregate_reports_marks_and_filters_extended_rows(tmp_path: Path) -> No
     assert "onclick=\"sortRows(" in summary_html
     assert "data-sort-key='shell'" not in summary_html
     assert "<script src='summary.js'></script>" not in summary_html
+    assert "data-cli-agent='gptme unknown'" in summary_html
     assert "data-extended='yes'" in summary_html
     assert "data-extended='no'" in summary_html
+
+
+def test_aggregate_reports_sorts_shell_filter_with_version_rules(tmp_path: Path) -> None:
+    runs_root = tmp_path / "runs"
+    run_a = runs_root / "run-a"
+    run_b = runs_root / "run-b"
+    run_c = runs_root / "run-c"
+    run_d = runs_root / "run-d"
+    run_e = runs_root / "run-e"
+    run_f = runs_root / "run-f"
+    _write_case(run_a, "case-1", "Case One", "PASS")
+    _write_case(run_b, "case-1", "Case One", "PASS")
+    _write_case(run_c, "case-1", "Case One", "PASS")
+    _write_case(run_d, "case-1", "Case One", "PASS")
+    _write_case(run_e, "case-1", "Case One", "PASS")
+    _write_case(run_f, "case-1", "Case One", "PASS")
+
+    def _set_shell_and_version(run_dir: Path, shell: str, version: str) -> None:
+        case_path = run_dir / "cases" / "case-1" / "case.json"
+        payload = json.loads(case_path.read_text(encoding="utf-8"))
+        payload["shell"] = shell
+        payload["metadata"]["cli_agent_version"] = version
+        case_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    _set_shell_and_version(run_a, "gptme", "1.10.0")
+    _set_shell_and_version(run_b, "gptme", "1.9.0")
+    _set_shell_and_version(run_c, "gptme", "1.10.0-rc1")
+    _set_shell_and_version(run_d, "gptme", "unknown")
+    _set_shell_and_version(run_e, "gptme", "beta")
+    _set_shell_and_version(run_f, "continue-cli", "2.0.0")
+
+    output_dir, _ = aggregate_reports([run_a, run_b, run_c, run_d, run_e, run_f], tmp_path / "aggregate")
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+    options = _shell_filter_options(summary_html)
+
+    assert options == [
+        "all",
+        "continue-cli",
+        "continue-cli 2.0.0",
+        "gptme",
+        "gptme 1.9.0",
+        "gptme 1.10.0",
+        "gptme 1.10.0-rc1",
+        "gptme beta",
+        "gptme unknown",
+    ]
 
 
 def test_aggregate_reports_computes_weighted_score_typical_time_and_outliers(tmp_path: Path) -> None:

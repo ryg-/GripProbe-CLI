@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
     npm \
     openssh-client \
+    patch \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /work
@@ -23,6 +24,7 @@ RUN pip install --upgrade pip && pip install -e .[dev]
 # Optional shell adapters used by the benchmark matrix.
 RUN npm install -g @continuedev/cli
 RUN npm install -g opencode-ai
+RUN npm install -g @openai/codex
 RUN python3 -m venv /opt/venvs/gptme \
     && /opt/venvs/gptme/bin/pip install --upgrade pip \
     && /opt/venvs/gptme/bin/pip install gptme \

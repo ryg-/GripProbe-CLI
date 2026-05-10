@@ -23,6 +23,7 @@ validators:
     expected: Review onboarding draft at https://example.com/docs/onboarding-v2 and send feedback.
 supported_shells:
   - aider
+  - codex
   - gptme
   - continue-cli
   - opencode

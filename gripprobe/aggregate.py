@@ -11,6 +11,7 @@ from html import escape
 from pathlib import Path
 from statistics import median
 
+from gripprobe.cli_agent_version import get_cli_agent_version
 from gripprobe.models import CaseResult, HardwareProfileSpec
 from gripprobe.reporters.html_report import write_case_detail_pages
 from gripprobe.results import write_json
@@ -34,6 +35,7 @@ _SANITIZED_TEXT_SUFFIXES = {
     ".yml",
     ".log",
 }
+_CLI_AGENT_VERSION_SORT_RE = re.compile(r"^v?(\d+)\.(\d+)(?:\.(\d+))?(?:([-+].+))?$")
 
 
 def _prefixed_case_id(run_id: str, case_id: str) -> str:
@@ -148,6 +150,36 @@ def discover_run_dirs(runs_root: Path) -> list[Path]:
     )
 
 
+def _run_contains_case_json(run_dir: Path) -> bool:
+    cases_dir = run_dir / "cases"
+    if not cases_dir.exists() or not cases_dir.is_dir():
+        return False
+    for case_dir in cases_dir.iterdir():
+        if case_dir.is_dir() and (case_dir / "case.json").exists():
+            return True
+    return False
+
+
+def _validate_run_summaries_or_raise(run_dirs: list[Path]) -> None:
+    broken: list[str] = []
+    for run_dir in run_dirs:
+        source_summary = run_dir / "reports" / "summary.html"
+        if source_summary.exists():
+            continue
+        if _run_contains_case_json(run_dir):
+            broken.append(run_dir.name)
+    if broken:
+        broken_list = ", ".join(sorted(broken))
+        raise ValueError(
+            "Refusing to aggregate: some runs contain case artifacts but missing reports/summary.html. "
+            f"Broken run ids: {broken_list}. "
+            "Rebuild these runs first, for example: "
+            "`python -m gripprobe.cli --root . rebuild-reports --run-dir results/runs/<RUN_ID>`. "
+            "If case.json is corrupted, use: "
+            "`python -m gripprobe.cli --root . rebuild-reports --run-dir results/runs/<RUN_ID> --recompute-case-json`."
+        )
+
+
 def _aggregate_cell_class(items: list[CaseResult]) -> str:
     statuses = {item.status for item in items}
     if statuses == {"PASS"}:
@@ -194,6 +226,11 @@ def _display_failure_reason(value: object) -> str:
 
 def _source_summary_relpath(output_dir: Path, run_id: str) -> str:
     target = output_dir / "reports" / "runs" / f"{run_id}.html"
+    if not target.exists():
+        raise ValueError(
+            "Aggregate report references a missing run summary page for "
+            f"run_id={run_id}. Expected file: {target}"
+        )
     return escape(os.path.relpath(target, output_dir / "reports"))
 
 
@@ -207,6 +244,42 @@ def _format_run_id_time(run_id: str) -> str:
 
 def _format_duration(seconds: float) -> str:
     return f"{seconds:.1f}s"
+
+
+def _parse_cli_agent_version_for_sort(version: str) -> tuple[tuple[int, int, int], str] | None:
+    match = _CLI_AGENT_VERSION_SORT_RE.match(version.strip())
+    if not match:
+        return None
+    major = int(match.group(1))
+    minor = int(match.group(2))
+    patch = int(match.group(3) or "0")
+    suffix = (match.group(4) or "").lower()
+    return (major, minor, patch), suffix
+
+
+def _cli_agent_version_sort_key(version: str) -> tuple[object, ...]:
+    normalized = version.strip()
+    lowered = normalized.lower()
+    if lowered == "unknown":
+        return (2, (), 1, "")
+    parsed = _parse_cli_agent_version_for_sort(normalized)
+    if parsed is not None:
+        numbers, suffix = parsed
+        return (0, numbers, 1 if suffix else 0, suffix)
+    return (1, lowered)
+
+
+def _build_cli_agent_filter_values(results: list[CaseResult]) -> list[str]:
+    versions_by_shell: dict[str, set[str]] = defaultdict(set)
+    for item in results:
+        versions_by_shell[item.shell].add(get_cli_agent_version(item.metadata))
+
+    values: list[str] = []
+    for shell in sorted(versions_by_shell):
+        values.append(shell)
+        sorted_versions = sorted(versions_by_shell[shell], key=_cli_agent_version_sort_key)
+        values.extend(f"{shell} {version}".strip() for version in sorted_versions)
+    return values
 
 
 def _short_hash(value: str) -> str:
@@ -453,11 +526,13 @@ def write_aggregate_html_summary(
     )
 
     tests = sorted({item.title for item in results}, key=lambda title: _test_sort_key(title, results))
-    grouped: dict[tuple[str, str, str, str, str], list[CaseResult]] = defaultdict(list)
+    grouped: dict[tuple[str, str, str, str, str, str], list[CaseResult]] = defaultdict(list)
     for item in results:
+        cli_agent_version = get_cli_agent_version(item.metadata)
         grouped[
             (
                 item.shell,
+                cli_agent_version,
                 item.model.label,
                 item.model.model_hash,
                 item.format,
@@ -465,7 +540,7 @@ def write_aggregate_html_summary(
             )
         ].append(item)
 
-    grouped_by_test: dict[tuple[str, str, str, str, str], dict[str, list[CaseResult]]] = {}
+    grouped_by_test: dict[tuple[str, str, str, str, str, str], dict[str, list[CaseResult]]] = {}
     representative_time_samples_by_test: dict[str, list[float]] = defaultdict(list)
     for group_key, items in grouped.items():
         by_test: dict[str, list[CaseResult]] = defaultdict(list)
@@ -492,10 +567,11 @@ def write_aggregate_html_summary(
             f"<a href='{escape(tests_doc_relpath)}'>Test descriptions</a>"
             "</p>"
         )
+    cli_agent_filter_values = _build_cli_agent_filter_values(results)
     shell_filter_options = "".join(
         [
             "<option value='all'>all</option>",
-            *[f"<option value='{escape(shell)}'>{escape(shell)}</option>" for shell in sorted({item.shell for item in results})],
+            *[f"<option value='{escape(value)}'>{escape(value)}</option>" for value in cli_agent_filter_values],
         ]
     )
     model_filter_options = "".join(
@@ -510,7 +586,8 @@ def write_aggregate_html_summary(
 
     rows: list[str] = []
     for group_key in sorted(grouped):
-        shell, model_label, model_hash, tool_format, hardware_profile_id = group_key
+        shell, cli_agent_version, model_label, model_hash, tool_format, hardware_profile_id = group_key
+        cli_agent_label = f"{shell} {cli_agent_version}".strip()
         items = grouped[group_key]
         has_extended_set = any(_has_extended_test_tags(item) for item in items)
         by_test = grouped_by_test[group_key]
@@ -554,6 +631,7 @@ def write_aggregate_html_summary(
         rows.append(
             "<tr "
             f"data-shell='{escape(shell)}' "
+            f"data-cli-agent='{escape(cli_agent_label)}' "
             f"data-model='{escape(model_label)}' "
             f"data-format='{escape(tool_format)}' "
             f"data-hw='{escape(hardware_profile_id)}' "
@@ -561,7 +639,9 @@ def write_aggregate_html_summary(
             f"data-score='{score:.4f}' "
             f"data-typical='{typical_time:.4f}' "
             f"data-outliers='{outlier_rate:.4f}'>"
-            f"<td><a href='{group_link}'>{escape(shell)}</a></td>"
+            f"<td><a href='{group_link}'>{escape(shell)}"
+            f"<span class='cli-agent-version'>{escape(cli_agent_version)}</span>"
+            "</a></td>"
             f"<td><a href='{group_link}'>{escape(model_label)}"
             f"<span class='model-meta'>{escape(_short_hash(model_hash))}</span>"
             f"{hw_meta_html}"
@@ -601,6 +681,7 @@ a:hover{{text-decoration:underline}}
 .empty{{background:#f3f1eb;color:#777;text-align:center}}
 .meta{{color:#555;margin-bottom:1rem;font-size:.9rem}}
 .cell-time{{display:block;font-size:.75rem;font-weight:500;color:#26492d;margin-top:.12rem}}
+.cli-agent-version{{display:block;font-size:.68rem;font-weight:500;color:#666;margin-top:.18rem;word-break:break-all}}
 .model-meta{{display:block;font-size:.68rem;font-weight:500;color:#666;margin-top:.18rem;word-break:break-all}}
 .hw-meta{{display:block;font-size:.68rem;font-weight:500;color:#666;margin-top:.18rem;word-break:break-all}}
 .runs-meta{{font-size:.68rem;font-weight:500;color:#666;line-height:1.35}}
@@ -681,12 +762,12 @@ a:hover{{text-decoration:underline}}
 </div>
 </div>
 <div class='controls'>
-<p class='meta'>One row per shell/model/hash/format group. Test cells link to a concrete case detail page. Group links open the source run summary.</p>
+<p class='meta'>One row per cli-agent-version/model/hash/format group. Test cells link to a concrete case detail page. Group links open the source run summary.</p>
 <label for='model-filter'>Model</label>
 <select id='model-filter'>
 {model_filter_options}
 </select>
-<label for='shell-filter'>Shell</label>
+<label for='shell-filter'>CLI Agent</label>
 <select id='shell-filter'>
 {shell_filter_options}
 </select>
@@ -695,7 +776,7 @@ a:hover{{text-decoration:underline}}
 </div>
 <table id='aggregate-table'>
 <thead><tr>
-<th>Shell<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('shell', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('shell', 'desc')">▼</button></span></th>
+<th>CLI Agent<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('cli-agent', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('cli-agent', 'desc')">▼</button></span></th>
 <th>Model<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('model', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('model', 'desc')">▼</button></span></th>
 <th>Format<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('format', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('format', 'desc')">▼</button></span></th>
 <th>Score<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('score', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('score', 'desc')">▼</button></span></th>
@@ -740,7 +821,8 @@ function applyRowFilters() {{
     var rowModel = String(row.getAttribute("data-model") || "");
     var modelMatches = selectedModel === "all" || rowModel === selectedModel;
     var rowShell = String(row.getAttribute("data-shell") || "");
-    var shellMatches = selectedShell === "all" || rowShell === selectedShell;
+    var rowCliAgent = String(row.getAttribute("data-cli-agent") || "");
+    var shellMatches = selectedShell === "all" || rowShell === selectedShell || rowCliAgent === selectedShell;
     row.classList.toggle("row-hidden", (!includePartial && !hasExtended) || !shellMatches || !modelMatches);
   }});
 }}
@@ -764,6 +846,9 @@ applyRowFilters();
 
 
 def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None = None) -> tuple[Path, list[CaseResult]]:
+    resolved_run_dirs = [path.resolve() for path in run_dirs]
+    _validate_run_summaries_or_raise(resolved_run_dirs)
+
     output_dir = output_dir.resolve()
     cases_dir = output_dir / "cases"
     reports_dir = output_dir / "reports"
@@ -773,7 +858,7 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     aggregated_results: list[CaseResult] = []
-    for run_dir in [path.resolve() for path in run_dirs]:
+    for run_dir in resolved_run_dirs:
         _copy_public_run_summary(run_dir, output_dir)
         source_cases_dir = run_dir / "cases"
         if not source_cases_dir.exists():
@@ -842,8 +927,8 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
     write_json(
         output_dir / "aggregate_manifest.json",
         {
-            "run_dirs": [_sanitize_report_text(str(path.resolve())) for path in run_dirs],
-            "runs": [path.name for path in run_dirs],
+            "run_dirs": [_sanitize_report_text(str(path)) for path in resolved_run_dirs],
+            "runs": [path.name for path in resolved_run_dirs],
             "cases": len(aggregated_results),
         },
     )

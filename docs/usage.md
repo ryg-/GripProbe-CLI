@@ -118,6 +118,31 @@ python -m gripprobe.cli rebuild-reports --run-dir results/runs/<run_id>
 
 This command recreates `summary.md`, `summary.html`, and per-case HTML detail pages from the saved artifacts.
 
+## Generate Aggregate Report
+
+Build one top-level report from all run directories under `results/runs`:
+
+```bash
+python -m gripprobe.cli --root . aggregate-reports \
+  --runs-root results/runs \
+  --output-dir docs/report
+```
+
+Docker variant:
+
+```bash
+docker compose run --rm gripprobe \
+  python3 -m gripprobe.cli --root . aggregate-reports \
+  --runs-root results/runs \
+  --output-dir docs/report
+```
+
+Result files:
+- HTML: `docs/report/reports/summary.html`
+- Markdown: `docs/report/reports/summary.md`
+
+If needed, you can aggregate only specific runs via `--run-dirs` instead of `--runs-root`.
+
 
 
 This file lists the primary run metadata keys used in reports.
@@ -171,6 +196,7 @@ python3 -m gripprobe.cli --root . run-suite \
 - `--resume-suite` works per case (`shell+model+backend+format+test`) and skips already completed cases from `results/runs/...`.
 - `default_cli_matrix` is sanity-first and currently runs with `formats: tool`.
 - For publication/share, use `results/aggregate/...`; keep `results/runs/...` as internal diagnostic artifacts.
+- For report field changes, start from `docs/specs/report-field-change-template.md`.
 
 ## Shell Configuration
 

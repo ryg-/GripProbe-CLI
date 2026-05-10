@@ -25,6 +25,7 @@ validators:
   - type: web_nonce_proof
     target: web-proof.txt
 supported_shells:
+  - codex
   - gptme
   - continue-cli
   - opencode

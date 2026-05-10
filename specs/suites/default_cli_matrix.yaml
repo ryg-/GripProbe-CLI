@@ -17,7 +17,6 @@ models:
   - local/gemma3:12b
   - local/gemma4:e2b
   - local/gemma4:e4b
-  - local/gpt-oss:20b
   - local/mistral-small:24b
   - local/mistral-nemo:12b
   - local/ministral-3:8b

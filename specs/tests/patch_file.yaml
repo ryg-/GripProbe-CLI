@@ -16,6 +16,7 @@ validators:
     expected_line: STATUS=new
 supported_shells:
   - aider
+  - codex
   - gptme
   - continue-cli
   - opencode

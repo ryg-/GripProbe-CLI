@@ -17,6 +17,7 @@ validators:
     expected: TOOL_SAVE_OK
 supported_shells:
   - aider
+  - codex
   - aider
   - gptme
   - continue-cli

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from gripprobe.case_result import CaseStatus, ToolInvocation
+from gripprobe.cli_agent_version import with_cli_agent_version
 from gripprobe.failure_reason import infer_failure_reason
 from gripprobe.models import CaseLogs, CaseModelInfo, CaseResult, CaseTimings, ModelSpec
 from gripprobe.reporters.html_report import write_html_summary
@@ -90,6 +91,7 @@ def _build_recomputed_case_result(case_dir: Path, model_index: dict[str, ModelSp
     existing_metadata = existing_payload.get("metadata", {}) if isinstance(existing_payload, dict) else {}
     if not isinstance(existing_metadata, dict):
         existing_metadata = {}
+    existing_metadata = with_cli_agent_version(existing_metadata)
     existing_timings = existing_payload.get("timings", {}) if isinstance(existing_payload, dict) else {}
     if not isinstance(existing_timings, dict):
         existing_timings = {}
@@ -141,6 +143,25 @@ def _build_recomputed_case_result(case_dir: Path, model_index: dict[str, ModelSp
         or "unknown"
     )
 
+    result_metadata = with_cli_agent_version(
+        {
+            **existing_metadata,
+            "rebuilt": True,
+            "source": "recomputed" if existing_payload is not None else "fallback",
+            "artifact_reached_before_timeout": artifact_reached_before_timeout,
+            "failure_reason": infer_failure_reason(status, invoked, measured_stdout, measured_stderr),
+            "run_1_status": run_1_status,
+            "run_2_status": status,
+            "run_1_profile": run_1_profile.as_metadata(),
+            "run_2_profile": run_2_profile.as_metadata(),
+            "run_consistency": run_consistency,
+            "language": test_spec.language if test_spec else "en",
+            "rules": test_spec.rules.model_dump() if test_spec else {},
+            "test_tags": list(test_spec.tags) if test_spec else [],
+            "trajectory_reasons": trajectory_reasons,
+        }
+    )
+
     result = CaseResult(
         case_id=case_id,
         run_id=run_id,
@@ -158,7 +179,7 @@ def _build_recomputed_case_result(case_dir: Path, model_index: dict[str, ModelSp
         ),
         format=tool_format,
         test=test_id,
-        title=_fallback_title(test_id),
+        title=test_spec.title if test_spec else _fallback_title(test_id),
         status=status,
         trajectory=trajectory,
         invoked=invoked,
@@ -174,22 +195,7 @@ def _build_recomputed_case_result(case_dir: Path, model_index: dict[str, ModelSp
             measured_stdout="measured.stdout",
             measured_stderr="measured.stderr",
         ),
-        metadata={
-            **existing_metadata,
-            "rebuilt": True,
-            "source": "recomputed" if existing_payload is not None else "fallback",
-            "artifact_reached_before_timeout": artifact_reached_before_timeout,
-            "failure_reason": infer_failure_reason(status, invoked, measured_stdout, measured_stderr),
-            "run_1_status": run_1_status,
-            "run_2_status": status,
-            "run_1_profile": run_1_profile.as_metadata(),
-            "run_2_profile": run_2_profile.as_metadata(),
-            "run_consistency": run_consistency,
-            "language": test_spec.language if test_spec else "en",
-            "rules": test_spec.rules.model_dump() if test_spec else {},
-            "test_tags": list(test_spec.tags) if test_spec else [],
-            "trajectory_reasons": trajectory_reasons,
-        },
+        metadata=result_metadata,
     )
     write_json(case_json, result.model_dump())
     return result

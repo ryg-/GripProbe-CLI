@@ -40,6 +40,7 @@ def test_collect_shell_runtime_metadata_reads_first_version_line(monkeypatch) ->
         "shell_executable_path": "$HOME/bin/tool",
         "shell_version": "tool 1.2.3",
         "shell_version_exit_code": "0",
+        "cli_agent_version": "1.2.3",
         "ollama_context_length": "32768",
         "ollama_num_parallel": "1",
     }
@@ -56,7 +57,10 @@ def test_collect_shell_runtime_metadata_returns_partial_data_when_probe_fails(mo
 
     metadata = _collect_shell_runtime_metadata("tool")
 
-    assert metadata == {"shell_executable": "tool"}
+    assert metadata == {
+        "shell_executable": "tool",
+        "cli_agent_version": "unknown",
+    }
 
 
 def test_collect_runtime_snapshot_captures_ollama_and_system_probes(monkeypatch) -> None:

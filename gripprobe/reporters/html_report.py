@@ -7,6 +7,7 @@ import re
 from html import escape
 from pathlib import Path
 
+from gripprobe.cli_agent_version import format_cli_agent_label, get_cli_agent_version
 from gripprobe.models import CaseResult
 
 
@@ -480,6 +481,8 @@ def _write_case_detail(
     trajectory_class = TRAJECTORY_CLASS.get(result.trajectory, "unknown")
     invoked_class = INVOKED_CLASS.get(result.invoked, "unknown")
     match_class = _match_class(result.match_percent)
+    cli_agent_version = _sanitize_for_html(get_cli_agent_version(result.metadata))
+    cli_agent_label = _sanitize_for_html(format_cli_agent_label(result.shell, result.metadata))
 
     top_panels = "".join(
         panel for panel in [
@@ -503,6 +506,7 @@ def _write_case_detail(
     detail_body = f"""<p><a href='{summary_rel}'>Back to summary</a></p>
 <h1>{escape(result.title)}</h1>
 <p><strong>Case:</strong> <code>{escape(result.case_id)}</code></p>
+<p><strong>CLI Agent:</strong> <code>{escape(cli_agent_label)}</code> | <strong>CLI Agent Version:</strong> <code>{escape(cli_agent_version)}</code></p>
 <p>{_status_badges(result)} <strong>Trajectory:</strong> <span class='badge {trajectory_class}'>{escape(result.trajectory)}</span> | <strong>Invoked:</strong> <span class='badge {invoked_class}'>{escape(result.invoked)}</span> | <strong>Match:</strong> <span class='badge {match_class}'>{result.match_percent}%</span></p>
 {failure_reason_html}
 {("<p class='ok'>The expected workspace artifact was present before the harness timeout elapsed.</p>") if _timeout_artifact_reached(result) else ''}
@@ -577,9 +581,10 @@ def write_html_summary(results: list[CaseResult], path: Path) -> None:
         trajectory_class = TRAJECTORY_CLASS.get(item.trajectory, "unknown")
         invoked_class = INVOKED_CLASS.get(item.invoked, "unknown")
         match_class = _match_class(item.match_percent)
+        cli_agent_label = _sanitize_for_html(format_cli_agent_label(item.shell, item.metadata))
         rows.append(
             "<tr>"
-            f"<td>{escape(item.shell)}</td>"
+            f"<td>{escape(cli_agent_label)}</td>"
             f"<td>{escape(item.model.label)}</td>"
             f"<td>{escape(item.model.backend)}</td>"
             f"<td>{escape(item.model.model_hash)}</td>"
@@ -598,7 +603,7 @@ def write_html_summary(results: list[CaseResult], path: Path) -> None:
     summary_body = f"""<h1>GripProbe Run Summary</h1>
 {('<section><h1>Runtime Snapshots</h1>' + run_runtime_snapshots_html + '</section>') if run_runtime_snapshots_html else ''}
 <table>
-<thead><tr><th>Shell</th><th>Model</th><th>Backend</th><th>Hash</th><th>Format</th><th>Test</th><th>Status</th><th>Reason</th><th>Trajectory</th><th>Invoked</th><th>Match</th><th>Warmup (s)</th><th>Measured (s)</th><th>Details</th></tr></thead>
+<thead><tr><th>CLI Agent</th><th>Model</th><th>Backend</th><th>Hash</th><th>Format</th><th>Test</th><th>Status</th><th>Reason</th><th>Trajectory</th><th>Invoked</th><th>Match</th><th>Warmup (s)</th><th>Measured (s)</th><th>Details</th></tr></thead>
 <tbody>
 {''.join(rows)}
 </tbody></table>"""

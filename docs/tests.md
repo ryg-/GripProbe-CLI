@@ -2,6 +2,7 @@
 
 This document is the baseline catalog for test scenarios in `specs/tests`.
 It starts with complex scenarios and web-specific cases, and can be extended over time.
+For shell-level behavior differences that affect test outcomes, see [Shell Behavior](./shell.md).
 
 ## Web Nonce Proof (`web_nonce_proof`)
 
@@ -104,6 +105,20 @@ It starts with complex scenarios and web-specific cases, and can be extended ove
   - no retry after failure.
 - Validation:
   - `patch-target.txt` must contain `STATUS=new` after patching.
+
+## Patch File Codex Apply Patch (`patch_file_codex_apply_patch`)
+
+- Goal: codex-specific patch path that explicitly requires `apply_patch`.
+- Input file in workspace:
+  - `patch-target.txt`
+- Required action:
+  - call the patch tool immediately with the exact inline patch block;
+  - update `patch-target.txt` from `STATUS=old` to `STATUS=new`;
+  - no shell fallback, no retry.
+- Validation:
+  - `patch-target.txt` must contain `STATUS=new` after patching.
+- Scope:
+  - enabled only for `codex` (`tool` format).
 
 ## Python File Quoted Variants (`python_file`, `python_file_de`, `python_file_ru`)
 

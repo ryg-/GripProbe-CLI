@@ -21,6 +21,7 @@ validators:
     expected_from: today
 supported_shells:
   - aider
+  - codex
   - gptme
   - continue-cli
   - opencode

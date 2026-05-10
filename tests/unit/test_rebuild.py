@@ -147,12 +147,14 @@ def test_rebuild_reports_recomputes_existing_case_json_when_requested(tmp_path: 
     assert results[0].metadata['artifact_reached_before_timeout'] is True
     assert results[0].metadata['source'] == 'recomputed'
     assert results[0].metadata['shell_version'] == 'gptme v0.31.0+unknown'
+    assert results[0].metadata['cli_agent_version'] == 'v0.31.0+unknown'
 
     case_json = json.loads((case_dir / 'case.json').read_text(encoding='utf-8'))
     assert case_json['run_id'] == 'run-y'
     assert case_json['match_percent'] == 100
     assert case_json['metadata']['artifact_reached_before_timeout'] is True
     assert case_json['metadata']['source'] == 'recomputed'
+    assert case_json['metadata']['cli_agent_version'] == 'v0.31.0+unknown'
 
 
 def test_rebuild_reports_recomputes_case_json_without_model_hash_in_spec(tmp_path: Path) -> None:
@@ -249,10 +251,12 @@ def test_rebuild_reports_recomputes_case_json_without_model_hash_in_spec(tmp_pat
     assert len(results) == 1
     assert results[0].status == 'PASS'
     assert results[0].model.model_hash == 'unknown'
+    assert results[0].metadata['cli_agent_version'] == '1.5.45'
 
     case_json = json.loads((case_dir / 'case.json').read_text(encoding='utf-8'))
     assert case_json['model']['model_hash'] == 'unknown'
     assert case_json['metadata']['source'] == 'recomputed'
+    assert case_json['metadata']['cli_agent_version'] == '1.5.45'
 
 
 def test_rebuild_reports_sets_failure_reason_for_text_only_completion(tmp_path: Path) -> None:

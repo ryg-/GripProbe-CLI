@@ -117,6 +117,8 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     assert "Run Comparison" in detail_html
     assert "Shell Commands" in detail_html
     assert "tool --measured" in detail_html
+    assert "CLI Agent Version:" in detail_html
+    assert "gptme unknown" in detail_html
     assert "Failure Reason:" in detail_html
     assert "answered without invoking tool" in detail_html
     assert "/home/source-user" not in detail_html
@@ -131,6 +133,8 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     assert ".match-none{" not in detail_html
     summary_html = (reports_dir / "summary.html").read_text(encoding="utf-8")
     assert "<html lang='en'>" in summary_html
+    assert "<th>CLI Agent</th>" in summary_html
+    assert "gptme unknown" in summary_html
     assert "<th>Reason</th>" in summary_html
     assert "<th>Command</th>" not in summary_html
     assert "/home/source-user" not in summary_html

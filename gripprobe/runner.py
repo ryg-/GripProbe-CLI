@@ -18,10 +18,12 @@ from typing import Any, Callable, Iterable, cast
 
 from gripprobe.adapters.base import AdapterError
 from gripprobe.adapters.aider import AiderAdapter
+from gripprobe.adapters.codex import CodexAdapter
 from gripprobe.adapters.continue_cli import ContinueCliAdapter
 from gripprobe.adapters.gptme import GptmeAdapter
 from gripprobe.adapters.opencode import OpencodeAdapter
 from gripprobe.case_result import build_case_result
+from gripprobe.cli_agent_version import with_cli_agent_version
 from gripprobe.models import BackendSpec, CaseDefinition, CaseResult, ModelSpec, ShellSpec, TestSpec
 from gripprobe.reporters.html_report import write_html_summary
 from gripprobe.reporters.markdown import write_markdown_summary
@@ -64,7 +66,7 @@ def _collect_shell_runtime_metadata(executable: str) -> dict[str, str]:
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
-        return metadata
+        return with_cli_agent_version(metadata)
     version_output = (probe.stdout or probe.stderr or "").strip()
     if version_output:
         metadata["shell_version"] = version_output.splitlines()[0]
@@ -78,7 +80,7 @@ def _collect_shell_runtime_metadata(executable: str) -> dict[str, str]:
         value = os.environ.get(key)
         if value:
             metadata[key.lower()] = value
-    return metadata
+    return with_cli_agent_version(metadata)
 
 
 def _run_probe_command(args: list[str], timeout_seconds: int = 5) -> dict[str, str | int | float]:
@@ -307,7 +309,7 @@ def _prepare_workspace(path: Path, test_id: str) -> None:
             file.unlink()
         elif file.is_dir():
             shutil.rmtree(file)
-    if test_id == "patch_file":
+    if test_id in {"patch_file", "patch_file_codex_apply_patch"}:
         (path / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
     if test_id == "patch_file_prepared":
         (path / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
@@ -731,6 +733,8 @@ def _patch_web_search_validators(test_spec: TestSpec, challenge: _WebSearchChall
 def _adapter_for(shell_spec: ShellSpec):
     if shell_spec.id == "aider":
         return AiderAdapter(shell_spec)
+    if shell_spec.id == "codex":
+        return CodexAdapter(shell_spec)
     if shell_spec.id == "gptme":
         return GptmeAdapter(shell_spec)
     if shell_spec.id == "continue-cli":

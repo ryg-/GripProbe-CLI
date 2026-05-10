@@ -17,6 +17,7 @@ validators:
     expected: SHELL_OK
 supported_shells:
   - aider
+  - codex
   - gptme
   - continue-cli
   - opencode

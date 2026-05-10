@@ -28,6 +28,7 @@ validators:
     request_log: __DYNAMIC__
     request_path: /search/__DYNAMIC__
 supported_shells:
+  - codex
   - gptme
   - continue-cli
   - opencode
