@@ -24,6 +24,12 @@ matrix:
     model: local/qwen3.5:9b
     format: tool
   - shell: continue-cli
+    model: local/pleasecech/qwen3.6-plus:latest
+    format: markdown
+  - shell: continue-cli
+    model: local/pleasecech/qwen3.6-plus:latest
+    format: tool
+  - shell: continue-cli
     model: local/fredrezones55/qwen3.5-opus:9b
     format: markdown
   - shell: continue-cli
@@ -65,6 +71,9 @@ matrix:
     model: local/qwen3.5:9b
     format: tool
   - shell: gptme
+    model: local/pleasecech/qwen3.6-plus:latest
+    format: tool
+  - shell: gptme
     model: local/aravhawk/qwen3.5-opus-4.6-text:9b
     format: tool
   - shell: gptme
@@ -78,6 +87,9 @@ matrix:
     format: tool
   - shell: codex
     model: local/qwen3.5:9b
+    format: tool
+  - shell: codex
+    model: local/pleasecech/qwen3.6-plus:latest
     format: tool
 metadata:
   suite: aggregate_full_passed_matrix

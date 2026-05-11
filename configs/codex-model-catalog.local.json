@@ -1,0 +1,294 @@
+{
+  "models": [
+    {
+      "slug": "cryptidbleh/gemma4-claude-opus-4.6:latest",
+      "display_name": "cryptidbleh/gemma4-claude-opus-4.6:latest",
+      "description": "Local Ollama model metadata override",
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "low"
+        },
+        {
+          "effort": "medium",
+          "description": "medium"
+        },
+        {
+          "effort": "high",
+          "description": "high"
+        },
+        {
+          "effort": "xhigh",
+          "description": "xhigh"
+        }
+      ],
+      "shell_type": "shell_command",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 1,
+      "additional_speed_tiers": [],
+      "availability_nux": null,
+      "upgrade": null,
+      "base_instructions": "You are a coding assistant.",
+      "model_messages": {
+        "instructions_template": "{{ personality }}",
+        "instructions_variables": {
+          "personality_default": ""
+        }
+      },
+      "supports_reasoning_summaries": true,
+      "default_reasoning_summary": "none",
+      "support_verbosity": true,
+      "default_verbosity": "low",
+      "apply_patch_tool_type": "freeform",
+      "web_search_tool_type": "text_and_image",
+      "truncation_policy": {
+        "mode": "tokens",
+        "limit": 10000
+      },
+      "supports_parallel_tool_calls": true,
+      "supports_image_detail_original": false,
+      "context_window": 131072,
+      "max_context_window": 131072,
+      "effective_context_window_percent": 95,
+      "experimental_supported_tools": [],
+      "input_modalities": [
+        "text"
+      ],
+      "supports_search_tool": true
+    },
+    {
+      "slug": "aravhawk/qwen3.5-opus-4.6-text:9b",
+      "display_name": "aravhawk/qwen3.5-opus-4.6-text:9b",
+      "description": "Local Ollama model metadata override",
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "low"
+        },
+        {
+          "effort": "medium",
+          "description": "medium"
+        },
+        {
+          "effort": "high",
+          "description": "high"
+        },
+        {
+          "effort": "xhigh",
+          "description": "xhigh"
+        }
+      ],
+      "shell_type": "shell_command",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 1,
+      "additional_speed_tiers": [],
+      "availability_nux": null,
+      "upgrade": null,
+      "base_instructions": "You are a coding assistant.",
+      "model_messages": {
+        "instructions_template": "{{ personality }}",
+        "instructions_variables": {
+          "personality_default": ""
+        }
+      },
+      "supports_reasoning_summaries": true,
+      "default_reasoning_summary": "none",
+      "support_verbosity": true,
+      "default_verbosity": "low",
+      "apply_patch_tool_type": "freeform",
+      "web_search_tool_type": "text_and_image",
+      "truncation_policy": {
+        "mode": "tokens",
+        "limit": 10000
+      },
+      "supports_parallel_tool_calls": true,
+      "supports_image_detail_original": false,
+      "context_window": 131072,
+      "max_context_window": 131072,
+      "effective_context_window_percent": 95,
+      "experimental_supported_tools": [],
+      "input_modalities": [
+        "text"
+      ],
+      "supports_search_tool": true
+    },
+    {
+      "slug": "qwen3.5:9b",
+      "display_name": "qwen3.5:9b",
+      "description": "Local Ollama model metadata override",
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "low"
+        },
+        {
+          "effort": "medium",
+          "description": "medium"
+        },
+        {
+          "effort": "high",
+          "description": "high"
+        },
+        {
+          "effort": "xhigh",
+          "description": "xhigh"
+        }
+      ],
+      "shell_type": "shell_command",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 1,
+      "additional_speed_tiers": [],
+      "availability_nux": null,
+      "upgrade": null,
+      "base_instructions": "You are a coding assistant.",
+      "model_messages": {
+        "instructions_template": "{{ personality }}",
+        "instructions_variables": {
+          "personality_default": ""
+        }
+      },
+      "supports_reasoning_summaries": true,
+      "default_reasoning_summary": "none",
+      "support_verbosity": true,
+      "default_verbosity": "low",
+      "apply_patch_tool_type": "freeform",
+      "web_search_tool_type": "text_and_image",
+      "truncation_policy": {
+        "mode": "tokens",
+        "limit": 10000
+      },
+      "supports_parallel_tool_calls": true,
+      "supports_image_detail_original": false,
+      "context_window": 64000,
+      "max_context_window": 64000,
+      "effective_context_window_percent": 95,
+      "experimental_supported_tools": [],
+      "input_modalities": [
+        "text"
+      ],
+      "supports_search_tool": true
+    },
+    {
+      "slug": "pleasecech/qwen3.6-plus:latest",
+      "display_name": "pleasecech/qwen3.6-plus:latest",
+      "description": "Local Ollama model metadata override",
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "low"
+        },
+        {
+          "effort": "medium",
+          "description": "medium"
+        },
+        {
+          "effort": "high",
+          "description": "high"
+        },
+        {
+          "effort": "xhigh",
+          "description": "xhigh"
+        }
+      ],
+      "shell_type": "shell_command",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 1,
+      "additional_speed_tiers": [],
+      "availability_nux": null,
+      "upgrade": null,
+      "base_instructions": "You are a coding assistant.",
+      "model_messages": {
+        "instructions_template": "{{ personality }}",
+        "instructions_variables": {
+          "personality_default": ""
+        }
+      },
+      "supports_reasoning_summaries": true,
+      "default_reasoning_summary": "none",
+      "support_verbosity": true,
+      "default_verbosity": "low",
+      "apply_patch_tool_type": "freeform",
+      "web_search_tool_type": "text_and_image",
+      "truncation_policy": {
+        "mode": "tokens",
+        "limit": 10000
+      },
+      "supports_parallel_tool_calls": true,
+      "supports_image_detail_original": false,
+      "context_window": 64000,
+      "max_context_window": 64000,
+      "effective_context_window_percent": 95,
+      "experimental_supported_tools": [],
+      "input_modalities": [
+        "text"
+      ],
+      "supports_search_tool": true
+    },
+    {
+      "slug": "gpt-oss:20b",
+      "display_name": "gpt-oss:20b",
+      "description": "Local Ollama model metadata override",
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "low"
+        },
+        {
+          "effort": "medium",
+          "description": "medium"
+        },
+        {
+          "effort": "high",
+          "description": "high"
+        },
+        {
+          "effort": "xhigh",
+          "description": "xhigh"
+        }
+      ],
+      "shell_type": "shell_command",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 1,
+      "additional_speed_tiers": [],
+      "availability_nux": null,
+      "upgrade": null,
+      "base_instructions": "You are a coding assistant.",
+      "model_messages": {
+        "instructions_template": "{{ personality }}",
+        "instructions_variables": {
+          "personality_default": ""
+        }
+      },
+      "supports_reasoning_summaries": true,
+      "default_reasoning_summary": "none",
+      "support_verbosity": true,
+      "default_verbosity": "low",
+      "apply_patch_tool_type": "freeform",
+      "web_search_tool_type": "text_and_image",
+      "truncation_policy": {
+        "mode": "tokens",
+        "limit": 10000
+      },
+      "supports_parallel_tool_calls": true,
+      "supports_image_detail_original": false,
+      "context_window": 131072,
+      "max_context_window": 131072,
+      "effective_context_window_percent": 95,
+      "experimental_supported_tools": [],
+      "input_modalities": [
+        "text"
+      ],
+      "supports_search_tool": true
+    }
+  ]
+}

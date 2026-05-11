@@ -1,0 +1,19 @@
+id: local_pleasecech_qwen3_6_plus_latest
+label: local/pleasecech/qwen3.6-plus:latest
+family: qwen
+size_class: medium
+parameters_b: null
+quantization: null
+backends:
+  - id: ollama
+    model_id: pleasecech/qwen3.6-plus:latest
+    shell_model_id: local/pleasecech/qwen3.6-plus:latest
+tags:
+  - local
+  - medium
+supported_formats:
+  - markdown
+  - tool
+policy_overrides:
+  shell_timeout_seconds:
+    continue-cli: 600

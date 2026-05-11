@@ -8,13 +8,14 @@ import subprocess
 from collections import defaultdict
 from datetime import datetime, timezone
 from html import escape
+from html.parser import HTMLParser
 from pathlib import Path
 from statistics import median
+from urllib.parse import unquote, urlsplit
 
 from gripprobe.cli_agent_version import get_cli_agent_version
 from gripprobe.models import CaseResult, HardwareProfileSpec
 from gripprobe.reporters.html_report import write_case_detail_pages
-from gripprobe.results import write_json
 from gripprobe.spec_loader import load_hardware_profiles
 
 SANITY_WEIGHT = 0.8
@@ -22,55 +23,11 @@ DEFAULT_TEST_WEIGHT = 1.0
 OUTLIER_FACTOR = 2.5
 DEFAULT_HARDWARE_PROFILE_ID = "unspecified"
 TESTS_DOC_PUBLIC_URL = "https://raw.githubusercontent.com/ryg-/GripProbe-CLI/refs/heads/main/docs/tests.md"
-_SANITIZED_TEXT_SUFFIXES = {
-    ".html",
-    ".md",
-    ".json",
-    ".txt",
-    ".stdout",
-    ".stderr",
-    ".jsonl",
-    ".toml",
-    ".yaml",
-    ".yml",
-    ".log",
-}
 _CLI_AGENT_VERSION_SORT_RE = re.compile(r"^v?(\d+)\.(\d+)(?:\.(\d+))?(?:([-+].+))?$")
 
 
 def _prefixed_case_id(run_id: str, case_id: str) -> str:
     return f"{run_id}__{case_id}"
-
-
-def _copy_case_dir(src: Path, dst: Path) -> None:
-    if dst.exists():
-        shutil.rmtree(dst)
-
-    def _ignore_case_items(dir_path: str, names: list[str]) -> set[str]:
-        ignored: set[str] = set()
-        for name in names:
-            # Runtime directories are debug-only and may contain root-owned lock files.
-            if name == "runtime":
-                ignored.add(name)
-                continue
-            path = Path(dir_path) / name
-            try:
-                if path.is_symlink():
-                    continue
-            except OSError:
-                ignored.add(name)
-                continue
-            if not os.access(path, os.R_OK):
-                ignored.add(name)
-        return ignored
-
-    shutil.copytree(
-        src,
-        dst,
-        ignore_dangling_symlinks=True,
-        ignore=_ignore_case_items,
-    )
-
 
 def _copy_public_run_summary(run_dir: Path, output_dir: Path) -> None:
     source_summary = run_dir / "reports" / "summary.html"
@@ -108,18 +65,6 @@ def _sanitize_report_text(text: str) -> str:
     return sanitized
 
 
-def _sanitize_tree_text_files(root_dir: Path) -> None:
-    for path in root_dir.rglob("*"):
-        if not path.is_file():
-            continue
-        if path.suffix.lower() not in _SANITIZED_TEXT_SUFFIXES:
-            continue
-        original = path.read_text(encoding="utf-8", errors="replace")
-        updated = _sanitize_report_text(original)
-        if updated != original:
-            path.write_text(updated, encoding="utf-8")
-
-
 def _sanitize_case_result(result: CaseResult) -> CaseResult:
     def _sanitize_value(value: object) -> object:
         if isinstance(value, str):
@@ -135,6 +80,78 @@ def _sanitize_case_result(result: CaseResult) -> CaseResult:
     if not isinstance(sanitized_payload, dict):
         return result
     return CaseResult.model_validate(sanitized_payload)
+
+
+class _HtmlLinkCollector(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.references: set[str] = set()
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self._collect(attrs)
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self._collect(attrs)
+
+    def _collect(self, attrs: list[tuple[str, str | None]]) -> None:
+        for key, value in attrs:
+            if key not in {"href", "src"}:
+                continue
+            if not value:
+                continue
+            ref = value.strip()
+            if ref:
+                self.references.add(ref)
+
+
+def _resolve_local_link_target(output_dir: Path, page: Path, raw_ref: str) -> Path | None:
+    parsed = urlsplit(raw_ref)
+    if parsed.scheme or parsed.netloc:
+        return None
+
+    path_part = unquote(parsed.path or "")
+    if not path_part or path_part.startswith("#"):
+        return None
+
+    if path_part.startswith("/"):
+        candidate = (output_dir / path_part.lstrip("/")).resolve()
+    else:
+        candidate = (page.parent / path_part).resolve()
+
+    try:
+        candidate.relative_to(output_dir)
+    except ValueError:
+        return None
+
+    if not candidate.exists() or not candidate.is_file():
+        return None
+    return candidate
+
+
+def _validate_output_contains_only_linked_files(output_dir: Path) -> None:
+    output_dir = output_dir.resolve()
+    files = sorted(path.resolve() for path in output_dir.rglob("*") if path.is_file())
+    html_pages = {path for path in files if path.suffix.lower() == ".html"}
+
+    linked_targets: set[Path] = set()
+    for page in sorted(html_pages):
+        parser = _HtmlLinkCollector()
+        parser.feed(page.read_text(encoding="utf-8", errors="replace"))
+        for raw_ref in parser.references:
+            target = _resolve_local_link_target(output_dir, page, raw_ref)
+            if target is not None:
+                linked_targets.add(target)
+
+    allowed = html_pages | linked_targets
+    extras = sorted(path for path in files if path not in allowed)
+    if not extras:
+        return
+
+    rel_extras = [os.path.relpath(path, output_dir) for path in extras]
+    raise ValueError(
+        "Refusing to publish aggregate report: output contains files not linked from report pages: "
+        + ", ".join(rel_extras)
+    )
 
 
 def discover_run_dirs(runs_root: Path) -> list[Path]:
@@ -502,6 +519,8 @@ def _write_aggregate_markdown_summary(
 def write_aggregate_html_summary(
     results: list[CaseResult],
     output_dir: Path,
+    case_json_by_case_id: dict[str, str] | None = None,
+    case_dirs_by_case_id: dict[str, Path] | None = None,
     hardware_profile_map: dict[str, HardwareProfileSpec] | None = None,
     default_hardware_profile_id: str = DEFAULT_HARDWARE_PROFILE_ID,
     tests_doc_relpath: str | None = None,
@@ -510,7 +529,6 @@ def write_aggregate_html_summary(
     hardware_profiles_relpath: str | None = None,
 ) -> None:
     reports_dir = output_dir / "reports"
-    cases_dir = output_dir / "cases"
     detail_filenames = {
         item.case_id: f"case-{index:05d}.html"
         for index, item in enumerate(results, start=1)
@@ -518,8 +536,9 @@ def write_aggregate_html_summary(
     detail_links = write_case_detail_pages(
         results,
         reports_dir,
-        cases_dir,
         detail_filenames=detail_filenames,
+        case_json_by_case_id=case_json_by_case_id,
+        case_dirs_by_case_id=case_dirs_by_case_id,
         show_artifacts=False,
         show_runtime_snapshots=False,
         show_case_json=False,
@@ -786,7 +805,7 @@ a:hover{{text-decoration:underline}}
 <tbody>
 {''.join(rows)}
 </tbody></table>
-<p class='generated-at'>generated at {escape(generated_at_value)} | git commit {escape(commit_sha)}</p>
+<p class='generated-at'>generated at {escape(generated_at_value)} | git commit {escape(commit_sha)} | <a href='summary.md'>markdown summary</a></p>
 <script>
 function sortRows(key, direction) {{
   var tbody = document.querySelector("#aggregate-table tbody");
@@ -850,14 +869,14 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
     _validate_run_summaries_or_raise(resolved_run_dirs)
 
     output_dir = output_dir.resolve()
-    cases_dir = output_dir / "cases"
     reports_dir = output_dir / "reports"
     if output_dir.exists():
         shutil.rmtree(output_dir)
-    cases_dir.mkdir(parents=True, exist_ok=True)
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     aggregated_results: list[CaseResult] = []
+    raw_case_json_by_id: dict[str, str] = {}
+    source_case_dirs_by_id: dict[str, Path] = {}
     for run_dir in resolved_run_dirs:
         _copy_public_run_summary(run_dir, output_dir)
         source_cases_dir = run_dir / "cases"
@@ -867,11 +886,11 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
             case_json = case_dir / "case.json"
             if not case_json.exists():
                 continue
-            result = CaseResult.model_validate(json.loads(case_json.read_text(encoding="utf-8")))
+            raw_case_json = case_json.read_text(encoding="utf-8")
+            result = CaseResult.model_validate(json.loads(raw_case_json))
             aggregate_case_id = _prefixed_case_id(run_dir.name, result.case_id)
-            aggregate_case_dir = cases_dir / aggregate_case_id
-            _copy_case_dir(case_dir, aggregate_case_dir)
-            _sanitize_tree_text_files(aggregate_case_dir)
+            raw_case_json_by_id[aggregate_case_id] = raw_case_json
+            source_case_dirs_by_id[aggregate_case_id] = case_dir
             aggregate_result = result.model_copy(
                 update={
                     "case_id": aggregate_case_id,
@@ -883,7 +902,6 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
                 }
             )
             aggregate_result = _sanitize_case_result(aggregate_result)
-            write_json(aggregate_case_dir / "case.json", aggregate_result.model_dump())
             aggregated_results.append(aggregate_result)
 
     resolved_root = root.resolve() if root is not None else None
@@ -917,6 +935,8 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
     write_aggregate_html_summary(
         aggregated_results,
         output_dir,
+        case_json_by_case_id=raw_case_json_by_id,
+        case_dirs_by_case_id=source_case_dirs_by_id,
         hardware_profile_map=hardware_profile_map,
         default_hardware_profile_id=default_hardware_profile_id,
         tests_doc_relpath=tests_doc_relpath,
@@ -924,12 +944,5 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
         commit_sha=commit_sha,
         hardware_profiles_relpath=hardware_profiles_relpath,
     )
-    write_json(
-        output_dir / "aggregate_manifest.json",
-        {
-            "run_dirs": [_sanitize_report_text(str(path)) for path in resolved_run_dirs],
-            "runs": [path.name for path in resolved_run_dirs],
-            "cases": len(aggregated_results),
-        },
-    )
+    _validate_output_contains_only_linked_files(output_dir)
     return output_dir, aggregated_results

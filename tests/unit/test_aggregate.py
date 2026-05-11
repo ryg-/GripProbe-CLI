@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 import re
+from html import unescape
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 import pytest
 
@@ -73,6 +75,47 @@ def _shell_filter_options(summary_html: str) -> list[str]:
     return re.findall(r"<option value='([^']*)'>", match.group(1))
 
 
+_RAW_LINK_SUFFIXES = (".txt", ".json", ".stdout", ".stderr")
+_HREF_PATTERN = re.compile(r"""href=(['"])([^'"]+)\1""")
+
+
+def _published_html_files(reports_dir: Path) -> list[Path]:
+    return sorted(path for path in reports_dir.rglob("*.html") if path.is_file())
+
+
+def _local_href_targets(html_text: str) -> list[str]:
+    targets: list[str] = []
+    for match in _HREF_PATTERN.finditer(html_text):
+        href = unescape(match.group(2).strip())
+        if not href or href.startswith("#") or href.startswith("//"):
+            continue
+        parsed = urlparse(href)
+        if parsed.scheme:
+            continue
+        path = unquote(parsed.path).strip()
+        if path:
+            targets.append(path)
+    return targets
+
+
+def _assert_no_raw_artifact_links(html_files: list[Path]) -> None:
+    for html_file in html_files:
+        html = html_file.read_text(encoding="utf-8")
+        for target in _local_href_targets(html):
+            assert not target.lower().endswith(_RAW_LINK_SUFFIXES), (
+                f"raw artifact link leaked in {html_file}: {target}"
+            )
+
+
+def _assert_no_broken_local_links(html_files: list[Path]) -> None:
+    for html_file in html_files:
+        html = html_file.read_text(encoding="utf-8")
+        for target in _local_href_targets(html):
+            assert not target.startswith("/"), f"absolute local link in {html_file}: {target}"
+            resolved = (html_file.parent / target).resolve()
+            assert resolved.exists(), f"broken local link in {html_file}: {target}"
+
+
 def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     run_a = tmp_path / "runs" / "run-a"
     run_b = tmp_path / "runs" / "run-b"
@@ -88,19 +131,17 @@ def test_aggregate_reports_builds_combined_output(tmp_path: Path) -> None:
     assert (output_dir / "reports" / "runs" / "run-a.html").exists()
     assert (output_dir / "reports" / "runs" / "run-b.html").exists()
     assert not (output_dir / "source_reports").exists()
-    assert (output_dir / "cases" / "run-a__case-1" / "case.json").exists()
-    assert (output_dir / "cases" / "run-b__case-1" / "case.json").exists()
+    assert not (output_dir / "cases" / "run-a__case-1" / "case.json").exists()
+    assert not (output_dir / "cases" / "run-b__case-1" / "case.json").exists()
 
-    case_a = json.loads((output_dir / "cases" / "run-a__case-1" / "case.json").read_text(encoding="utf-8"))
-    case_b = json.loads((output_dir / "cases" / "run-b__case-1" / "case.json").read_text(encoding="utf-8"))
-    manifest = json.loads((output_dir / "aggregate_manifest.json").read_text(encoding="utf-8"))
+    case_a = next(case for case in results if case.case_id == "run-a__case-1")
+    case_b = next(case for case in results if case.case_id == "run-b__case-1")
     summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
     summary_md = (output_dir / "reports" / "summary.md").read_text(encoding="utf-8")
 
-    assert case_a["case_id"] == "run-a__case-1"
-    assert case_a["metadata"]["source_case_id"] == "case-1"
-    assert case_b["case_id"] == "run-b__case-1"
-    assert manifest["cases"] == 2
+    assert case_a.case_id == "run-a__case-1"
+    assert case_a.metadata["source_case_id"] == "case-1"
+    assert case_b.case_id == "run-b__case-1"
     assert _tbody_row_count(summary_html) == 1
     assert "runs/run-b.html" in summary_html
     assert "cases/case-00001.html" in summary_html
@@ -295,13 +336,93 @@ def test_aggregate_reports_sanitizes_case_artifacts_and_detail_pages(tmp_path: P
 
     output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
     detail_html = (output_dir / "reports" / "cases" / "case-00001.html").read_text(encoding="utf-8")
-    aggregate_case_json = (output_dir / "cases" / "run-a__case-1" / "case.json").read_text(encoding="utf-8")
+    assert not (output_dir / "cases" / "run-a__case-1" / "case.json").exists()
 
     assert "/home/source-user" not in detail_html
     assert "/Users/source-user" not in detail_html
     assert "$HOME/work/private" in detail_html
-    assert "/home/source-user" not in aggregate_case_json
-    assert "/Users/source-user" not in aggregate_case_json
+
+
+def test_aggregate_reports_publish_output_omits_raw_case_artifacts_tree(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "FAIL")
+    case_dir = run_dir / "cases" / "case-1"
+    (case_dir / "warmup.stdout").write_text("warmup\n", encoding="utf-8")
+    (case_dir / "warmup.stderr").write_text("warmup err\n", encoding="utf-8")
+    (case_dir / "measured.stdout").write_text("measured\n", encoding="utf-8")
+    (case_dir / "measured.stderr").write_text("measured err\n", encoding="utf-8")
+    (case_dir / "workspace").mkdir(parents=True, exist_ok=True)
+    (case_dir / "workspace" / "pwd-output.txt").write_text("workspace\n", encoding="utf-8")
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
+
+    raw_cases_root = output_dir / "cases"
+    raw_case_files = (
+        sorted(path.relative_to(output_dir).as_posix() for path in raw_cases_root.rglob("*") if path.is_file())
+        if raw_cases_root.exists()
+        else []
+    )
+    assert raw_case_files == []
+
+    report_case_files = sorted(
+        path.relative_to(output_dir).as_posix()
+        for path in (output_dir / "reports" / "cases").rglob("*")
+        if path.is_file()
+    )
+    assert report_case_files == ["reports/cases/case-00001.html"]
+
+
+def test_aggregate_reports_publish_html_has_no_raw_artifact_links_or_broken_local_links(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "FAIL")
+    case_dir = run_dir / "cases" / "case-1"
+    (case_dir / "expected.txt").write_text(
+        "host http://source-host:11434/api/ps\n"
+        "ssh source-host cat /proc/loadavg\n"
+        "/home/source-user/work/private\n"
+        "/Users/source-user/work/private\n",
+        encoding="utf-8",
+    )
+    (case_dir / "observed.txt").write_text("mismatch\n", encoding="utf-8")
+    (case_dir / "warmup.stdout").write_text("warmup raw\n", encoding="utf-8")
+    (case_dir / "warmup.stderr").write_text("warmup stderr raw\n", encoding="utf-8")
+    (case_dir / "measured.stdout").write_text("measured raw\n", encoding="utf-8")
+    (case_dir / "measured.stderr").write_text("measured stderr raw\n", encoding="utf-8")
+    case_payload = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
+    case_payload["metadata"]["failure_reason"] = (
+        "path leak at /home/source-user/work/private and /Users/source-user/work/private"
+    )
+    (case_dir / "case.json").write_text(json.dumps(case_payload), encoding="utf-8")
+
+    source_summary_html = run_dir / "reports" / "summary.html"
+    source_summary_html.write_text(
+        "<html><body>"
+        "GET http://source-host:11434/api/ps "
+        "ssh source-host cat /proc/loadavg "
+        f"{Path.home()}/work/private "
+        "/home/source-user/work/private "
+        "/Users/source-user/work/private "
+        "<a href='cases/case-1.html'>details</a>"
+        "</body></html>",
+        encoding="utf-8",
+    )
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
+    html_files = _published_html_files(output_dir / "reports")
+    assert html_files
+
+    _assert_no_raw_artifact_links(html_files)
+    _assert_no_broken_local_links(html_files)
+
+    published_html = "\n".join(path.read_text(encoding="utf-8") for path in html_files)
+    assert "http://source-host:11434" not in published_html
+    assert "ssh source-host " not in published_html
+    assert str(Path.home()) not in published_html
+    assert "/home/source-user" not in published_html
+    assert "/Users/source-user" not in published_html
+    assert "http://ollama-host:11434" in published_html
+    assert "ssh ollama-host" in published_html
+    assert "$HOME/work/private" in published_html
 
 
 def test_aggregate_reports_ignores_dangling_symlink_in_case_dir(tmp_path: Path) -> None:
@@ -317,7 +438,7 @@ def test_aggregate_reports_ignores_dangling_symlink_in_case_dir(tmp_path: Path) 
     output_dir, results = aggregate_reports([run_dir], tmp_path / "aggregate")
 
     assert len(results) == 1
-    assert (output_dir / "cases" / "run-a__case-1" / "case.json").exists()
+    assert not (output_dir / "cases" / "run-a__case-1" / "case.json").exists()
 
 
 def test_aggregate_reports_marks_and_filters_extended_rows(tmp_path: Path) -> None:

@@ -1,0 +1,12 @@
+id: codex
+label: codex
+executable: codex
+default_args: []
+supported_formats:
+  - tool
+env: {}
+default_tools:
+  - shell
+  - patch
+  - read
+  - save

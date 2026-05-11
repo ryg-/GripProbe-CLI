@@ -1,0 +1,37 @@
+id: patch_file_codex_apply_patch
+title: Patch File Codex Apply Patch
+category: patch
+prompt: |
+  Use the apply_patch tool immediately.
+  Do not read files first.
+  Do not use shell commands.
+  Pass the patch payload as raw text, exactly as-is.
+  Do not wrap it in markdown fences.
+  Do not add quotes.
+  Do not add leading spaces or tabs.
+  Every patch line must start at column 1.
+  Use this as the exact apply_patch payload:
+  *** Begin Patch
+  *** Delete File: patch-target.txt
+  *** Add File: patch-target.txt
+  +STATUS=new
+  *** End Patch
+  Do not retry on error.
+  If the edit fails, reply only with FAIL.
+  If the edit succeeds, reply only with DONE.
+allowed_tools:
+  - patch
+artifacts:
+  - path: patch-target.txt
+    kind: text
+validators:
+  - type: patch_applied
+    target_file: patch-target.txt
+    expected_line: STATUS=new
+supported_shells:
+  - codex
+supported_formats:
+  - tool
+tags:
+  - mvp
+  - sanity

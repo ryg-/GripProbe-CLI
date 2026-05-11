@@ -4,6 +4,7 @@ import difflib
 import json
 import os
 import re
+from collections.abc import Mapping
 from html import escape
 from pathlib import Path
 
@@ -109,6 +110,21 @@ def _render_conditional_css(html_fragment: str) -> str:
                 rules.append(rule)
     return "\n".join(rules)
 
+
+def _render_summary_layout_css(html_fragment: str) -> str:
+    classes = _collect_css_classes(html_fragment)
+    rules: list[str] = []
+    if "grid" in classes:
+        rules.append(".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}")
+    if "panel" in classes:
+        rules.append(".panel{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem;margin-bottom:1rem}")
+        rules.append(".panel h3,.panel h4{margin-top:0}")
+    if "<pre" in html_fragment:
+        rules.append("pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}")
+    if "<code" in html_fragment:
+        rules.append("code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}")
+    return "\n".join(rules)
+
 def _sanitize_user_paths(text: str) -> str:
     sanitized = re.sub(r"(?<![\w$])/(?:home|Users)/[^/\s\"'<>:]+", "$HOME", text)
     sanitized = re.sub(r"(?<![\w$])[A-Za-z]:\\+Users\\+[^\\/\s\"'<>:]+", "$HOME", sanitized)
@@ -123,7 +139,10 @@ def _sanitize_local_username(text: str) -> str:
 
 
 def _sanitize_for_html(text: str) -> str:
-    return _sanitize_local_username(_sanitize_user_paths(text))
+    sanitized = _sanitize_local_username(_sanitize_user_paths(text))
+    sanitized = re.sub(r"https?://[^/\s\"'<>:]+:11434", "http://ollama-host:11434", sanitized)
+    sanitized = re.sub(r"\bssh\s+[^/\s\"'<>:]+", "ssh ollama-host", sanitized)
+    return sanitized
 
 
 def _sanitize_obj(value: object) -> object:
@@ -277,16 +296,24 @@ def _render_case_json_panel_text(case_dir: Path) -> str:
     return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
-def _render_run_comparison(case_json_raw: str) -> str:
+def _case_metadata_from_json_text(case_json_raw: str) -> dict[str, object]:
     if not case_json_raw.strip():
-        return ""
+        return {}
     try:
         payload = json.loads(case_json_raw)
     except json.JSONDecodeError:
-        return ""
+        return {}
     metadata = payload.get("metadata")
     if not isinstance(metadata, dict):
-        return ""
+        return {}
+    sanitized = _sanitize_obj(metadata)
+    return sanitized if isinstance(sanitized, dict) else {}
+
+
+def _render_run_comparison(case_json_raw: str, result: CaseResult) -> str:
+    metadata = _case_metadata_from_json_text(case_json_raw)
+    if not metadata:
+        metadata = result.metadata
     run_consistency = metadata.get("run_consistency")
     run_1_status = metadata.get("run_1_status")
     run_2_status = metadata.get("run_2_status")
@@ -296,7 +323,7 @@ def _render_run_comparison(case_json_raw: str) -> str:
         return ""
     blocks: list[str] = []
     if run_consistency:
-        blocks.append(f"<p><strong>Consistency:</strong> {escape(str(run_consistency))}</p>")
+        blocks.append(f"<p><strong>Consistency:</strong> {escape(_sanitize_for_html(str(run_consistency)))}</p>")
     for label, status, profile in (
         ("Run 1", run_1_status, run_1_profile),
         ("Run 2", run_2_status, run_2_profile),
@@ -305,7 +332,7 @@ def _render_run_comparison(case_json_raw: str) -> str:
             continue
         rows = []
         if status:
-            rows.append(f"<li><strong>Status:</strong> {escape(str(status))}</li>")
+            rows.append(f"<li><strong>Status:</strong> {escape(_sanitize_for_html(str(status)))}</li>")
         if isinstance(profile, dict):
             for key in (
                 "invoked",
@@ -318,27 +345,24 @@ def _render_run_comparison(case_json_raw: str) -> str:
                 "dominant_error",
             ):
                 if key in profile:
-                    rows.append(f"<li><strong>{escape(key)}:</strong> {escape(str(profile[key]))}</li>")
+                    rows.append(
+                        f"<li><strong>{escape(key)}:</strong> "
+                        f"{escape(_sanitize_for_html(str(profile[key])))}</li>"
+                    )
         blocks.append(f"<div class='panel'><h3>{escape(label)}</h3><ul>{''.join(rows)}</ul></div>")
     if not blocks:
         return ""
     return "<div class='grid'>" + "".join(blocks) + "</div>"
 
 
-def _render_trajectory_hints(case_json_raw: str) -> str:
-    if not case_json_raw.strip():
-        return ""
-    try:
-        payload = json.loads(case_json_raw)
-    except json.JSONDecodeError:
-        return ""
-    metadata = payload.get("metadata")
-    if not isinstance(metadata, dict):
-        return ""
+def _render_trajectory_hints(case_json_raw: str, result: CaseResult) -> str:
+    metadata = _case_metadata_from_json_text(case_json_raw)
+    if not metadata:
+        metadata = result.metadata
     reasons = metadata.get("trajectory_reasons")
     reason_items = ""
     if isinstance(reasons, list):
-        reason_items = "".join(f"<li>{escape(str(reason))}</li>" for reason in reasons)
+        reason_items = "".join(f"<li>{escape(_sanitize_for_html(str(reason)))}</li>" for reason in reasons)
     legend = (
         "<ul>"
         "<li><strong>clean</strong>: no execution errors, no loop pattern, no contradictory DONE/FAIL text</li>"
@@ -350,20 +374,14 @@ def _render_trajectory_hints(case_json_raw: str) -> str:
     return legend + current
 
 
-def _render_failure_reason(case_json_raw: str) -> str:
-    if not case_json_raw.strip():
-        return ""
-    try:
-        payload = json.loads(case_json_raw)
-    except json.JSONDecodeError:
-        return ""
-    metadata = payload.get("metadata")
-    if not isinstance(metadata, dict):
-        return ""
+def _render_failure_reason(case_json_raw: str, result: CaseResult) -> str:
+    metadata = _case_metadata_from_json_text(case_json_raw)
+    if not metadata:
+        metadata = result.metadata
     failure_reason = metadata.get("failure_reason")
     if not failure_reason:
         return ""
-    return f"<p><strong>Failure Reason:</strong> {escape(str(failure_reason))}</p>"
+    return f"<p><strong>Failure Reason:</strong> {escape(_sanitize_for_html(str(failure_reason)))}</p>"
 
 
 def _render_runtime_snapshot(snapshot: object) -> str:
@@ -454,6 +472,7 @@ def _write_case_detail(
     reports_dir: Path,
     case_dir: Path,
     detail_filename: str | None = None,
+    case_json_raw_for_metadata: str | None = None,
     show_artifacts: bool = True,
     show_runtime_snapshots: bool = True,
     show_case_json: bool = True,
@@ -469,10 +488,11 @@ def _write_case_detail(
     expected_raw = _read_text(case_dir / "expected.txt")
     observed_raw = _read_text(case_dir / "observed.txt")
     case_json_raw = _render_case_json_panel_text(case_dir)
-    run_comparison_html = _render_run_comparison(case_json_raw)
-    trajectory_hints_html = _render_trajectory_hints(case_json_raw)
-    failure_reason_html = _render_failure_reason(case_json_raw)
-    runtime_snapshots_html = _render_case_runtime_snapshots(case_json_raw) if show_runtime_snapshots else ""
+    metadata_source_json = case_json_raw_for_metadata if case_json_raw_for_metadata is not None else case_json_raw
+    run_comparison_html = _render_run_comparison(metadata_source_json, result)
+    trajectory_hints_html = _render_trajectory_hints(metadata_source_json, result)
+    failure_reason_html = _render_failure_reason(metadata_source_json, result)
+    runtime_snapshots_html = _render_case_runtime_snapshots(metadata_source_json) if show_runtime_snapshots else ""
     shell_commands_html = _render_shell_commands(result)
     transcript_html = _render_transcript(case_dir)
     artifact_links = _render_artifact_links(case_dir, detail_path) if show_artifacts else ""
@@ -550,24 +570,32 @@ section{{margin:1.5rem 0}}
 def write_case_detail_pages(
     results: list[CaseResult],
     reports_dir: Path,
-    cases_dir: Path,
+    cases_dir: Path | None = None,
     detail_filenames: dict[str, str] | None = None,
+    case_json_by_case_id: Mapping[str, str] | None = None,
+    case_dirs_by_case_id: Mapping[str, Path] | None = None,
     show_artifacts: bool = True,
     show_runtime_snapshots: bool = True,
     show_case_json: bool = True,
 ) -> dict[str, str]:
-    return {
-        item.case_id: _write_case_detail(
+    detail_links: dict[str, str] = {}
+    for item in results:
+        source_case_dir = (case_dirs_by_case_id or {}).get(item.case_id)
+        if source_case_dir is None:
+            if cases_dir is None:
+                raise ValueError(f"Missing source case directory for case_id={item.case_id}")
+            source_case_dir = cases_dir / item.case_id
+        detail_links[item.case_id] = _write_case_detail(
             item,
             reports_dir,
-            cases_dir / item.case_id,
+            source_case_dir,
             detail_filename=(detail_filenames or {}).get(item.case_id),
+            case_json_raw_for_metadata=(case_json_by_case_id or {}).get(item.case_id),
             show_artifacts=show_artifacts,
             show_runtime_snapshots=show_runtime_snapshots,
             show_case_json=show_case_json,
         )
-        for item in results
-    }
+    return detail_links
 
 
 def write_html_summary(results: list[CaseResult], path: Path) -> None:
@@ -608,6 +636,7 @@ def write_html_summary(results: list[CaseResult], path: Path) -> None:
 {''.join(rows)}
 </tbody></table>"""
     badge_css = _render_conditional_css(summary_body)
+    layout_css = _render_summary_layout_css(summary_body)
     html = f"""<!doctype html>
 <html lang='en'><head><meta charset='utf-8'><title>GripProbe Summary</title>
 <style>
@@ -616,11 +645,7 @@ table{{border-collapse:collapse;width:100%}}
 th,td{{border:1px solid #ccc;padding:.5rem;text-align:left;vertical-align:top}}
 th{{background:#ece8dc}}
 a{{color:#0b57d0}}
-.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}}
-.panel{{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem;margin-bottom:1rem}}
-.panel h3,.panel h4{{margin-top:0}}
-pre{{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}}
-code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
+{layout_css}
 {badge_css}
 </style>
 <script data-goatcounter="https://ryg-.goatcounter.com/count"
