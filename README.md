@@ -30,6 +30,8 @@ It delivers the highest pass rates across multiple local 9B–12B class models a
 Within `continue-cli`, the top result comes from `local/aravhawk/qwen3.5-opus-4.6-text:9b`, followed by official `local/qwen3.5:9b`.
 This suggests that fine-tuning or distillation can materially affect CLI execution reliability, not just general chat quality.
 
+Within `codex`, the only `local/aravhawk/qwen3.5-opus-4.6-text:9b` shows acceptable results.
+
 For public recommendations, official `local/qwen3.5:9b` is the safer reference point.
 Its results are close to the top of the current report, while its provenance and licensing surface are clearer than third-party distilled variants.
 
