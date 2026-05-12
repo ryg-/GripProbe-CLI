@@ -6,7 +6,7 @@ from typing import TypeVar
 import yaml
 from pydantic import BaseModel
 
-from .models import HardwareProfileSpec, ModelSpec, ShellSpec, SuiteSpec, TestSpec
+from .models import CliAgentSpec, HardwareProfileSpec, ModelSpec, SuiteSpec, TestSpec
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -34,8 +34,16 @@ def load_model_specs(root: Path) -> list[ModelSpec]:
     return _load_specs(root / "specs" / "models", ModelSpec)
 
 
-def load_shell_specs(root: Path) -> list[ShellSpec]:
-    return _load_specs(root / "specs" / "shells", ShellSpec)
+def load_cli_agent_specs(root: Path) -> list[CliAgentSpec]:
+    cli_agents_path = root / "specs" / "cli_agents"
+    if cli_agents_path.exists():
+        return _load_specs(cli_agents_path, CliAgentSpec)
+    return _load_specs(root / "specs" / "shells", CliAgentSpec)
+
+
+def load_shell_specs(root: Path) -> list[CliAgentSpec]:
+    # Legacy compatibility alias.
+    return load_cli_agent_specs(root)
 
 
 def load_suite_specs(root: Path) -> list[SuiteSpec]:

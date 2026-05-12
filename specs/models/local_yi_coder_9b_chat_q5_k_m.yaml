@@ -7,7 +7,7 @@ quantization: q5_K_M
 backends:
   - id: ollama
     model_id: yi-coder:9b-chat-q5_K_M
-    shell_model_id: local/yi-coder:9b-chat-q5_K_M
+    cli_agent_model_id: local/yi-coder:9b-chat-q5_K_M
 tags:
   - local
   - small

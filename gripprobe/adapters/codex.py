@@ -8,14 +8,14 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from gripprobe.adapters.base import ShellAdapter
+from gripprobe.adapters.base import CliAgentAdapter
 from gripprobe.case_result import CaseStatus, ToolInvocation, build_case_result
 from gripprobe.failure_reason import infer_failure_reason
 from gripprobe.models import CaseDefinition, ModelSpec, TestSpec
 from gripprobe.validator_runner import evaluate_validators
 
 
-class CodexAdapter(ShellAdapter):
+class CodexAdapter(CliAgentAdapter):
     _DEFAULT_MODEL_METADATA: dict[str, Any] = {
         "description": "Local Ollama model metadata override",
         "default_reasoning_level": "medium",
@@ -134,7 +134,7 @@ class CodexAdapter(ShellAdapter):
         return model_catalog_path
 
     def _resolve_source_config_path(self) -> Path | None:
-        explicit = self.shell_spec.config_path or os.environ.get("GRIPPROBE_CODEX_CONFIG")
+        explicit = self.cli_agent_spec.config_path or os.environ.get("GRIPPROBE_CODEX_CONFIG")
         if explicit:
             explicit_path = Path(explicit).expanduser()
             return explicit_path if explicit_path.exists() else None
@@ -162,7 +162,7 @@ class CodexAdapter(ShellAdapter):
 
     def _build_args(self, case: CaseDefinition, workspace_dir: Path, model_catalog_path: Path) -> list[str]:
         args = [
-            self.shell_spec.executable,
+            self.cli_agent_spec.executable,
             "-a",
             "never",
             "exec",
@@ -227,7 +227,7 @@ class CodexAdapter(ShellAdapter):
         metadata: dict[str, object] = {}
         artifacts_dir = case.case_dir / "artifacts"
 
-        enable_args = [self.shell_spec.executable, "features", "enable", "apply_patch_freeform"]
+        enable_args = [self.cli_agent_spec.executable, "features", "enable", "apply_patch_freeform"]
         enable_rc, enable_stdout, enable_stderr = self._run_aux_command(case, enable_args, env, workspace_dir)
         enable_stdout_s = self._sanitize_aux_text(enable_stdout, env)
         enable_stderr_s = self._sanitize_aux_text(enable_stderr, env)
@@ -235,7 +235,7 @@ class CodexAdapter(ShellAdapter):
         (artifacts_dir / f"codex-features-enable-{phase}.stderr").write_text(enable_stderr_s, encoding="utf-8")
         metadata[f"codex_features_enable_{phase}_exit_code"] = enable_rc
 
-        list_args = [self.shell_spec.executable, "features", "list"]
+        list_args = [self.cli_agent_spec.executable, "features", "list"]
         list_rc, list_stdout, list_stderr = self._run_aux_command(case, list_args, env, workspace_dir)
         list_stdout_s = self._sanitize_aux_text(list_stdout, env)
         list_stderr_s = self._sanitize_aux_text(list_stderr, env)
@@ -255,7 +255,7 @@ class CodexAdapter(ShellAdapter):
 
     def _prune_runtime_cache(self, case: CaseDefinition) -> None:
         for phase in ("warmup", "measured"):
-            plugins_cache = case.case_dir / "runtime" / self.shell_spec.id / phase / "home" / ".codex" / ".tmp" / "plugins"
+            plugins_cache = case.case_dir / "runtime" / self.cli_agent_spec.id / phase / "home" / ".codex" / ".tmp" / "plugins"
             if plugins_cache.exists():
                 shutil.rmtree(plugins_cache, ignore_errors=True)
 
@@ -273,11 +273,11 @@ class CodexAdapter(ShellAdapter):
         measured_stderr = case.case_dir / "measured.stderr"
 
         env = os.environ.copy()
-        env.update(self.shell_spec.env)
+        env.update(self.cli_agent_spec.env)
         self._apply_oss_base_env(env)
 
-        warmup_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "warmup")
-        measured_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "measured")
+        warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
+        measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")
         warmup_codex_home = self._prepare_codex_home(warmup_runtime_env, source_config_path)
         measured_codex_home = self._prepare_codex_home(measured_runtime_env, source_config_path)
 
@@ -360,7 +360,7 @@ class CodexAdapter(ShellAdapter):
                 "measured_started_at": measured_started_at,
                 "measured_finished_at": measured_finished_at,
                 "tool_format": case.tool_format,
-                "allowed_tools": case.allowed_tools or self.shell_spec.default_tools,
+                "allowed_tools": case.allowed_tools or self.cli_agent_spec.default_tools,
                 "warmup_command": warmup_command,
                 "measured_command": measured_command,
                 "model_selection": "cli-model",

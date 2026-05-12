@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from gripprobe.adapters.base import ShellAdapter
+from gripprobe.adapters.base import CliAgentAdapter
 from gripprobe.case_result import CaseStatus, ToolInvocation, build_case_result
 from gripprobe.failure_reason import infer_failure_reason
 from gripprobe.models import CaseDefinition, ModelSpec, TestSpec
@@ -20,7 +20,7 @@ from gripprobe.trace_analysis import (
 from gripprobe.validator_runner import evaluate_validators
 
 
-class GptmeAdapter(ShellAdapter):
+class GptmeAdapter(CliAgentAdapter):
     @staticmethod
     def _normalize_http_base(url: str) -> str:
         raw = (url or "").strip()
@@ -64,10 +64,10 @@ class GptmeAdapter(ShellAdapter):
         measured_stdout = case.case_dir / "measured.stdout"
         measured_stderr = case.case_dir / "measured.stderr"
 
-        tool_list = ",".join(case.allowed_tools or self.shell_spec.default_tools)
+        tool_list = ",".join(case.allowed_tools or self.cli_agent_spec.default_tools)
         base_args = [
-            self.shell_spec.executable,
-            *self.shell_spec.default_args,
+            self.cli_agent_spec.executable,
+            *self.cli_agent_spec.default_args,
             "--name",
             f"{case.case_id}-warmup",
             "--system",
@@ -79,15 +79,15 @@ class GptmeAdapter(ShellAdapter):
             "--tool-format",
             case.tool_format,
             "-m",
-            case.shell_model_id,
+            case.cli_agent_model_id,
             case.prompt,
         ]
 
         env = os.environ.copy()
-        env.update(self.shell_spec.env)
+        env.update(self.cli_agent_spec.env)
         self._ensure_ollama_openai_env(case, env)
-        warmup_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "warmup")
-        measured_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "measured")
+        warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
+        measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")
         warmup_args = base_args.copy()
         warmup_args[warmup_args.index(str(case.workspace_dir))] = str(case.warmup_workspace_dir)
         warmup_env = {

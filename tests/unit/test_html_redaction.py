@@ -71,7 +71,8 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     result = CaseResult(
         case_id="case-1",
         run_id="run-1",
-        shell="gptme",
+        cli_agent_id="gptme",
+        cli_agent="gptme",
         model=CaseModelInfo(
             id="m",
             label="m",
@@ -115,7 +116,7 @@ def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
     assert "cat /proc/loadavg" in detail_html
     assert "Trajectory Hints" in detail_html
     assert "Run Comparison" in detail_html
-    assert "Shell Commands" in detail_html
+    assert "CLI Agent Commands" in detail_html
     assert "tool --measured" in detail_html
     assert "CLI Agent Version:" in detail_html
     assert "gptme unknown" in detail_html
@@ -151,7 +152,8 @@ def test_html_summary_omits_unused_css_selectors(tmp_path: Path) -> None:
     result = CaseResult(
         case_id="case-timeout",
         run_id="run-1",
-        shell="continue-cli",
+        cli_agent_id="continue-cli",
+        cli_agent="continue-cli",
         model=CaseModelInfo(
             id="m",
             label="m",
@@ -212,7 +214,8 @@ def test_detail_uses_raw_case_json_override_for_metadata_blocks(tmp_path: Path) 
     result = CaseResult(
         case_id="case-1",
         run_id="run-1",
-        shell="gptme",
+        cli_agent_id="gptme",
+        cli_agent="gptme",
         model=CaseModelInfo(
             id="m",
             label="m",

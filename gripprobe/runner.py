@@ -23,12 +23,12 @@ from gripprobe.adapters.continue_cli import ContinueCliAdapter
 from gripprobe.adapters.gptme import GptmeAdapter
 from gripprobe.adapters.opencode import OpencodeAdapter
 from gripprobe.case_result import build_case_result
-from gripprobe.cli_agent_version import with_cli_agent_version
-from gripprobe.models import BackendSpec, CaseDefinition, CaseResult, ModelSpec, ShellSpec, TestSpec
+from gripprobe.cli_agent_version import parse_cli_agent_version, with_cli_agent_version
+from gripprobe.models import BackendSpec, CaseDefinition, CaseResult, CliAgentSpec, ModelSpec, TestSpec
 from gripprobe.reporters.html_report import write_html_summary
 from gripprobe.reporters.markdown import write_markdown_summary
 from gripprobe.results import create_run_paths, write_json
-from gripprobe.spec_loader import load_model_specs, load_shell_specs, load_test_specs
+from gripprobe.spec_loader import load_cli_agent_specs, load_model_specs, load_test_specs
 
 
 DEFAULT_BACKEND = "ollama"
@@ -50,13 +50,18 @@ def _emit(progress: Callable[[str], None] | None, message: str) -> None:
         progress(f"[{_timestamp()}] {message}")
 
 
-def _collect_shell_runtime_metadata(executable: str) -> dict[str, str]:
+def _collect_cli_agent_runtime_metadata(executable: str) -> dict[str, str]:
     executable_name = str(executable)
-    metadata: dict[str, str] = {"shell_executable": executable_name}
+    metadata: dict[str, str] = {
+        "cli_agent_executable": executable_name,
+        "shell_executable": executable_name,
+    }
     resolved = shutil.which(cast(str, executable_name))
     if resolved:
         home = str(Path.home())
-        metadata["shell_executable_path"] = resolved.replace(home, "$HOME", 1) if resolved.startswith(home) else resolved
+        sanitized_path = resolved.replace(home, "$HOME", 1) if resolved.startswith(home) else resolved
+        metadata["cli_agent_executable_path"] = sanitized_path
+        metadata["shell_executable_path"] = sanitized_path
     try:
         probe = subprocess.run(
             [executable_name, "--version"],
@@ -69,7 +74,10 @@ def _collect_shell_runtime_metadata(executable: str) -> dict[str, str]:
         return with_cli_agent_version(metadata)
     version_output = (probe.stdout or probe.stderr or "").strip()
     if version_output:
-        metadata["shell_version"] = version_output.splitlines()[0]
+        first_line = version_output.splitlines()[0]
+        metadata["cli_agent_version"] = parse_cli_agent_version(first_line)
+        metadata["shell_version"] = first_line
+    metadata["cli_agent_version_exit_code"] = str(probe.returncode)
     metadata["shell_version_exit_code"] = str(probe.returncode)
     for key in (
         "OLLAMA_CONTEXT_LENGTH",
@@ -81,6 +89,11 @@ def _collect_shell_runtime_metadata(executable: str) -> dict[str, str]:
         if value:
             metadata[key.lower()] = value
     return with_cli_agent_version(metadata)
+
+
+def _collect_shell_runtime_metadata(executable: str) -> dict[str, str]:
+    # Legacy compatibility alias for existing tests/callers.
+    return _collect_cli_agent_runtime_metadata(executable)
 
 
 def _run_probe_command(args: list[str], timeout_seconds: int = 5) -> dict[str, str | int | float]:
@@ -730,28 +743,31 @@ def _patch_web_search_validators(test_spec: TestSpec, challenge: _WebSearchChall
     return test_spec.model_copy(update={"validators": validators})
 
 
-def _adapter_for(shell_spec: ShellSpec):
-    if shell_spec.id == "aider":
-        return AiderAdapter(shell_spec)
-    if shell_spec.id == "codex":
-        return CodexAdapter(shell_spec)
-    if shell_spec.id == "gptme":
-        return GptmeAdapter(shell_spec)
-    if shell_spec.id == "continue-cli":
-        return ContinueCliAdapter(shell_spec)
-    if shell_spec.id == "opencode":
-        return OpencodeAdapter(shell_spec)
-    raise ValueError(f"Unsupported shell adapter: {shell_spec.id}")
+def _adapter_for(cli_agent_spec: CliAgentSpec):
+    if cli_agent_spec.id == "aider":
+        return AiderAdapter(cli_agent_spec)
+    if cli_agent_spec.id == "codex":
+        return CodexAdapter(cli_agent_spec)
+    if cli_agent_spec.id == "gptme":
+        return GptmeAdapter(cli_agent_spec)
+    if cli_agent_spec.id == "continue-cli":
+        return ContinueCliAdapter(cli_agent_spec)
+    if cli_agent_spec.id == "opencode":
+        return OpencodeAdapter(cli_agent_spec)
+    raise ValueError(f"Unsupported CLI agent adapter: {cli_agent_spec.id}")
 
 
-def _apply_model_policy_overrides(shell_spec: ShellSpec, model_spec: ModelSpec) -> ShellSpec:
+def _apply_model_policy_overrides(cli_agent_spec: CliAgentSpec, model_spec: ModelSpec) -> CliAgentSpec:
     overrides = model_spec.policy_overrides or {}
-    shell_timeouts = overrides.get("shell_timeout_seconds")
-    if isinstance(shell_timeouts, dict):
-        timeout_override = shell_timeouts.get(shell_spec.id)
+    cli_agent_timeouts = overrides.get("cli_agent_timeout_seconds")
+    if not isinstance(cli_agent_timeouts, dict):
+        legacy_shell_timeouts = overrides.get("shell_timeout_seconds")
+        cli_agent_timeouts = legacy_shell_timeouts if isinstance(legacy_shell_timeouts, dict) else None
+    if isinstance(cli_agent_timeouts, dict):
+        timeout_override = cli_agent_timeouts.get(cli_agent_spec.id)
         if isinstance(timeout_override, int) and timeout_override > 0:
-            return shell_spec.model_copy(update={"timeout_seconds": timeout_override})
-    return shell_spec
+            return cli_agent_spec.model_copy(update={"timeout_seconds": timeout_override})
+    return cli_agent_spec
 
 
 def _filter_tests(tests: list[TestSpec], selected: Iterable[str] | None) -> list[TestSpec]:
@@ -805,8 +821,8 @@ def _harness_error_result(case: CaseDefinition, model_spec: ModelSpec, test_spec
 
 def run(
     root: Path,
-    shell_name: str,
-    model_name: str,
+    cli_agent_name: str | None = None,
+    model_name: str = "",
     backend_name: str = DEFAULT_BACKEND,
     run_id: str | None = None,
     tests_filter: list[str] | None = None,
@@ -817,19 +833,28 @@ def run(
     model_hash: str | None = None,
     run_metadata: dict[str, str] | None = None,
     progress: Callable[[str], None] | None = None,
+    shell_name: str | None = None,
 ) -> tuple[Path, list[CaseResult]]:
     tests = load_test_specs(root)
     models = load_model_specs(root)
-    shells = load_shell_specs(root)
+    cli_agents = load_cli_agent_specs(root)
+    selected_cli_agent = (cli_agent_name or shell_name or "").strip()
+    if not selected_cli_agent:
+        raise ValueError("cli_agent_name is required")
+    if not model_name:
+        raise ValueError("model_name is required")
 
     model_spec: ModelSpec = _find_one(models, "label", model_name)
-    shell_spec: ShellSpec = _apply_model_policy_overrides(_find_one(shells, "id", shell_name), model_spec)
+    cli_agent_spec: CliAgentSpec = _apply_model_policy_overrides(
+        _find_one(cli_agents, "id", selected_cli_agent),
+        model_spec,
+    )
     backend = _select_backend(model_spec, backend_name)
     resolved_model_hash = _resolve_model_hash(backend, model_hash)
     ollama_modelfile = _fetch_ollama_model_modelfile(backend.model_id) if backend.id == "ollama" else None
-    adapter = _adapter_for(shell_spec)
+    adapter = _adapter_for(cli_agent_spec)
     run_paths = create_run_paths(root, run_id=run_id)
-    runtime_metadata = _collect_shell_runtime_metadata(shell_spec.executable)
+    runtime_metadata = _collect_shell_runtime_metadata(cli_agent_spec.executable)
     runtime_snapshots = {
         "run_started": _collect_runtime_snapshot(include_ollama=backend.id == "ollama"),
     }
@@ -841,7 +866,7 @@ def run(
     _emit(
         progress,
         "START "
-        f"shell={shell_spec.id} "
+        f"cli_agent={cli_agent_spec.id} "
         f"model={model_spec.label} "
         f"backend={backend.id} "
         f"report={run_paths.reports_dir / 'summary.html'}",
@@ -850,7 +875,9 @@ def run(
     results: list[CaseResult] = []
     tests = _filter_tests(tests, tests_filter)
     tests = _filter_tests_by_tags(tests, test_tags_filter)
-    formats = [fmt for fmt in model_spec.supported_formats if fmt in shell_spec.supported_formats] or shell_spec.supported_formats
+    formats = [
+        fmt for fmt in model_spec.supported_formats if fmt in cli_agent_spec.supported_formats
+    ] or cli_agent_spec.supported_formats
     formats = _filter_formats(formats, formats_filter)
 
     for tool_format in formats:
@@ -864,12 +891,12 @@ def run(
         )
         format_cases = 0
         for test_spec in tests:
-            if test_spec.supported_shells and shell_spec.id not in test_spec.supported_shells:
+            if test_spec.supported_cli_agents and cli_agent_spec.id not in test_spec.supported_cli_agents:
                 continue
             if test_spec.supported_formats and tool_format not in test_spec.supported_formats:
                 continue
             format_cases += 1
-            case_id = f"{shell_spec.id}__{model_spec.id}__{backend.id}__{tool_format}__{test_spec.id}"
+            case_id = f"{cli_agent_spec.id}__{model_spec.id}__{backend.id}__{tool_format}__{test_spec.id}"
             case_started_at = time.monotonic()
             _emit(
                 progress,
@@ -916,13 +943,13 @@ def run(
             case = CaseDefinition(
                 case_id=case_id,
                 run_id=run_paths.run_id,
-                shell_id=shell_spec.id,
-                shell_label=shell_spec.label,
+                cli_agent_id=cli_agent_spec.id,
+                cli_agent_label=cli_agent_spec.label,
                 model_id=model_spec.id,
                 model_label=model_spec.label,
                 backend_id=backend.id,
                 backend_model_id=backend.model_id,
-                shell_model_id=backend.shell_model_id,
+                cli_agent_model_id=backend.cli_agent_model_id,
                 model_hash=resolved_model_hash,
                 quantization=model_spec.quantization,
                 tool_format=tool_format,
@@ -933,7 +960,7 @@ def run(
                 workspace_dir=workspace_dir,
                 case_dir=case_dir,
                 allowed_tools=active_test_spec.allowed_tools,
-                container_image=container_image or shell_spec.container_image,
+                container_image=container_image or cli_agent_spec.container_image,
                 keep_system_messages=keep_system_messages,
                 run_metadata=merged_run_metadata,
             )
@@ -1012,14 +1039,14 @@ def run(
         run_paths.run_dir / "manifest.json",
         {
             "run_id": run_paths.run_id,
-            "shell": shell_spec.id,
+            "cli_agent_id": cli_agent_spec.id,
             "model": model_spec.id,
             "backend": backend.id,
             "model_hash": resolved_model_hash,
             "cases": len(results),
             "formats": formats,
             "tests": [test.id for test in tests],
-            "container_image": container_image or shell_spec.container_image,
+            "container_image": container_image or cli_agent_spec.container_image,
             "keep_system_messages": keep_system_messages,
             "run_metadata": merged_run_metadata,
         },
@@ -1027,7 +1054,7 @@ def run(
     _emit(
         progress,
         "DONE "
-        f"shell={shell_spec.id} "
+        f"cli_agent={cli_agent_spec.id} "
         f"model={model_spec.label} "
         f"backend={backend.id} "
         f"cases={len(results)} "

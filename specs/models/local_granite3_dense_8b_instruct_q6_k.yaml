@@ -7,7 +7,7 @@ quantization: q6_K
 backends:
   - id: ollama
     model_id: granite3-dense:8b-instruct-q6_K
-    shell_model_id: local/granite3-dense:8b-instruct-q6_K
+    cli_agent_model_id: local/granite3-dense:8b-instruct-q6_K
 tags:
   - local
   - small

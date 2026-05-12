@@ -37,7 +37,7 @@ def build_case_model_info(case: CaseDefinition, model_spec: ModelSpec) -> CaseMo
         quantization=case.quantization,
         backend=case.backend_id,
         model_id=case.backend_model_id,
-        shell_model_id=case.shell_model_id,
+        cli_agent_model_id=case.cli_agent_model_id,
         model_hash=case.model_hash,
     )
 
@@ -64,7 +64,8 @@ def build_case_result(
     return CaseResult(
         case_id=case.case_id,
         run_id=case.run_id,
-        shell=case.shell_label,
+        cli_agent_id=case.cli_agent_id,
+        cli_agent=case.cli_agent_label,
         model=build_case_model_info(case, model_spec),
         format=case.tool_format,
         test=case.test_id,

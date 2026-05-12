@@ -7,7 +7,7 @@ quantization: null
 backends:
   - id: ollama
     model_id: nemotron-3-nano:4b
-    shell_model_id: local/nemotron-3-nano:4b
+    cli_agent_model_id: local/nemotron-3-nano:4b
 tags:
   - local
   - small
@@ -15,5 +15,5 @@ supported_formats:
   - markdown
   - tool
 policy_overrides:
-  shell_timeout_seconds:
+  cli_agent_timeout_seconds:
     continue-cli: 600

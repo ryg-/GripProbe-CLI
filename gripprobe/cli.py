@@ -8,7 +8,13 @@ from gripprobe.backfill import backfill_model_hashes
 from gripprobe.rebuild import rebuild_reports
 from gripprobe.run_listing import list_runs_rows
 from gripprobe.runner import DEFAULT_BACKEND, run
-from gripprobe.spec_loader import load_hardware_profiles, load_model_specs, load_shell_specs, load_suite_specs, load_test_specs
+from gripprobe.spec_loader import (
+    load_cli_agent_specs,
+    load_hardware_profiles,
+    load_model_specs,
+    load_suite_specs,
+    load_test_specs,
+)
 from gripprobe.suite_runner import run_suite
 
 
@@ -16,14 +22,14 @@ from gripprobe.suite_runner import run_suite
 def cmd_validate(root: Path) -> int:
     tests = load_test_specs(root)
     models = load_model_specs(root)
-    shells = load_shell_specs(root)
+    cli_agents = load_cli_agent_specs(root)
     suites = load_suite_specs(root)
     hardware_profiles = load_hardware_profiles(root)
     print(
         "Validated specs: "
         f"tests={len(tests)} "
         f"models={len(models)} "
-        f"shells={len(shells)} "
+        f"cli_agents={len(cli_agents)} "
         f"suites={len(suites)} "
         f"hardware_profiles={len(hardware_profiles)}"
     )
@@ -46,7 +52,7 @@ def _parse_metadata(items: list[str] | None) -> dict[str, str]:
 
 def cmd_run(
     root: Path,
-    shell: str,
+    cli_agent: str,
     model: str,
     backend: str,
     tests: list[str] | None,
@@ -59,7 +65,7 @@ def cmd_run(
 ) -> int:
     run_dir, results = run(
         root,
-        shell_name=shell,
+        cli_agent_name=cli_agent,
         model_name=model,
         backend_name=backend,
         tests_filter=tests,
@@ -105,21 +111,21 @@ def cmd_backfill_model_hashes(run_dirs: list[Path]) -> int:
     return 0
 
 
-def cmd_list_runs(root: Path, run_dirs: list[Path], shell: str | None, suite: str | None) -> int:
-    print("path\tshell\tsuite")
-    for rel_path, row_shell, row_suite in list_runs_rows(root, run_dirs):
-        if shell and row_shell != shell:
+def cmd_list_runs(root: Path, run_dirs: list[Path], cli_agent: str | None, suite: str | None) -> int:
+    print("path\tcli_agent\tsuite")
+    for rel_path, row_cli_agent, row_suite in list_runs_rows(root, run_dirs):
+        if cli_agent and row_cli_agent != cli_agent:
             continue
         if suite and row_suite != suite:
             continue
-        print(f"{rel_path}\t{row_shell}\t{row_suite}")
+        print(f"{rel_path}\t{row_cli_agent}\t{row_suite}")
     return 0
 
 
 def cmd_run_suite(
     root: Path,
     suite: str,
-    shells: list[str] | None,
+    cli_agents: list[str] | None,
     models: list[str] | None,
     tests: list[str] | None,
     test_tags: list[str] | None,
@@ -133,7 +139,7 @@ def cmd_run_suite(
     run_dirs = run_suite(
         root,
         suite_name=suite,
-        shells=shells,
+        cli_agents=cli_agents,
         models=models,
         tests=tests,
         test_tags=test_tags,
@@ -156,7 +162,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("validate")
     run_p = sub.add_parser("run")
-    run_p.add_argument("--shell", required=True)
+    run_p.add_argument("--cli-agent")
+    run_p.add_argument("--shell", help="Deprecated alias for --cli-agent")
     run_p.add_argument("--model", required=True)
     run_p.add_argument("--backend", default=DEFAULT_BACKEND)
     run_p.add_argument("--tests", nargs="*")
@@ -172,7 +179,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--metadata", action="append", help="Attach run metadata as key=value; may be passed multiple times")
     run_suite_p = sub.add_parser("run-suite")
     run_suite_p.add_argument("--suite", default="default_cli_matrix")
-    run_suite_p.add_argument("--shells", nargs="*")
+    run_suite_p.add_argument("--cli-agents", nargs="*")
+    run_suite_p.add_argument("--shells", nargs="*", help="Deprecated alias for --cli-agents")
     run_suite_p.add_argument("--models", nargs="*")
     run_suite_p.add_argument("--tests", nargs="*")
     run_suite_p.add_argument("--test-tags", nargs="*")
@@ -182,7 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_suite_p.add_argument(
         "--resume-suite",
         action="store_true",
-        help="Resume per test case from existing results/runs: skip completed shell/model/format/test cases and run only missing ones",
+        help="Resume per test case from existing results/runs: skip completed cli_agent/model/format/test cases and run only missing ones",
     )
     run_suite_p.add_argument(
         "--model-hash",
@@ -202,7 +210,8 @@ def build_parser() -> argparse.ArgumentParser:
     aggregate_p.add_argument("--output-dir", required=True)
     list_p = sub.add_parser("list-runs")
     list_p.add_argument("--runs-root")
-    list_p.add_argument("--shell")
+    list_p.add_argument("--cli-agent")
+    list_p.add_argument("--shell", help="Deprecated alias for --cli-agent")
     list_p.add_argument("--suite")
     return parser
 
@@ -215,6 +224,11 @@ def main() -> int:
     if ns.cmd == "validate":
         return cmd_validate(root)
     if ns.cmd == "run":
+        cli_agent = (ns.cli_agent or ns.shell or "").strip()
+        if not cli_agent:
+            parser.error("run requires --cli-agent (or deprecated --shell)")
+        if ns.cli_agent and ns.shell and ns.cli_agent != ns.shell:
+            parser.error("run received conflicting --cli-agent and --shell values")
         try:
             metadata = _parse_metadata(ns.metadata)
         except ValueError as exc:
@@ -224,7 +238,7 @@ def main() -> int:
             test_tags.append("sanity")
         return cmd_run(
             root,
-            shell=ns.shell,
+            cli_agent=cli_agent,
             model=ns.model,
             backend=ns.backend,
             tests=ns.tests,
@@ -236,6 +250,9 @@ def main() -> int:
             metadata=metadata,
         )
     if ns.cmd == "run-suite":
+        cli_agents = ns.cli_agents if ns.cli_agents is not None else ns.shells
+        if ns.cli_agents and ns.shells:
+            cli_agents = [*ns.cli_agents, *[item for item in ns.shells if item not in set(ns.cli_agents)]]
         try:
             metadata = _parse_metadata(ns.metadata)
         except ValueError as exc:
@@ -243,7 +260,7 @@ def main() -> int:
         return cmd_run_suite(
             root,
             suite=ns.suite,
-            shells=ns.shells,
+            cli_agents=cli_agents,
             models=ns.models,
             tests=ns.tests,
             test_tags=ns.test_tags,
@@ -285,7 +302,8 @@ def main() -> int:
     if ns.cmd == "list-runs":
         runs_root = Path(ns.runs_root).resolve() if ns.runs_root else root / "results" / "runs"
         run_dirs = discover_run_dirs(runs_root)
-        return cmd_list_runs(root, run_dirs, ns.shell, ns.suite)
+        cli_agent_filter = ns.cli_agent or ns.shell
+        return cmd_list_runs(root, run_dirs, cli_agent_filter, ns.suite)
     parser.error("unknown command")
 
 

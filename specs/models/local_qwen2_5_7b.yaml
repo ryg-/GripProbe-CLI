@@ -7,7 +7,7 @@ quantization: null
 backends:
   - id: ollama
     model_id: qwen2.5:7b
-    shell_model_id: local/qwen2.5:7b
+    cli_agent_model_id: local/qwen2.5:7b
 tags:
   - local
   - small

@@ -36,6 +36,9 @@ def test_collect_shell_runtime_metadata_reads_first_version_line(monkeypatch) ->
     metadata = _collect_shell_runtime_metadata("tool")
 
     assert metadata == {
+        "cli_agent_executable": "tool",
+        "cli_agent_executable_path": "$HOME/bin/tool",
+        "cli_agent_version_exit_code": "0",
         "shell_executable": "tool",
         "shell_executable_path": "$HOME/bin/tool",
         "shell_version": "tool 1.2.3",
@@ -58,6 +61,7 @@ def test_collect_shell_runtime_metadata_returns_partial_data_when_probe_fails(mo
     metadata = _collect_shell_runtime_metadata("tool")
 
     assert metadata == {
+        "cli_agent_executable": "tool",
         "shell_executable": "tool",
         "cli_agent_version": "unknown",
     }

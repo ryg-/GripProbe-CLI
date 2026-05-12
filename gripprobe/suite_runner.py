@@ -5,10 +5,10 @@ import time
 from collections.abc import Iterable
 from pathlib import Path
 
-from gripprobe.models import ModelSpec, ShellSpec, SuiteSpec, TestSpec
+from gripprobe.models import CliAgentSpec, ModelSpec, SuiteSpec, TestSpec
 from gripprobe.results import utc_run_id
 from gripprobe.runner import run
-from gripprobe.spec_loader import load_model_specs, load_shell_specs, load_suite_specs, load_test_specs
+from gripprobe.spec_loader import load_cli_agent_specs, load_model_specs, load_suite_specs, load_test_specs
 
 SuiteRunKey = tuple[str, str, str, tuple[str, ...], tuple[str, ...]]
 SuiteCaseKey = tuple[str, str, str, str, str]
@@ -22,12 +22,12 @@ def _find_suite(root: Path, suite_name: str) -> SuiteSpec:
     raise ValueError(f"Could not find suite id={suite_name}")
 
 
-def _resolve_shells(root: Path, suite: SuiteSpec, shell_filter: list[str] | None) -> list[str]:
-    if shell_filter:
-        return shell_filter
-    if suite.shells:
-        return list(suite.shells)
-    return [shell.id for shell in load_shell_specs(root)]
+def _resolve_cli_agents(root: Path, suite: SuiteSpec, cli_agent_filter: list[str] | None) -> list[str]:
+    if cli_agent_filter:
+        return cli_agent_filter
+    if suite.cli_agents:
+        return list(suite.cli_agents)
+    return [cli_agent.id for cli_agent in load_cli_agent_specs(root)]
 
 
 def _model_alias_map(root: Path) -> dict[str, str]:
@@ -43,22 +43,22 @@ def _canonical_model_id(model_name: str, aliases: dict[str, str]) -> str:
 
 
 def _resolve_effective_formats(
-    shell_id: str,
+    cli_agent_id: str,
     model_name: str,
     formats_filter: list[str] | None,
-    shell_by_id: dict[str, ShellSpec],
+    cli_agent_by_id: dict[str, CliAgentSpec],
     model_by_id: dict[str, ModelSpec],
     aliases: dict[str, str],
 ) -> tuple[str, ...]:
     if formats_filter is not None:
         return tuple(formats_filter)
     model_id = _canonical_model_id(model_name, aliases)
-    shell_spec = shell_by_id.get(shell_id)
+    cli_agent_spec = cli_agent_by_id.get(cli_agent_id)
     model_spec = model_by_id.get(model_id)
-    if shell_spec is None or model_spec is None:
+    if cli_agent_spec is None or model_spec is None:
         return ()
-    shared = [fmt for fmt in model_spec.supported_formats if fmt in shell_spec.supported_formats]
-    return tuple(shared or shell_spec.supported_formats)
+    shared = [fmt for fmt in model_spec.supported_formats if fmt in cli_agent_spec.supported_formats]
+    return tuple(shared or cli_agent_spec.supported_formats)
 
 
 def _filter_tests_by_selection(tests: list[TestSpec], selected: list[str] | None) -> list[TestSpec]:
@@ -86,12 +86,12 @@ def _resolve_selected_tests(
 
 def _effective_test_ids_for_format(
     tests: list[TestSpec],
-    shell_id: str,
+    cli_agent_id: str,
     tool_format: str,
 ) -> tuple[str, ...]:
     test_ids: list[str] = []
     for test in tests:
-        if test.supported_shells and shell_id not in test.supported_shells:
+        if test.supported_cli_agents and cli_agent_id not in test.supported_cli_agents:
             continue
         if test.supported_formats and tool_format not in test.supported_formats:
             continue
@@ -100,11 +100,16 @@ def _effective_test_ids_for_format(
 
 
 def _manifest_run_key(payload: dict[str, object], aliases: dict[str, str]) -> SuiteRunKey | None:
+    cli_agent_id = payload.get("cli_agent_id")
+    cli_agent = payload.get("cli_agent")
     shell = payload.get("shell")
     model = payload.get("model")
     backend = payload.get("backend")
     formats = payload.get("formats")
-    if not isinstance(shell, str) or not isinstance(model, str) or not isinstance(backend, str):
+    cli_agent_value = cli_agent_id if isinstance(cli_agent_id, str) else shell
+    if not isinstance(cli_agent_value, str) and isinstance(cli_agent, str):
+        cli_agent_value = cli_agent
+    if not isinstance(cli_agent_value, str) or not isinstance(model, str) or not isinstance(backend, str):
         return None
     if not isinstance(formats, list) or not all(isinstance(item, str) for item in formats):
         return None
@@ -112,7 +117,7 @@ def _manifest_run_key(payload: dict[str, object], aliases: dict[str, str]) -> Su
     if not isinstance(tests, list) or not all(isinstance(item, str) for item in tests):
         return None
     return (
-        shell,
+        cli_agent_value,
         _canonical_model_id(model, aliases),
         backend,
         tuple(formats),
@@ -131,11 +136,16 @@ def _read_json_dict(path: Path) -> dict[str, object] | None:
 
 
 def _case_key_from_case_json(payload: dict[str, object], aliases: dict[str, str]) -> SuiteCaseKey | None:
+    cli_agent_id = payload.get("cli_agent_id")
     shell = payload.get("shell")
+    cli_agent = payload.get("cli_agent")
     tool_format = payload.get("format")
     test_id = payload.get("test")
     model_payload = payload.get("model")
-    if not isinstance(shell, str) or not isinstance(tool_format, str) or not isinstance(test_id, str):
+    cli_agent_value = cli_agent_id if isinstance(cli_agent_id, str) else shell
+    if not isinstance(cli_agent_value, str) and isinstance(cli_agent, str):
+        cli_agent_value = cli_agent
+    if not isinstance(cli_agent_value, str) or not isinstance(tool_format, str) or not isinstance(test_id, str):
         return None
     if not isinstance(model_payload, dict):
         return None
@@ -144,7 +154,7 @@ def _case_key_from_case_json(payload: dict[str, object], aliases: dict[str, str]
     if not isinstance(model_id, str) or not isinstance(backend, str):
         return None
     return (
-        shell,
+        cli_agent_value,
         _canonical_model_id(model_id, aliases),
         backend,
         tool_format,
@@ -153,11 +163,11 @@ def _case_key_from_case_json(payload: dict[str, object], aliases: dict[str, str]
 
 
 def _expand_manifest_run_key_to_case_keys(run_key: SuiteRunKey) -> set[SuiteCaseKey]:
-    shell, model, backend, formats, tests = run_key
+    cli_agent_id, model, backend, formats, tests = run_key
     keys: set[SuiteCaseKey] = set()
     for tool_format in formats:
         for test_id in tests:
-            keys.add((shell, model, backend, tool_format, test_id))
+            keys.add((cli_agent_id, model, backend, tool_format, test_id))
     return keys
 
 
@@ -211,7 +221,7 @@ def _select_items(
 
 def _missing_tests_by_format(
     *,
-    shell_id: str,
+    cli_agent_id: str,
     model_name: str,
     backend_name: str,
     formats: tuple[str, ...],
@@ -222,13 +232,13 @@ def _missing_tests_by_format(
     model_id = _canonical_model_id(model_name, aliases)
     missing: dict[str, list[str]] = {}
     for tool_format in formats:
-        test_ids = _effective_test_ids_for_format(selected_tests, shell_id, tool_format)
+        test_ids = _effective_test_ids_for_format(selected_tests, cli_agent_id, tool_format)
         if not test_ids:
             continue
         missing_tests = [
             test_id
             for test_id in test_ids
-            if (shell_id, model_id, backend_name, tool_format, test_id) not in completed_case_keys
+            if (cli_agent_id, model_id, backend_name, tool_format, test_id) not in completed_case_keys
         ]
         if missing_tests:
             missing[tool_format] = missing_tests
@@ -238,6 +248,7 @@ def _missing_tests_by_format(
 def run_suite(
     root: Path,
     suite_name: str,
+    cli_agents: list[str] | None = None,
     shells: list[str] | None = None,
     models: list[str] | None = None,
     tests: list[str] | None = None,
@@ -249,25 +260,28 @@ def run_suite(
     metadata: dict[str, str] | None = None,
     resume_suite: bool = False,
 ) -> list[Path]:
+    if cli_agents is None and shells is not None:
+        cli_agents = list(shells)
+
     suite = _find_suite(root, suite_name)
     all_tests = load_test_specs(root)
     model_aliases = _model_alias_map(root)
     model_by_id = {model.id: model for model in load_model_specs(root)}
-    shell_by_id = {shell.id: shell for shell in load_shell_specs(root)}
+    cli_agent_by_id = {cli_agent.id: cli_agent for cli_agent in load_cli_agent_specs(root)}
     completed_case_keys = _load_completed_case_keys(root, model_aliases) if resume_suite else set()
 
     run_dirs: list[Path] = []
     used_run_ids: set[str] = set()
     if suite.matrix:
         selected_entries = list(suite.matrix)
-        if shells:
-            selected_shells = set(shells)
-            selected_entries = [entry for entry in selected_entries if entry.shell in selected_shells]
+        if cli_agents:
+            selected_cli_agents = set(cli_agents)
+            selected_entries = [entry for entry in selected_entries if entry.cli_agent in selected_cli_agents]
         if models:
             selected_models = set(models)
             selected_entries = [entry for entry in selected_entries if entry.model in selected_models]
         if not selected_entries:
-            raise ValueError(f"Suite {suite.id} matrix has no entries after shell/model filters")
+            raise ValueError(f"Suite {suite.id} matrix has no entries after cli_agent/model filters")
 
         for entry in selected_entries:
             selected_tests = _select_items(tests, entry.tests, suite.tests)
@@ -280,17 +294,17 @@ def run_suite(
                 suite.formats,
             )
             effective_formats = _resolve_effective_formats(
-                entry.shell,
+                entry.cli_agent,
                 entry.model,
                 selected_formats,
-                shell_by_id,
+                cli_agent_by_id,
                 model_by_id,
                 model_aliases,
             )
             merged_metadata = {**suite.metadata, **entry.metadata, **(metadata or {})}
             if resume_suite:
                 missing_by_format = _missing_tests_by_format(
-                    shell_id=entry.shell,
+                    cli_agent_id=entry.cli_agent,
                     model_name=entry.model,
                     backend_name=selected_backend,
                     formats=effective_formats,
@@ -300,12 +314,12 @@ def run_suite(
                 )
                 if not missing_by_format:
                     total_effective_tests = sum(
-                        len(_effective_test_ids_for_format(selected_test_specs, entry.shell, tool_format))
+                        len(_effective_test_ids_for_format(selected_test_specs, entry.cli_agent, tool_format))
                         for tool_format in effective_formats
                     )
                     print(
                         "SKIP "
-                        f"shell={entry.shell} "
+                        f"cli_agent={entry.cli_agent} "
                         f"model={entry.model} "
                         f"backend={selected_backend} "
                         f"formats={','.join(effective_formats)} "
@@ -317,9 +331,9 @@ def run_suite(
                 for tool_format, missing_tests in missing_by_format.items():
                     run_dir, _ = run(
                         root,
-                        shell_name=entry.shell,
-                        model_name=entry.model,
-                        backend_name=selected_backend,
+                        entry.cli_agent,
+                        entry.model,
+                        selected_backend,
                         run_id=_unique_run_id(used_run_ids),
                         tests_filter=missing_tests,
                         test_tags_filter=None,
@@ -333,13 +347,13 @@ def run_suite(
                     run_dirs.append(run_dir)
                     model_id = _canonical_model_id(entry.model, model_aliases)
                     for test_id in missing_tests:
-                        completed_case_keys.add((entry.shell, model_id, selected_backend, tool_format, test_id))
+                        completed_case_keys.add((entry.cli_agent, model_id, selected_backend, tool_format, test_id))
                 continue
             run_dir, _ = run(
                 root,
-                shell_name=entry.shell,
-                model_name=entry.model,
-                backend_name=selected_backend,
+                entry.cli_agent,
+                entry.model,
+                selected_backend,
                 run_id=_unique_run_id(used_run_ids),
                 tests_filter=selected_tests,
                 test_tags_filter=selected_test_tags,
@@ -353,7 +367,7 @@ def run_suite(
             run_dirs.append(run_dir)
         return run_dirs
 
-    selected_shells = _resolve_shells(root, suite, shells)
+    selected_cli_agents = _resolve_cli_agents(root, suite, cli_agents)
     selected_models_source = models if models is not None else suite.models
     selected_models = list(selected_models_source or [])
     if not selected_models:
@@ -365,19 +379,19 @@ def run_suite(
     selected_formats = _select_items(formats, None, suite.formats)
     merged_metadata = {**suite.metadata, **(metadata or {})}
 
-    for shell_name in selected_shells:
+    for cli_agent_name in selected_cli_agents:
         for model_name in selected_models:
             effective_formats = _resolve_effective_formats(
-                shell_name,
+                cli_agent_name,
                 model_name,
                 selected_formats,
-                shell_by_id,
+                cli_agent_by_id,
                 model_by_id,
                 model_aliases,
             )
             if resume_suite:
                 missing_by_format = _missing_tests_by_format(
-                    shell_id=shell_name,
+                    cli_agent_id=cli_agent_name,
                     model_name=model_name,
                     backend_name=suite.backend,
                     formats=effective_formats,
@@ -387,12 +401,12 @@ def run_suite(
                 )
                 if not missing_by_format:
                     total_effective_tests = sum(
-                        len(_effective_test_ids_for_format(selected_test_specs, shell_name, tool_format))
+                        len(_effective_test_ids_for_format(selected_test_specs, cli_agent_name, tool_format))
                         for tool_format in effective_formats
                     )
                     print(
                         "SKIP "
-                        f"shell={shell_name} "
+                        f"cli_agent={cli_agent_name} "
                         f"model={model_name} "
                         f"backend={suite.backend} "
                         f"formats={','.join(effective_formats)} "
@@ -404,9 +418,9 @@ def run_suite(
                 for tool_format, missing_tests in missing_by_format.items():
                     run_dir, _ = run(
                         root,
-                        shell_name=shell_name,
-                        model_name=model_name,
-                        backend_name=suite.backend,
+                        cli_agent_name,
+                        model_name,
+                        suite.backend,
                         run_id=_unique_run_id(used_run_ids),
                         tests_filter=missing_tests,
                         test_tags_filter=None,
@@ -420,13 +434,13 @@ def run_suite(
                     run_dirs.append(run_dir)
                     model_id = _canonical_model_id(model_name, model_aliases)
                     for test_id in missing_tests:
-                        completed_case_keys.add((shell_name, model_id, suite.backend, tool_format, test_id))
+                        completed_case_keys.add((cli_agent_name, model_id, suite.backend, tool_format, test_id))
                 continue
             run_dir, _ = run(
                 root,
-                shell_name=shell_name,
-                model_name=model_name,
-                backend_name=suite.backend,
+                cli_agent_name,
+                model_name,
+                suite.backend,
                 run_id=_unique_run_id(used_run_ids),
                 tests_filter=selected_tests,
                 test_tags_filter=selected_test_tags,

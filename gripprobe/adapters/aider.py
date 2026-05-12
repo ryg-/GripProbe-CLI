@@ -3,14 +3,14 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from gripprobe.adapters.base import ShellAdapter
+from gripprobe.adapters.base import CliAgentAdapter
 from gripprobe.case_result import CaseStatus, ToolInvocation, build_case_result
 from gripprobe.failure_reason import infer_failure_reason
 from gripprobe.models import CaseDefinition, ModelSpec, TestSpec
 from gripprobe.validator_runner import evaluate_validators
 
 
-class AiderAdapter(ShellAdapter):
+class AiderAdapter(CliAgentAdapter):
     def _prepare_aider_home(self, runtime_env: dict[str, str]) -> tuple[Path, Path]:
         aider_home = Path(runtime_env["HOME"])
         aider_home.mkdir(parents=True, exist_ok=True)
@@ -38,11 +38,11 @@ class AiderAdapter(ShellAdapter):
     def _model_name(self, case: CaseDefinition) -> str:
         if case.backend_id == "ollama":
             return f"ollama/{case.backend_model_id}"
-        return case.shell_model_id
+        return case.cli_agent_model_id
 
     def _base_args(self, case: CaseDefinition, config_path: Path, workspace_dir: Path) -> list[str]:
         args = [
-            self.shell_spec.executable,
+            self.cli_agent_spec.executable,
             "--config",
             str(config_path),
             "--no-git",
@@ -96,12 +96,12 @@ class AiderAdapter(ShellAdapter):
         measured_stderr = case.case_dir / "measured.stderr"
 
         env = os.environ.copy()
-        env.update(self.shell_spec.env)
+        env.update(self.cli_agent_spec.env)
         ollama_api_base = ""
         if case.backend_id == "ollama":
             ollama_api_base = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
-        warmup_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "warmup")
-        measured_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "measured")
+        warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
+        measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")
         warmup_home, warmup_config_path = self._prepare_aider_home(warmup_runtime_env)
         measured_home, measured_config_path = self._prepare_aider_home(measured_runtime_env)
         shared_env = {
@@ -178,7 +178,7 @@ class AiderAdapter(ShellAdapter):
                 "measured_started_at": measured_started_at,
                 "measured_finished_at": measured_finished_at,
                 "tool_format": case.tool_format,
-                "allowed_tools": case.allowed_tools or self.shell_spec.default_tools,
+                "allowed_tools": case.allowed_tools or self.cli_agent_spec.default_tools,
                 "warmup_command": warmup_command,
                 "measured_command": measured_command,
                 "model_selection": "cli-model",

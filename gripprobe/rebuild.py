@@ -67,7 +67,7 @@ def _build_recomputed_case_result(case_dir: Path, model_index: dict[str, ModelSp
     if len(parts) < 5:
         raise ValueError(f"Could not parse case_id from directory name: {case_id}")
 
-    shell, model_id, backend, tool_format, test_id = parts[:5]
+    cli_agent_id, model_id, backend, tool_format, test_id = parts[:5]
     run_id = case_dir.parents[1].name
     model_spec = model_index.get(model_id)
     root = case_dir.parents[4]
@@ -165,7 +165,10 @@ def _build_recomputed_case_result(case_dir: Path, model_index: dict[str, ModelSp
     result = CaseResult(
         case_id=case_id,
         run_id=run_id,
-        shell=shell,
+        cli_agent_id=cli_agent_id,
+        cli_agent=str(existing_payload.get("cli_agent") or existing_payload.get("shell") or cli_agent_id)
+        if isinstance(existing_payload, dict)
+        else cli_agent_id,
         model=CaseModelInfo(
             id=model_id,
             label=model_label,
@@ -174,7 +177,7 @@ def _build_recomputed_case_result(case_dir: Path, model_index: dict[str, ModelSp
             quantization=quantization,
             backend=backend,
             model_id=backend_spec.model_id if backend_spec else model_id,
-            shell_model_id=backend_spec.shell_model_id if backend_spec else model_label,
+            cli_agent_model_id=backend_spec.cli_agent_model_id if backend_spec else model_label,
             model_hash=resolved_model_hash,
         ),
         format=tool_format,

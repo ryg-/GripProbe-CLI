@@ -2,7 +2,7 @@
 [GitHub project](https://github.com/ryg-/GripProbe-CLI/)
 
 ## Published Reports:
-- [HTML report](https://nameless.dns-cloud.net/docs/report/reports/summary.html)
+- [HTML report](https://local-agent-bench.org/docs/report/reports/summary.html)
 - [Markdown summary](https://github.com/ryg-/GripProbe-CLI/blob/main/docs/report/reports/summary.md)
 
 

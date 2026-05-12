@@ -27,7 +27,7 @@ validators:
     expected: "{}"
     request_log: __DYNAMIC__
     request_path: /search/__DYNAMIC__
-supported_shells:
+supported_cli_agents:
   - codex
   - gptme
   - continue-cli

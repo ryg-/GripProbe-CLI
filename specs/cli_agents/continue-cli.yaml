@@ -1,0 +1,13 @@
+id: continue-cli
+label: continue-cli
+executable: cn
+default_args: []
+supported_formats:
+  - markdown
+  - tool
+env: {}
+default_tools:
+  - shell
+  - patch
+  - read
+  - save

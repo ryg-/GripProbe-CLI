@@ -43,6 +43,6 @@ def with_cli_agent_version(metadata: Mapping[str, Any] | None) -> dict[str, Any]
     return payload
 
 
-def format_cli_agent_label(shell_name: str, metadata: Mapping[str, Any] | None) -> str:
+def format_cli_agent_label(cli_agent_name: str, metadata: Mapping[str, Any] | None) -> str:
     version = get_cli_agent_version(metadata)
-    return f"{shell_name} {version}".strip()
+    return f"{cli_agent_name} {version}".strip()

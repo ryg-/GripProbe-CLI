@@ -287,15 +287,15 @@ def _cli_agent_version_sort_key(version: str) -> tuple[object, ...]:
 
 
 def _build_cli_agent_filter_values(results: list[CaseResult]) -> list[str]:
-    versions_by_shell: dict[str, set[str]] = defaultdict(set)
+    versions_by_cli_agent: dict[str, set[str]] = defaultdict(set)
     for item in results:
-        versions_by_shell[item.shell].add(get_cli_agent_version(item.metadata))
+        versions_by_cli_agent[item.cli_agent].add(get_cli_agent_version(item.metadata))
 
     values: list[str] = []
-    for shell in sorted(versions_by_shell):
-        values.append(shell)
-        sorted_versions = sorted(versions_by_shell[shell], key=_cli_agent_version_sort_key)
-        values.extend(f"{shell} {version}".strip() for version in sorted_versions)
+    for cli_agent in sorted(versions_by_cli_agent):
+        values.append(cli_agent)
+        sorted_versions = sorted(versions_by_cli_agent[cli_agent], key=_cli_agent_version_sort_key)
+        values.extend(f"{cli_agent} {version}".strip() for version in sorted_versions)
     return values
 
 
@@ -386,14 +386,14 @@ def _has_extended_test_tags(item: CaseResult) -> bool:
     return isinstance(tags, list) and "non_sanity" in tags
 
 
-def _render_scope_summary(shells: list[str], formats: list[str]) -> str:
-    shell_text = ", ".join(shells) if shells else "none"
+def _render_scope_summary(cli_agents: list[str], formats: list[str]) -> str:
+    cli_agent_text = ", ".join(cli_agents) if cli_agents else "none"
     format_text = ", ".join(formats) if formats else "none"
     return (
         "<aside class='scope-summary'>"
         "<div class='scope-title'>Scope</div>"
         "<table>"
-        f"<tr><th>Shells</th><td>{escape(shell_text)}</td></tr>"
+        f"<tr><th>CLI Agents</th><td>{escape(cli_agent_text)}</td></tr>"
         f"<tr><th>Formats</th><td>{escape(format_text)}</td></tr>"
         "</table>"
         "</aside>"
@@ -477,7 +477,7 @@ def _write_aggregate_markdown_summary(
     *,
     generated_at: str,
     commit_sha: str,
-    shells: list[str],
+    cli_agents: list[str],
     models: list[str],
     formats: list[str],
     hardware_profile_ids: list[str],
@@ -487,7 +487,7 @@ def _write_aggregate_markdown_summary(
         "# GripProbe Compatibility Report",
         "",
         "## Reproducibility",
-        f"- Shells: `{', '.join(shells) if shells else 'none'}`",
+        f"- CLI Agents: `{', '.join(cli_agents) if cli_agents else 'none'}`",
         f"- Models: `{', '.join(models) if models else 'none'}`",
         f"- Formats: `{', '.join(formats) if formats else 'none'}`",
         f"- Hardware profile id: `{', '.join(hardware_profile_ids) if hardware_profile_ids else 'unspecified'}`",
@@ -499,13 +499,13 @@ def _write_aggregate_markdown_summary(
             "",
             "## Cases",
             "",
-            "| Shell | Model | Backend | Hash | Format | Test | Status | Reason | Trajectory | Invoked | Match | Warmup (s) | Measured (s) |",
+            "| CLI Agent | Model | Backend | Hash | Format | Test | Status | Reason | Trajectory | Invoked | Match | Warmup (s) | Measured (s) |",
             "|---|---|---|---|---|---|---|---|---|---|---:|---:|---:|",
         ]
     )
     for item in results:
         lines.append(
-            f"| {item.shell} | {item.model.label} | {item.model.backend} | {item.model.model_hash} | {item.format} | {item.title} | {item.status} | {item.metadata.get('failure_reason') or ''} | {item.trajectory} | {item.invoked} | {item.match_percent} | {item.timings.warmup_seconds} | {item.timings.measured_seconds} |"
+            f"| {item.cli_agent} | {item.model.label} | {item.model.backend} | {item.model.model_hash} | {item.format} | {item.title} | {item.status} | {item.metadata.get('failure_reason') or ''} | {item.trajectory} | {item.invoked} | {item.match_percent} | {item.timings.warmup_seconds} | {item.timings.measured_seconds} |"
         )
     lines.extend(
         [
@@ -550,7 +550,7 @@ def write_aggregate_html_summary(
         cli_agent_version = get_cli_agent_version(item.metadata)
         grouped[
             (
-                item.shell,
+                item.cli_agent_id,
                 cli_agent_version,
                 item.model.label,
                 item.model.model_hash,
@@ -587,7 +587,7 @@ def write_aggregate_html_summary(
             "</p>"
         )
     cli_agent_filter_values = _build_cli_agent_filter_values(results)
-    shell_filter_options = "".join(
+    cli_agent_filter_options = "".join(
         [
             "<option value='all'>all</option>",
             *[f"<option value='{escape(value)}'>{escape(value)}</option>" for value in cli_agent_filter_values],
@@ -605,8 +605,8 @@ def write_aggregate_html_summary(
 
     rows: list[str] = []
     for group_key in sorted(grouped):
-        shell, cli_agent_version, model_label, model_hash, tool_format, hardware_profile_id = group_key
-        cli_agent_label = f"{shell} {cli_agent_version}".strip()
+        cli_agent_id, cli_agent_version, model_label, model_hash, tool_format, hardware_profile_id = group_key
+        cli_agent_label = f"{cli_agent_id} {cli_agent_version}".strip()
         items = grouped[group_key]
         has_extended_set = any(_has_extended_test_tags(item) for item in items)
         by_test = grouped_by_test[group_key]
@@ -649,7 +649,7 @@ def write_aggregate_html_summary(
             )
         rows.append(
             "<tr "
-            f"data-shell='{escape(shell)}' "
+            f"data-cli-agent-id='{escape(cli_agent_id)}' "
             f"data-cli-agent='{escape(cli_agent_label)}' "
             f"data-model='{escape(model_label)}' "
             f"data-format='{escape(tool_format)}' "
@@ -658,7 +658,7 @@ def write_aggregate_html_summary(
             f"data-score='{score:.4f}' "
             f"data-typical='{typical_time:.4f}' "
             f"data-outliers='{outlier_rate:.4f}'>"
-            f"<td><a href='{group_link}'>{escape(shell)}"
+            f"<td><a href='{group_link}'>{escape(cli_agent_id)}"
             f"<span class='cli-agent-version'>{escape(cli_agent_version)}</span>"
             "</a></td>"
             f"<td><a href='{group_link}'>{escape(model_label)}"
@@ -676,11 +676,11 @@ def write_aggregate_html_summary(
 
     header_tests = "".join(f"<th>{escape(title)}</th>" for title in tests)
     generated_at_value = generated_at or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    shells_value = sorted({item.shell for item in results})
+    cli_agents_value = sorted({item.cli_agent for item in results})
     models_value = sorted({item.model.label for item in results})
     formats_value = sorted({item.format for item in results})
     hardware_ids_value = sorted({_hardware_profile_id(item, default_hardware_profile_id) for item in results})
-    scope_summary_html = _render_scope_summary(shells_value, formats_value)
+    scope_summary_html = _render_scope_summary(cli_agents_value, formats_value)
 
     html = f"""<!doctype html>
 <html lang='en'><head><meta charset='utf-8'><title>GripProbe Compatibility Report</title>
@@ -786,9 +786,9 @@ a:hover{{text-decoration:underline}}
 <select id='model-filter'>
 {model_filter_options}
 </select>
-<label for='shell-filter'>CLI Agent</label>
-<select id='shell-filter'>
-{shell_filter_options}
+<label for='cli-agent-filter'>CLI Agent</label>
+<select id='cli-agent-filter'>
+{cli_agent_filter_options}
 </select>
 <input id='include-partial-runs' type='checkbox' />
 <label for='include-partial-runs'>Show partial (sanity-only) runs in addition to extended test runs</label>
@@ -832,17 +832,17 @@ function applyRowFilters() {{
   var includePartial = Boolean(includePartialRuns && includePartialRuns.checked);
   var modelFilter = document.getElementById("model-filter");
   var selectedModel = String((modelFilter && modelFilter.value) || "all");
-  var shellFilter = document.getElementById("shell-filter");
-  var selectedShell = String((shellFilter && shellFilter.value) || "all");
+  var cliAgentFilter = document.getElementById("cli-agent-filter");
+  var selectedCliAgent = String((cliAgentFilter && cliAgentFilter.value) || "all");
   var rows = Array.prototype.slice.call(document.querySelectorAll("#aggregate-table tbody tr"));
   rows.forEach(function(row) {{
     var hasExtended = (row.getAttribute("data-extended") || "no") === "yes";
     var rowModel = String(row.getAttribute("data-model") || "");
     var modelMatches = selectedModel === "all" || rowModel === selectedModel;
-    var rowShell = String(row.getAttribute("data-shell") || "");
+    var rowCliAgentId = String(row.getAttribute("data-cli-agent-id") || "");
     var rowCliAgent = String(row.getAttribute("data-cli-agent") || "");
-    var shellMatches = selectedShell === "all" || rowShell === selectedShell || rowCliAgent === selectedShell;
-    row.classList.toggle("row-hidden", (!includePartial && !hasExtended) || !shellMatches || !modelMatches);
+    var cliAgentMatches = selectedCliAgent === "all" || rowCliAgentId === selectedCliAgent || rowCliAgent === selectedCliAgent;
+    row.classList.toggle("row-hidden", (!includePartial && !hasExtended) || !cliAgentMatches || !modelMatches);
   }});
 }}
 
@@ -850,9 +850,9 @@ var includePartialRunsCheckbox = document.getElementById("include-partial-runs")
 if (includePartialRunsCheckbox) {{
   includePartialRunsCheckbox.addEventListener("change", applyRowFilters);
 }}
-var shellFilterSelect = document.getElementById("shell-filter");
-if (shellFilterSelect) {{
-  shellFilterSelect.addEventListener("change", applyRowFilters);
+var cliAgentFilterSelect = document.getElementById("cli-agent-filter");
+if (cliAgentFilterSelect) {{
+  cliAgentFilterSelect.addEventListener("change", applyRowFilters);
 }}
 var modelFilterSelect = document.getElementById("model-filter");
 if (modelFilterSelect) {{
@@ -915,7 +915,7 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
             hardware_profiles_relpath = os.path.relpath(hardware_profiles_path, reports_dir)
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    shells = sorted({item.shell for item in aggregated_results})
+    cli_agents = sorted({item.cli_agent for item in aggregated_results})
     models = sorted({item.model.label for item in aggregated_results})
     formats = sorted({item.format for item in aggregated_results})
     hardware_profile_ids = sorted({_hardware_profile_id(item, default_hardware_profile_id) for item in aggregated_results})
@@ -926,7 +926,7 @@ def aggregate_reports(run_dirs: list[Path], output_dir: Path, root: Path | None 
         reports_dir / "summary.md",
         generated_at=generated_at,
         commit_sha=commit_sha,
-        shells=shells,
+        cli_agents=cli_agents,
         models=models,
         formats=formats,
         hardware_profile_ids=hardware_profile_ids,

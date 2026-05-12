@@ -4,16 +4,16 @@ import json
 import os
 from pathlib import Path
 
-from gripprobe.adapters.base import ShellAdapter
+from gripprobe.adapters.base import CliAgentAdapter
 from gripprobe.case_result import CaseStatus, ToolInvocation, build_case_result
 from gripprobe.failure_reason import infer_failure_reason
 from gripprobe.models import CaseDefinition, ModelSpec, TestSpec
 from gripprobe.validator_runner import evaluate_validators
 
 
-class OpencodeAdapter(ShellAdapter):
+class OpencodeAdapter(CliAgentAdapter):
     def _resolve_source_config_path(self) -> Path | None:
-        explicit = self.shell_spec.config_path or os.environ.get("GRIPPROBE_OPENCODE_CONFIG")
+        explicit = self.cli_agent_spec.config_path or os.environ.get("GRIPPROBE_OPENCODE_CONFIG")
         if explicit:
             path = Path(explicit).expanduser()
             if path.exists():
@@ -97,9 +97,9 @@ class OpencodeAdapter(ShellAdapter):
         measured_stderr = case.case_dir / "measured.stderr"
 
         env = os.environ.copy()
-        env.update(self.shell_spec.env)
-        warmup_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "warmup")
-        measured_runtime_env = self._prepare_runtime_dirs(case, self.shell_spec.id, "measured")
+        env.update(self.cli_agent_spec.env)
+        warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
+        measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")
         _warmup_home, warmup_config = self._prepare_opencode_home(case, warmup_runtime_env)
         _measured_home, measured_config = self._prepare_opencode_home(case, measured_runtime_env)
         shared_env = {
@@ -109,7 +109,7 @@ class OpencodeAdapter(ShellAdapter):
         measured_env = {**shared_env, **measured_runtime_env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
 
         warmup_args = [
-            self.shell_spec.executable,
+            self.cli_agent_spec.executable,
             "run",
             "--format",
             "json",
@@ -121,7 +121,7 @@ class OpencodeAdapter(ShellAdapter):
             case.prompt,
         ]
         measured_args = [
-            self.shell_spec.executable,
+            self.cli_agent_spec.executable,
             "run",
             "--format",
             "json",
@@ -188,7 +188,7 @@ class OpencodeAdapter(ShellAdapter):
                 "measured_started_at": measured_started_at,
                 "measured_finished_at": measured_finished_at,
                 "tool_format": case.tool_format,
-                "allowed_tools": case.allowed_tools or self.shell_spec.default_tools,
+                "allowed_tools": case.allowed_tools or self.cli_agent_spec.default_tools,
                 "warmup_command": warmup_command,
                 "measured_command": measured_command,
                 "model_selection": "isolated-config",

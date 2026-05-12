@@ -35,7 +35,7 @@ Pass the profile id in run metadata so aggregate report can map timing rows to h
 
 ```bash
 python3 -m gripprobe.cli --root . run \
-  --shell gptme \
+  --cli-agent gptme \
   --model local/qwen2.5:7b \
   --backend ollama \
   --metadata hardware_profile_id=benchmark_a100
@@ -48,4 +48,3 @@ python3 -m gripprobe.cli --root . run-suite \
   --suite default_cli_matrix \
   --metadata hardware_profile_id=benchmark_a100
 ```
-

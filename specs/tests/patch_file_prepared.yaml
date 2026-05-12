@@ -20,7 +20,7 @@ validators:
   - type: patch_applied
     target_file: patch-target.txt
     expected_line: STATUS=new
-supported_shells:
+supported_cli_agents:
   - aider
   - codex
   - gptme

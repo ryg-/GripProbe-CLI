@@ -21,7 +21,7 @@ validators:
   - type: weekly_plan_task
     target: Plan.md
     expected: Review onboarding draft at https://example.com/docs/onboarding-v2 and send feedback.
-supported_shells:
+supported_cli_agents:
   - aider
   - codex
   - gptme

@@ -75,9 +75,24 @@ class TestSpec(BaseModel):
     artifacts: list[ArtifactSpec] = Field(default_factory=list)
     rules: RuleSpec = Field(default_factory=RuleSpec)
     validators: list[ValidatorSpec]
-    supported_shells: list[str] = Field(default_factory=list)
+    supported_cli_agents: list[str] = Field(default_factory=list)
     supported_formats: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_supported_cli_agents(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        payload = dict(data)
+        legacy_supported_shells = payload.pop("supported_shells", None)
+        if "supported_cli_agents" not in payload and isinstance(legacy_supported_shells, list):
+            payload["supported_cli_agents"] = legacy_supported_shells
+        return payload
+
+    @property
+    def supported_shells(self) -> list[str]:
+        return self.supported_cli_agents
 
 
 class BackendSpec(BaseModel):
@@ -85,9 +100,24 @@ class BackendSpec(BaseModel):
 
     id: str
     model_id: str
-    shell_model_id: str
+    cli_agent_model_id: str
     model_hash: str | None = None
     env: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_cli_agent_model_id(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        payload = dict(data)
+        legacy_shell_model_id = payload.pop("shell_model_id", None)
+        if "cli_agent_model_id" not in payload and isinstance(legacy_shell_model_id, str):
+            payload["cli_agent_model_id"] = legacy_shell_model_id
+        return payload
+
+    @property
+    def shell_model_id(self) -> str:
+        return self.cli_agent_model_id
 
 
 class ModelSpec(BaseModel):
@@ -105,7 +135,7 @@ class ModelSpec(BaseModel):
     policy_overrides: dict[str, Any] = Field(default_factory=dict)
 
 
-class ShellSpec(BaseModel):
+class CliAgentSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
@@ -118,6 +148,9 @@ class ShellSpec(BaseModel):
     config_path: str | None = None
     container_image: str | None = None
     timeout_seconds: int = 120
+
+
+ShellSpec = CliAgentSpec
 
 
 class HardwareProfileSpec(BaseModel):
@@ -134,13 +167,28 @@ class HardwareProfileSpec(BaseModel):
 class SuiteMatrixEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    shell: str
+    cli_agent: str
     model: str
     backend: str | None = None
     format: str | None = None
     tests: list[str] = Field(default_factory=list)
     test_tags: list[str] = Field(default_factory=list)
     metadata: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_cli_agent(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        payload = dict(data)
+        legacy_shell = payload.pop("shell", None)
+        if "cli_agent" not in payload and isinstance(legacy_shell, str):
+            payload["cli_agent"] = legacy_shell
+        return payload
+
+    @property
+    def shell(self) -> str:
+        return self.cli_agent
 
 
 class SuiteSpec(BaseModel):
@@ -150,7 +198,7 @@ class SuiteSpec(BaseModel):
     title: str
     description: str | None = None
     backend: str = "ollama"
-    shells: list[str] = Field(default_factory=list)
+    cli_agents: list[str] = Field(default_factory=list)
     models: list[str] = Field(default_factory=list)
     tests: list[str] = Field(default_factory=list)
     test_tags: list[str] = Field(default_factory=list)
@@ -158,19 +206,34 @@ class SuiteSpec(BaseModel):
     matrix: list[SuiteMatrixEntry] = Field(default_factory=list)
     metadata: dict[str, str] = Field(default_factory=dict)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_cli_agents(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        payload = dict(data)
+        legacy_shells = payload.pop("shells", None)
+        if "cli_agents" not in payload and isinstance(legacy_shells, list):
+            payload["cli_agents"] = legacy_shells
+        return payload
+
+    @property
+    def shells(self) -> list[str]:
+        return self.cli_agents
+
 
 class CaseDefinition(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     case_id: str
     run_id: str
-    shell_id: str
-    shell_label: str
+    cli_agent_id: str
+    cli_agent_label: str
     model_id: str
     model_label: str
     backend_id: str
     backend_model_id: str
-    shell_model_id: str
+    cli_agent_model_id: str
     model_hash: str
     quantization: str | None = None
     tool_format: str
@@ -184,6 +247,35 @@ class CaseDefinition(BaseModel):
     container_image: str | None = None
     keep_system_messages: bool = False
     run_metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_cli_agent_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        payload = dict(data)
+        legacy_shell_id = payload.pop("shell_id", None)
+        legacy_shell_label = payload.pop("shell_label", None)
+        legacy_shell_model_id = payload.pop("shell_model_id", None)
+        if "cli_agent_id" not in payload and isinstance(legacy_shell_id, str):
+            payload["cli_agent_id"] = legacy_shell_id
+        if "cli_agent_label" not in payload and isinstance(legacy_shell_label, str):
+            payload["cli_agent_label"] = legacy_shell_label
+        if "cli_agent_model_id" not in payload and isinstance(legacy_shell_model_id, str):
+            payload["cli_agent_model_id"] = legacy_shell_model_id
+        return payload
+
+    @property
+    def shell_id(self) -> str:
+        return self.cli_agent_id
+
+    @property
+    def shell_label(self) -> str:
+        return self.cli_agent_label
+
+    @property
+    def shell_model_id(self) -> str:
+        return self.cli_agent_model_id
 
 
 class CaseTimings(BaseModel):
@@ -213,8 +305,23 @@ class CaseModelInfo(BaseModel):
     quantization: str | None = None
     backend: str
     model_id: str
-    shell_model_id: str
+    cli_agent_model_id: str
     model_hash: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_cli_agent_model_id(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        payload = dict(data)
+        legacy_shell_model_id = payload.pop("shell_model_id", None)
+        if "cli_agent_model_id" not in payload and isinstance(legacy_shell_model_id, str):
+            payload["cli_agent_model_id"] = legacy_shell_model_id
+        return payload
+
+    @property
+    def shell_model_id(self) -> str:
+        return self.cli_agent_model_id
 
 
 class CaseResult(BaseModel):
@@ -222,7 +329,8 @@ class CaseResult(BaseModel):
 
     case_id: str
     run_id: str
-    shell: str
+    cli_agent_id: str
+    cli_agent: str
     model: CaseModelInfo
     format: str
     test: str
@@ -234,3 +342,40 @@ class CaseResult(BaseModel):
     timings: CaseTimings
     logs: CaseLogs
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_cli_agent_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        payload = dict(data)
+        legacy_shell = payload.pop("shell", None)
+        raw_cli_agent_id = payload.get("cli_agent_id")
+        raw_cli_agent = payload.get("cli_agent")
+
+        cli_agent_id: str | None = None
+        if isinstance(raw_cli_agent_id, str) and raw_cli_agent_id.strip():
+            cli_agent_id = raw_cli_agent_id.strip()
+        elif isinstance(legacy_shell, str) and legacy_shell.strip():
+            cli_agent_id = legacy_shell.strip()
+        elif isinstance(raw_cli_agent, str) and raw_cli_agent.strip():
+            cli_agent_id = raw_cli_agent.strip()
+
+        cli_agent: str | None = None
+        if isinstance(raw_cli_agent, str) and raw_cli_agent.strip():
+            cli_agent = raw_cli_agent.strip()
+        elif cli_agent_id:
+            cli_agent = cli_agent_id
+        elif isinstance(legacy_shell, str) and legacy_shell.strip():
+            cli_agent = legacy_shell.strip()
+
+        if cli_agent_id is not None:
+            payload["cli_agent_id"] = cli_agent_id
+        if cli_agent is not None:
+            payload["cli_agent"] = cli_agent
+        return payload
+
+    @property
+    def shell(self) -> str:
+        # Legacy compatibility for code paths still using `item.shell`.
+        return self.cli_agent

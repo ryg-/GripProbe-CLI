@@ -7,7 +7,7 @@ quantization: null
 backends:
   - id: ollama
     model_id: mistral-small:24b
-    shell_model_id: local/mistral-small:24b
+    cli_agent_model_id: local/mistral-small:24b
 tags:
   - local
   - medium
@@ -15,5 +15,5 @@ supported_formats:
   - markdown
   - tool
 policy_overrides:
-  shell_timeout_seconds:
+  cli_agent_timeout_seconds:
     continue-cli: 600

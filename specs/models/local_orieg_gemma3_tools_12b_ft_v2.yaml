@@ -7,7 +7,7 @@ quantization: null
 backends:
   - id: ollama
     model_id: orieg/gemma3-tools:12b-ft-v2
-    shell_model_id: local/orieg/gemma3-tools:12b-ft-v2
+    cli_agent_model_id: local/orieg/gemma3-tools:12b-ft-v2
 tags:
   - local
   - medium
@@ -16,5 +16,5 @@ supported_formats:
   - markdown
   - tool
 policy_overrides:
-  shell_timeout_seconds:
+  cli_agent_timeout_seconds:
     continue-cli: 600

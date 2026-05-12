@@ -21,7 +21,8 @@ def _write_case(run_dir: Path, case_id: str, title: str, status: str) -> None:
     payload = {
         "case_id": case_id,
         "run_id": run_dir.name,
-        "shell": "gptme",
+        "cli_agent_id": "gptme",
+        "cli_agent": "gptme",
         "model": {
             "id": "local_qwen2_5_7b",
             "label": "local/qwen2.5:7b",
@@ -30,7 +31,7 @@ def _write_case(run_dir: Path, case_id: str, title: str, status: str) -> None:
             "quantization": None,
             "backend": "ollama",
             "model_id": "qwen2.5:7b",
-            "shell_model_id": "local/qwen2.5:7b",
+            "cli_agent_model_id": "local/qwen2.5:7b",
             "model_hash": "845dbda0ea48",
         },
         "format": "markdown",
@@ -69,7 +70,7 @@ def _tbody_row_count(summary_html: str) -> int:
 
 
 def _shell_filter_options(summary_html: str) -> list[str]:
-    match = re.search(r"<select id='shell-filter'>(.*?)</select>", summary_html, flags=re.DOTALL)
+    match = re.search(r"<select id='cli-agent-filter'>(.*?)</select>", summary_html, flags=re.DOTALL)
     if not match:
         return []
     return re.findall(r"<option value='([^']*)'>", match.group(1))
@@ -459,13 +460,13 @@ def test_aggregate_reports_marks_and_filters_extended_rows(tmp_path: Path) -> No
     assert "include-partial-runs" in summary_html
     assert "id='model-filter'" in summary_html
     assert "<option value='all'>all</option>" in summary_html
-    assert "id='shell-filter'" in summary_html
-    assert "<label for='shell-filter'>CLI Agent</label>" in summary_html
+    assert "id='cli-agent-filter'" in summary_html
+    assert "<label for='cli-agent-filter'>CLI Agent</label>" in summary_html
     assert "<option value='gptme'>gptme</option>" in summary_html
     assert "<option value='gptme unknown'>gptme unknown</option>" in summary_html
     assert "<option value='all'>all</option>" in summary_html
     assert "modelFilterSelect.addEventListener(\"change\", applyRowFilters);" in summary_html
-    assert "shellFilterSelect.addEventListener(\"change\", applyRowFilters);" in summary_html
+    assert "cliAgentFilterSelect.addEventListener(\"change\", applyRowFilters);" in summary_html
     assert "Show partial (sanity-only) runs in addition to extended test runs" in summary_html
     assert "id='include-partial-runs' type='checkbox'" in summary_html
     assert "<table id='aggregate-table'>" in summary_html
@@ -498,7 +499,8 @@ def test_aggregate_reports_sorts_shell_filter_with_version_rules(tmp_path: Path)
     def _set_shell_and_version(run_dir: Path, shell: str, version: str) -> None:
         case_path = run_dir / "cases" / "case-1" / "case.json"
         payload = json.loads(case_path.read_text(encoding="utf-8"))
-        payload["shell"] = shell
+        payload["cli_agent_id"] = shell
+        payload["cli_agent"] = shell
         payload["metadata"]["cli_agent_version"] = version
         case_path.write_text(json.dumps(payload), encoding="utf-8")
 
@@ -559,7 +561,8 @@ def test_aggregate_reports_counts_outliers_by_test_baseline(tmp_path: Path) -> N
         for case_id in ("case-1", "case-2"):
             path = run_dir / "cases" / case_id / "case.json"
             payload = json.loads(path.read_text(encoding="utf-8"))
-            payload["shell"] = shell
+            payload["cli_agent_id"] = shell
+            payload["cli_agent"] = shell
             if run_dir == run_c and case_id == "case-1":
                 payload["timings"]["measured_seconds"] = 10.0
             else:
@@ -569,7 +572,7 @@ def test_aggregate_reports_counts_outliers_by_test_baseline(tmp_path: Path) -> N
     output_dir, _ = aggregate_reports([run_a, run_b, run_c], tmp_path / "aggregate")
     summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
 
-    assert "data-shell='opencode'" in summary_html
+    assert "data-cli-agent-id='opencode'" in summary_html
     assert "data-outliers='0.5000'" in summary_html
     assert ">1/2</td>" in summary_html
 

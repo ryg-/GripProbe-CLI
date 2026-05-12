@@ -96,12 +96,12 @@ def test_run_emits_progress_lines(monkeypatch, specs_root: Path) -> None:
     )
 
     assert len(lines) == 6
-    assert "START shell=gptme model=local/qwen2.5:7b backend=ollama report=" in lines[0]
+    assert "START cli_agent=gptme model=local/qwen2.5:7b backend=ollama report=" in lines[0]
     assert "START model=local/qwen2.5:7b backend=ollama format=markdown" in lines[1]
     assert "START model=local/qwen2.5:7b backend=ollama format=markdown test=shell_pwd case=gptme__local_qwen2_5_7b__ollama__markdown__shell_pwd" in lines[2]
     assert "DONE model=local/qwen2.5:7b backend=ollama format=markdown test=shell_pwd case=gptme__local_qwen2_5_7b__ollama__markdown__shell_pwd status=PASS" in lines[3]
     assert "DONE model=local/qwen2.5:7b backend=ollama format=markdown cases=1" in lines[4]
-    assert "DONE shell=gptme model=local/qwen2.5:7b backend=ollama cases=1 report=" in lines[5]
+    assert "DONE cli_agent=gptme model=local/qwen2.5:7b backend=ollama cases=1 report=" in lines[5]
 
 
 

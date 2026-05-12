@@ -4,7 +4,7 @@
 
 ```bash
 python -m gripprobe.cli --root . validate
-python -m gripprobe.cli --root . run --shell gptme --model local/qwen2.5:7b --backend ollama
+python -m gripprobe.cli --root . run --cli-agent gptme --model local/qwen2.5:7b --backend ollama
 ```
 
 `--backend` is selected explicitly at runtime and defaults to `ollama`.
@@ -57,17 +57,17 @@ Examples:
 
 ```bash
 OLLAMA_HOST=http://ollama-host:11434 docker compose run --rm gripprobe \
-  python3 -m gripprobe.cli --root . run --shell gptme --model local/qwen2.5:7b --backend ollama --formats tool
+  python3 -m gripprobe.cli --root . run --cli-agent gptme --model local/qwen2.5:7b --backend ollama --formats tool
 ```
 
 ```bash
 OLLAMA_HOST=http://ollama-host:11434 docker compose run --rm gripprobe \
-  python3 -m gripprobe.cli --root . run --shell opencode --model local/qwen2.5:7b --backend ollama --formats tool
+  python3 -m gripprobe.cli --root . run --cli-agent opencode --model local/qwen2.5:7b --backend ollama --formats tool
 ```
 
 ```bash
 OLLAMA_HOST=http://ollama-host:11434 docker compose run --rm gripprobe \
-  python3 -m gripprobe.cli --root . run --shell continue-cli --model local/qwen2.5:7b --backend ollama --formats tool
+  python3 -m gripprobe.cli --root . run --cli-agent continue-cli --model local/qwen2.5:7b --backend ollama --formats tool
 ```
 
 ## Execution Model
@@ -86,16 +86,16 @@ run()
   -> case.json
 ```
 
-In practice, one matrix point is usually two short shell sessions: `warmup` and `measured`, each with separate `stdout` and `stderr` logs.
+In practice, one matrix point is usually two short CLI agent sessions: `warmup` and `measured`, each with separate `stdout` and `stderr` logs.
 
 
 ## Real E2E Test
 
 A live end-to-end test is available in `tests/e2e/test_real_model.py`.
-It is opt-in and uses a real shell plus a real local model, without mocks.
+It is opt-in and uses a real CLI agent plus a real local model, without mocks.
 
 Default target:
-- shell: `gptme`
+- cli_agent: `gptme`
 - model: `local/qwen2.5:7b`
 - backend: `ollama`
 - test: `shell_pwd`
@@ -107,7 +107,7 @@ Run it explicitly:
 GRIPPROBE_RUN_REAL_E2E=1 python -m pytest tests/e2e/test_real_model.py -q
 ```
 
-You can override the target with environment variables such as `GRIPPROBE_REAL_MODEL`, `GRIPPROBE_REAL_SHELL`, `GRIPPROBE_REAL_BACKEND`, `GRIPPROBE_REAL_TIMEOUT_SECONDS`, and `GRIPPROBE_OPENAI_BASE_URL`. No local endpoint is stored in the repository. Shell binaries are expected to be available on `PATH`.
+You can override the target with environment variables such as `GRIPPROBE_REAL_MODEL`, `GRIPPROBE_REAL_SHELL`, `GRIPPROBE_REAL_BACKEND`, `GRIPPROBE_REAL_TIMEOUT_SECONDS`, and `GRIPPROBE_OPENAI_BASE_URL`. No local endpoint is stored in the repository. CLI agent binaries are expected to be available on `PATH`.
 
 
 If a benchmark session crashes mid-run but the case artifacts already exist, you can rebuild summaries and HTML case pages from the run directory:
@@ -160,8 +160,8 @@ This file lists the primary run metadata keys used in reports.
 
 - HTML and Markdown aggregate summaries include:
   - status code glossary (`PASS`, `FAIL`, `TIMEOUT`, `NO_TOOL_CALL`, `TOOL_UNSUPPORTED`, `SHELL_ERROR`, `HARNESS_ERROR`, `SKIPPED`)
-  - resume semantics note (`--resume-suite` resumes by case key `shell+model+backend+format+test`)
-  - reproducibility block (`generated at`, git commit, suite id, test tags, shell set, model set, format set, hardware profile id)
+  - resume semantics note (`--resume-suite` resumes by case key `cli_agent+model+backend+format+test`)
+  - reproducibility block (`generated at`, git commit, suite id, test tags, cli agent set, model set, format set, hardware profile id)
 - Aggregate HTML includes links to:
   - test descriptions (`docs/tests.md`) when available
   - hardware profile spec (`specs/hardware_profiles.yaml`) when available
@@ -174,10 +174,11 @@ This file lists the primary run metadata keys used in reports.
 
 ## Automatically captured runtime keys
 
-- `shell_executable`
-- `shell_executable_path` (sanitized to `$HOME/...`)
-- `shell_version`
-- `shell_version_exit_code`
+- `cli_agent_executable`
+- `cli_agent_executable_path` (sanitized to `$HOME/...`)
+- `cli_agent_version`
+- `cli_agent_version_exit_code`
+- legacy aliases are still present in run metadata: `shell_executable*`, `shell_version*`
 - `ollama_context_length` (from `OLLAMA_CONTEXT_LENGTH`, if set)
 - `ollama_num_parallel` (from `OLLAMA_NUM_PARALLEL`, if set)
 - `ollama_flash_attention` (from `OLLAMA_FLASH_ATTENTION`, if set)
@@ -193,7 +194,7 @@ python3 -m gripprobe.cli --root . run-suite \
 ```
 ## Current Notes
 
-- `--resume-suite` works per case (`shell+model+backend+format+test`) and skips already completed cases from `results/runs/...`.
+- `--resume-suite` works per case (`cli_agent+model+backend+format+test`) and skips already completed cases from `results/runs/...`.
 - `default_cli_matrix` is sanity-first and currently runs with `formats: tool`.
 - For publication/share, use `results/aggregate/...`; keep `results/runs/...` as internal diagnostic artifacts.
 - For report field changes, start from `docs/specs/report-field-change-template.md`.
@@ -205,5 +206,5 @@ python3 -m gripprobe.cli --root . run-suite \
 For `continue-cli`, provide the config path from the outside when needed:
 
 ```bash
-GRIPPROBE_CONTINUE_CONFIG=/path/to/config.yaml python -m gripprobe.cli --root . run --shell continue-cli --model local/qwen2.5:7b --backend ollama
+GRIPPROBE_CONTINUE_CONFIG=/path/to/config.yaml python -m gripprobe.cli --root . run --cli-agent continue-cli --model local/qwen2.5:7b --backend ollama
 ```

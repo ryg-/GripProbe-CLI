@@ -7,7 +7,7 @@ quantization: null
 backends:
   - id: ollama
     model_id: aravhawk/qwen3.5-opus-4.6-text:9b
-    shell_model_id: local/aravhawk/qwen3.5-opus-4.6-text:9b
+    cli_agent_model_id: local/aravhawk/qwen3.5-opus-4.6-text:9b
 tags:
   - local
   - medium
@@ -15,5 +15,5 @@ supported_formats:
   - markdown
   - tool
 policy_overrides:
-  shell_timeout_seconds:
+  cli_agent_timeout_seconds:
     continue-cli: 600

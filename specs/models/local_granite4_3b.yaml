@@ -7,7 +7,7 @@ quantization: Q4_K_M
 backends:
   - id: ollama
     model_id: granite4:3b
-    shell_model_id: local/granite4:3b
+    cli_agent_model_id: local/granite4:3b
 tags:
   - local
   - small

@@ -19,7 +19,7 @@ validators:
   - type: file_equals
     target: date-output.txt
     expected_from: today
-supported_shells:
+supported_cli_agents:
   - aider
   - codex
   - gptme

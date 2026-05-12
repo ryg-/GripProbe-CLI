@@ -8,12 +8,17 @@ import subprocess
 import time
 from datetime import datetime
 
-from gripprobe.models import CaseDefinition, CaseResult, ModelSpec, ShellSpec, TestSpec
+from gripprobe.models import CaseDefinition, CaseResult, CliAgentSpec, ModelSpec, TestSpec
 
 
-class ShellAdapter(ABC):
-    def __init__(self, shell_spec: ShellSpec):
-        self.shell_spec = shell_spec
+class CliAgentAdapter(ABC):
+    def __init__(self, cli_agent_spec: CliAgentSpec):
+        self.cli_agent_spec = cli_agent_spec
+
+    @property
+    def shell_spec(self) -> CliAgentSpec:
+        # Legacy alias for adapters/tests not yet migrated to cli_agent_spec naming.
+        return self.cli_agent_spec
 
     @abstractmethod
     def run_case(self, case: CaseDefinition, model_spec: ModelSpec, test_spec: TestSpec) -> CaseResult:
@@ -44,7 +49,7 @@ class ShellAdapter(ABC):
                     stdout=out,
                     stderr=err,
                     text=True,
-                    timeout=self.shell_spec.timeout_seconds,
+                    timeout=self.cli_agent_spec.timeout_seconds,
                 )
                 finished_at = datetime.now().astimezone().isoformat(timespec="seconds")
                 out.write(f"\n[gripprobe] process_finished_at={finished_at} exit_code={proc.returncode}\n")
@@ -120,8 +125,8 @@ class ShellAdapter(ABC):
         }
         return {**os.environ, **passthrough}
 
-    def _prepare_runtime_dirs(self, case: CaseDefinition, shell_name: str, phase: str) -> dict[str, str]:
-        runtime_root = case.case_dir / "runtime" / shell_name / phase
+    def _prepare_runtime_dirs(self, case: CaseDefinition, cli_agent_name: str, phase: str) -> dict[str, str]:
+        runtime_root = case.case_dir / "runtime" / cli_agent_name / phase
         home_dir = runtime_root / "home"
         xdg_config_home = runtime_root / "config"
         xdg_data_home = runtime_root / "data"
@@ -152,3 +157,7 @@ class ShellAdapter(ABC):
 
 class AdapterError(RuntimeError):
     pass
+
+
+# Legacy compatibility alias.
+ShellAdapter = CliAgentAdapter

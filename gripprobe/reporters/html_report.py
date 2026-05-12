@@ -265,7 +265,7 @@ def _pre_block(text: str) -> str:
     return f"<pre>{escape(text)}</pre>"
 
 
-def _render_shell_commands(result: CaseResult) -> str:
+def _render_cli_agent_commands(result: CaseResult) -> str:
     warmup_command = _sanitize_for_html(str(result.metadata.get("warmup_command") or "")).strip()
     measured_command = _sanitize_for_html(str(result.metadata.get("measured_command") or "")).strip()
     if not warmup_command and not measured_command:
@@ -288,9 +288,12 @@ def _render_case_json_panel_text(case_dir: Path) -> str:
     except json.JSONDecodeError:
         return raw
     metadata = payload.get("metadata")
-    if isinstance(metadata, dict) and "shell_executable_path" in metadata:
+    if isinstance(metadata, dict):
         metadata = dict(metadata)
-        metadata["shell_executable_path"] = "[hidden in HTML]"
+        if "shell_executable_path" in metadata:
+            metadata["shell_executable_path"] = "[hidden in HTML]"
+        if "cli_agent_executable_path" in metadata:
+            metadata["cli_agent_executable_path"] = "[hidden in HTML]"
         payload["metadata"] = metadata
     payload = _sanitize_obj(payload)
     return json.dumps(payload, indent=2, ensure_ascii=False)
@@ -493,7 +496,7 @@ def _write_case_detail(
     trajectory_hints_html = _render_trajectory_hints(metadata_source_json, result)
     failure_reason_html = _render_failure_reason(metadata_source_json, result)
     runtime_snapshots_html = _render_case_runtime_snapshots(metadata_source_json) if show_runtime_snapshots else ""
-    shell_commands_html = _render_shell_commands(result)
+    cli_agent_commands_html = _render_cli_agent_commands(result)
     transcript_html = _render_transcript(case_dir)
     artifact_links = _render_artifact_links(case_dir, detail_path) if show_artifacts else ""
     modelfile_raw = _read_text(case_dir / "model.modelfile")
@@ -502,7 +505,7 @@ def _write_case_detail(
     invoked_class = INVOKED_CLASS.get(result.invoked, "unknown")
     match_class = _match_class(result.match_percent)
     cli_agent_version = _sanitize_for_html(get_cli_agent_version(result.metadata))
-    cli_agent_label = _sanitize_for_html(format_cli_agent_label(result.shell, result.metadata))
+    cli_agent_label = _sanitize_for_html(format_cli_agent_label(result.cli_agent, result.metadata))
 
     top_panels = "".join(
         panel for panel in [
@@ -530,7 +533,7 @@ def _write_case_detail(
 <p>{_status_badges(result)} <strong>Trajectory:</strong> <span class='badge {trajectory_class}'>{escape(result.trajectory)}</span> | <strong>Invoked:</strong> <span class='badge {invoked_class}'>{escape(result.invoked)}</span> | <strong>Match:</strong> <span class='badge {match_class}'>{result.match_percent}%</span></p>
 {failure_reason_html}
 {("<p class='ok'>The expected workspace artifact was present before the harness timeout elapsed.</p>") if _timeout_artifact_reached(result) else ''}
-{('<section><h2>Shell Commands</h2>' + shell_commands_html + '</section>') if shell_commands_html else ''}
+{('<section><h2>CLI Agent Commands</h2>' + cli_agent_commands_html + '</section>') if cli_agent_commands_html else ''}
 {('<section><h2>Runtime Snapshots</h2>' + runtime_snapshots_html + '</section>') if runtime_snapshots_html else ''}
 {('<section><h2>Trajectory Hints</h2>' + trajectory_hints_html + '</section>') if trajectory_hints_html else ''}
 {('<section><h2>Run Comparison</h2>' + run_comparison_html + '</section>') if run_comparison_html else ''}
@@ -609,7 +612,7 @@ def write_html_summary(results: list[CaseResult], path: Path) -> None:
         trajectory_class = TRAJECTORY_CLASS.get(item.trajectory, "unknown")
         invoked_class = INVOKED_CLASS.get(item.invoked, "unknown")
         match_class = _match_class(item.match_percent)
-        cli_agent_label = _sanitize_for_html(format_cli_agent_label(item.shell, item.metadata))
+        cli_agent_label = _sanitize_for_html(format_cli_agent_label(item.cli_agent, item.metadata))
         rows.append(
             "<tr>"
             f"<td>{escape(cli_agent_label)}</td>"

@@ -7,7 +7,7 @@ quantization: null
 backends:
   - id: ollama
     model_id: fredrezones55/qwen3.5-opus:27b
-    shell_model_id: local/fredrezones55/qwen3.5-opus:27b
+    cli_agent_model_id: local/fredrezones55/qwen3.5-opus:27b
 tags:
   - local
   - large
@@ -16,5 +16,5 @@ supported_formats:
   - markdown
   - tool
 policy_overrides:
-  shell_timeout_seconds:
+  cli_agent_timeout_seconds:
     continue-cli: 600

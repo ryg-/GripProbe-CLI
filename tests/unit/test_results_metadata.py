@@ -9,7 +9,8 @@ def test_case_result_serializes_backend_and_model_hash(tmp_path: Path) -> None:
     payload = CaseResult(
         case_id="gptme__local_qwen2_5_7b__ollama__markdown__shell_pwd",
         run_id="20260419T064337Z",
-        shell="gptme",
+        cli_agent_id="gptme",
+        cli_agent="gptme",
         model=CaseModelInfo(
             id="local_qwen2_5_7b",
             label="local/qwen2.5:7b",
@@ -45,4 +46,4 @@ def test_case_result_serializes_backend_and_model_hash(tmp_path: Path) -> None:
 
     assert data["model"]["backend"] == "ollama"
     assert data["model"]["model_hash"] == "845dbda0ea48"
-    assert data["model"]["shell_model_id"] == "local/qwen2.5:7b"
+    assert data["model"]["cli_agent_model_id"] == "local/qwen2.5:7b"

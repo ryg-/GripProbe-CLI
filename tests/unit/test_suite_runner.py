@@ -321,3 +321,76 @@ def test_run_suite_resume_does_not_skip_when_completed_tests_differ(monkeypatch,
     assert "patch_file_prepared" not in qwen25_call[3]
     assert "python_file" not in qwen25_call[3]
     assert len(qwen25_call[3]) > 0
+
+
+def test_run_suite_resume_reads_cli_agent_id_from_case_json(monkeypatch, specs_root: Path) -> None:
+    completed_run_dir = specs_root / "results" / "runs" / "20260512T000000Z"
+    completed_manifest = completed_run_dir / "manifest.json"
+    completed_manifest.parent.mkdir(parents=True, exist_ok=True)
+    completed_manifest.write_text(
+        json.dumps(
+            {
+                "cli_agent_id": "continue-cli",
+                "shell": "continue-cli",
+                "model": "local_qwen2_5_7b",
+                "backend": "ollama",
+                "formats": ["markdown"],
+                "tests": ["patch_file_prepared"],
+                "run_metadata": {"suite": "aggregate_full_passed_matrix"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    case_dir = completed_run_dir / "cases" / "continue-cli__local_qwen2_5_7b__ollama__markdown__patch_file_prepared"
+    case_dir.mkdir(parents=True, exist_ok=True)
+    (case_dir / "case.json").write_text(
+        json.dumps(
+            {
+                "cli_agent_id": "continue-cli",
+                "cli_agent": "Continue CLI",
+                "format": "markdown",
+                "test": "patch_file_prepared",
+                "model": {"id": "local_qwen2_5_7b", "backend": "ollama"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    calls: list[tuple[str, str, tuple[str, ...], tuple[str, ...]]] = []
+
+    def _fake_run(
+        root,
+        shell_name,
+        model_name,
+        backend_name,
+        run_id=None,
+        tests_filter=None,
+        test_tags_filter=None,
+        formats_filter=None,
+        container_image=None,
+        keep_system_messages=False,
+        model_hash=None,
+        run_metadata=None,
+        progress=None,
+    ):
+        calls.append((shell_name, model_name, tuple(formats_filter or ()), tuple(tests_filter or ())))
+        return Path(root) / "results" / "runs" / str(run_id), []
+
+    monkeypatch.setattr("gripprobe.suite_runner.run", _fake_run)
+
+    run_suite(
+        specs_root,
+        suite_name="aggregate_full_passed_matrix",
+        resume_suite=True,
+    )
+
+    qwen25_call = next(
+        (
+            call
+            for call in calls
+            if call[0] == "continue-cli" and call[1] == "local/qwen2.5:7b" and call[2] == ("markdown",)
+        ),
+        None,
+    )
+    assert qwen25_call is not None
+    assert "patch_file_prepared" not in qwen25_call[3]
