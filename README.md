@@ -2,6 +2,7 @@
 [GitHub project](https://github.com/ryg-/GripProbe-CLI/)
 
 ## Published Reports:
+First published report with 23 supported models and 4 cli agents
 - [HTML report](https://local-agent-bench.org/docs/report/reports/summary.html)
 - [Markdown summary](https://github.com/ryg-/GripProbe-CLI/blob/main/docs/report/reports/summary.md)
 
@@ -19,20 +20,21 @@ GripProbe evaluates observable side effects in real CLI agent environments.
 It distinguishes textual success from executed success.
 It is aimed at model/shell/backend compatibility rather than model-only ranking.
 
-### Early observations
+### Early observations from firs report
 
 These initial results suggest that shell choice is a first-order variable.
 The same model can perform strongly in one CLI shell and fail badly in another, which supports GripProbe’s focus on model × shell × backend compatibility rather than model-only ranking.
 
-In the current published runs, `continue-cli` is the strongest shell.
+In the current published runs, `continue-cli` is the strongest cli agent. 
 It delivers the highest pass rates across multiple local 9B–12B class models and is currently the most consistent shell in the published report.
+`aider` is weakes, probably not all options were properly found for `aider`.
 
 Within `continue-cli`, the top result comes from `local/aravhawk/qwen3.5-opus-4.6-text:9b`, followed by official `local/qwen3.5:9b`.
 This suggests that fine-tuning or distillation can materially affect CLI execution reliability, not just general chat quality.
 
-Within `codex`, the only `local/aravhawk/qwen3.5-opus-4.6-text:9b` shows acceptable results.
+Within `codex`, the only `local/aravhawk/qwen3.5-opus-4.6-text:9b` shows good results with own patch apply tool.
 
-For public recommendations, official `local/qwen3.5:9b` is the safer reference point.
+For public recommendations, official `local/qwen3.5:9b` with `continue-cli` is the safer reference point.
 Its results are close to the top of the current report, while its provenance and licensing surface are clearer than third-party distilled variants.
 
 These observations are preliminary.

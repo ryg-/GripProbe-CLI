@@ -23,6 +23,11 @@ DEFAULT_TEST_WEIGHT = 1.0
 OUTLIER_FACTOR = 2.5
 DEFAULT_HARDWARE_PROFILE_ID = "unspecified"
 TESTS_DOC_PUBLIC_URL = "https://raw.githubusercontent.com/ryg-/GripProbe-CLI/refs/heads/main/docs/tests.md"
+PROJECT_REPO_URL = "https://github.com/ryg-/GripProbe-CLI/"
+REPORT_TITLE = "GripProbe CLI-Agent Compatibility Matrix"
+REPORT_SUBTITLE = (
+    "This report measures real CLI agent × LLM model compatibility by executed outcomes."
+)
 _CLI_AGENT_VERSION_SORT_RE = re.compile(r"^v?(\d+)\.(\d+)(?:\.(\d+))?(?:([-+].+))?$")
 
 
@@ -484,7 +489,11 @@ def _write_aggregate_markdown_summary(
     hardware_profiles_relpath: str | None,
 ) -> None:
     lines = [
-        "# GripProbe Compatibility Report",
+        f"# {REPORT_TITLE}",
+        "",
+        REPORT_SUBTITLE,
+        "",
+        f"Project repository: [{PROJECT_REPO_URL}]({PROJECT_REPO_URL})",
         "",
         "## Reproducibility",
         f"- CLI Agents: `{', '.join(cli_agents) if cli_agents else 'none'}`",
@@ -683,7 +692,7 @@ def write_aggregate_html_summary(
     scope_summary_html = _render_scope_summary(cli_agents_value, formats_value)
 
     html = f"""<!doctype html>
-<html lang='en'><head><meta charset='utf-8'><title>GripProbe Compatibility Report</title>
+<html lang='en'><head><meta charset='utf-8'><title>{REPORT_TITLE}</title>
 <style>
 body{{font-family:system-ui,sans-serif;margin:2rem;background:#f7f7f3;color:#111;font-size:14px}}
 table{{border-collapse:collapse;width:100%}}
@@ -755,7 +764,9 @@ a:hover{{text-decoration:underline}}
 </head><body>
 <div class='page-head'>
 <div>
-<h1>GripProbe Compatibility Report</h1>
+<h1>{REPORT_TITLE}</h1>
+<p class='meta'>{REPORT_SUBTITLE}</p>
+<p class='meta'><a href='{PROJECT_REPO_URL}'>Project repository</a></p>
 </div>
 <div class='head-side'>
 <div class='context-side'>
