@@ -3,8 +3,8 @@
 
 ## Published Reports:
 First published report with 23 supported models and 4 cli agents
-- [HTML report](https://local-agent-bench.org/docs/report/reports/summary.html)
-- [Markdown summary](https://github.com/ryg-/GripProbe-CLI/blob/main/docs/report/reports/summary.md)
+- [HTML report](https://local-agent-bench.org/docs/report/reports-v1/summary.html)
+- [Markdown summary](https://github.com/ryg-/GripProbe-CLI/blob/main/docs/report/reports-v1/summary.md)
 
 
 GripProbe is a benchmark framework for CLI AI agents, focused on small and local models and on artifact-first evaluation of tool use.
@@ -20,7 +20,7 @@ GripProbe evaluates observable side effects in real CLI agent environments.
 It distinguishes textual success from executed success.
 It is aimed at model/shell/backend compatibility rather than model-only ranking.
 
-### Early observations from firs report
+### Early observations from the first report
 
 These initial results suggest that shell choice is a first-order variable.
 The same model can perform strongly in one CLI shell and fail badly in another, which supports GripProbe’s focus on model × shell × backend compatibility rather than model-only ranking.
