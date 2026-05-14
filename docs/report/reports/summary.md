@@ -1,7 +1,11 @@
-# GripProbe Compatibility Report
+# GripProbe CLI-Agent Compatibility Matrix
+
+This report measures real CLI-agent × model compatibility by executed outcomes (not text-only responses). Rows are agent/version + model/hash + format groups; cells link to measured cases, with color-coded outcomes, normalized Score, Typical Time (median), and Outliers.
+
+Project repository: [https://github.com/ryg-/GripProbe-CLI/](https://github.com/ryg-/GripProbe-CLI/)
 
 ## Reproducibility
-- Shells: `aider, codex, continue-cli, gptme, opencode`
+- CLI Agents: `aider, codex, continue-cli, gptme, opencode`
 - Models: `local/MFDoom/deepseek-r1-tool-calling:8b, local/aravhawk/qwen3.5-opus-4.6-text:9b, local/cryptidbleh/gemma4-claude-opus-4.6:latest, local/fredrezones55/qwen3.5-opus:27b, local/fredrezones55/qwen3.5-opus:9b, local/gemma3:12b, local/gemma4:e2b, local/gemma4:e4b, local/gpt-oss:20b, local/granite3-dense:8b-instruct-q6_K, local/granite4:3b, local/ministral-3:8b, local/mistral-nemo:12b, local/mistral-small:24b, local/nemotron-3-nano:4b, local/orieg/gemma3-tools:12b-ft-v2, local/phi3.5:latest, local/pleasecech/qwen3.6-plus:latest, local/qwen2.5:7b, local/qwen3.5:9b, local/qwen3:14b, local/qwen3:8b, local/yi-coder:9b-chat-q5_K_M`
 - Formats: `markdown, tool`
 - Hardware profile id: `default1`
@@ -9,7 +13,7 @@
 
 ## Cases
 
-| Shell | Model | Backend | Hash | Format | Test | Status | Reason | Trajectory | Invoked | Match | Warmup (s) | Measured (s) |
+| CLI Agent | Model | Backend | Hash | Format | Test | Status | Reason | Trajectory | Invoked | Match | Warmup (s) | Measured (s) |
 |---|---|---|---|---|---|---|---|---|---|---:|---:|---:|
 | continue-cli | local/MFDoom/deepseek-r1-tool-calling:8b | ollama | 3aa3d24e7e624d24402e00afb506d42c9cc3cc86f8df8cd8f937fb474205bbb8 | tool | Patch File | FAIL |  | clean | no | 0 | 88.241 | 12.29 |
 | continue-cli | local/MFDoom/deepseek-r1-tool-calling:8b | ollama | 3aa3d24e7e624d24402e00afb506d42c9cc3cc86f8df8cd8f937fb474205bbb8 | tool | Python File Simple | FAIL |  | clean | no | 0 | 5.074 | 4.774 |
@@ -883,4 +887,4 @@
 | opencode | local/pleasecech/qwen3.6-plus:latest | ollama | 3f477a7c351cde9981b02357c8e9cee60769065e58e5e12d231aa75f77fb5d32 | markdown | Shell Date | TOOL_UNSUPPORTED | tool unsupported by backend | clean | no | 0 | 2.924 | 2.975 |
 | opencode | local/pleasecech/qwen3.6-plus:latest | ollama | 3f477a7c351cde9981b02357c8e9cee60769065e58e5e12d231aa75f77fb5d32 | markdown | Shell PWD | TOOL_UNSUPPORTED | tool unsupported by backend | clean | no | 0 | 2.976 | 2.875 |
 
-generated at 2026-05-11 20:40:06 UTC | git commit 0db8d18
+generated at 2026-05-13 04:15:32 UTC | git commit 487f06d

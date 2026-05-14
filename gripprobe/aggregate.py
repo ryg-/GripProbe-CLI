@@ -26,7 +26,10 @@ TESTS_DOC_PUBLIC_URL = "https://raw.githubusercontent.com/ryg-/GripProbe-CLI/ref
 PROJECT_REPO_URL = "https://github.com/ryg-/GripProbe-CLI/"
 REPORT_TITLE = "GripProbe CLI-Agent Compatibility Matrix"
 REPORT_SUBTITLE = (
-    "This report measures real CLI agent × LLM model compatibility by executed outcomes."
+    "This report measures real CLI-agent × model compatibility by executed outcomes "
+    "(not text-only responses). Rows are agent/version + model/hash + format groups; "
+    "cells link to measured cases, with color-coded outcomes, normalized Score, "
+    "Typical Time (median), and Outliers."
 )
 _CLI_AGENT_VERSION_SORT_RE = re.compile(r"^v?(\d+)\.(\d+)(?:\.(\d+))?(?:([-+].+))?$")
 

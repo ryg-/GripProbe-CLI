@@ -24,7 +24,7 @@ section{margin:1.5rem 0}
 <p><span class='badge pass'>PASS</span> <strong>Trajectory:</strong> <span class='badge traj-recovered'>recovered</span> | <strong>Invoked:</strong> <span class='badge invoked-yes'>yes</span> | <strong>Match:</strong> <span class='badge match-full'>100%</span></p>
 
 
-<section><h2>Shell Commands</h2><h3>Warmup</h3><pre>gptme --non-interactive --no-confirm --name gptme__local_mistral_nemo_12b__ollama__tool__python_file-warmup --system short --workspace /work/results/runs/20260423T184736Z/cases/gptme__local_mistral_nemo_12b__ollama__tool__python_file/workspace-warmup --tools shell --tool-format tool -m local/mistral-nemo:12b &#x27;Use the shell tool. Run exactly this command: python3 -c &quot;from pathlib import Path; Path(&#x27;&quot;&#x27;&quot;&#x27;python-output.txt&#x27;&quot;&#x27;&quot;&#x27;).write_text(&#x27;&quot;&#x27;&quot;&#x27;PYTHON_OK\\n&#x27;&quot;&#x27;&quot;&#x27;)&quot;.
+<section><h2>CLI Agent Commands</h2><h3>Warmup</h3><pre>gptme --non-interactive --no-confirm --name gptme__local_mistral_nemo_12b__ollama__tool__python_file-warmup --system short --workspace /work/results/runs/20260423T184736Z/cases/gptme__local_mistral_nemo_12b__ollama__tool__python_file/workspace-warmup --tools shell --tool-format tool -m local/mistral-nemo:12b &#x27;Use the shell tool. Run exactly this command: python3 -c &quot;from pathlib import Path; Path(&#x27;&quot;&#x27;&quot;&#x27;python-output.txt&#x27;&quot;&#x27;&quot;&#x27;).write_text(&#x27;&quot;&#x27;&quot;&#x27;PYTHON_OK\\n&#x27;&quot;&#x27;&quot;&#x27;)&quot;.
 Do not retry on error.
 If the command fails, reply only with FAIL.
 If the command succeeds, reply only with DONE.

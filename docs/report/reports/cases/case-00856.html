@@ -24,7 +24,7 @@ section{margin:1.5rem 0}
 <p><span class='badge pass'>PASS</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-maybe'>maybe</span> | <strong>Match:</strong> <span class='badge match-full'>100%</span></p>
 
 
-<section><h2>Shell Commands</h2><h3>Warmup</h3><pre>aider --openai-api-base http://ollama-host:11434/v1 --config /work/results/runs/20260511T120932Z/cases/aider__local_pleasecech_qwen3_6_plus_latest__ollama__markdown__patch_file/runtime/aider/warmup/home/.aider.conf.yml --no-git --yes-always --no-auto-commits --no-dirty-commits --no-check-update --analytics-disable --no-fancy-input --no-pretty --no-stream --no-suggest-shell-commands --model ollama/pleasecech/qwen3.6-plus:latest --message &#x27;Use the read tool to inspect patch-target.txt in the current workspace.
+<section><h2>CLI Agent Commands</h2><h3>Warmup</h3><pre>aider --openai-api-base http://ollama-host:11434/v1 --config /work/results/runs/20260511T120932Z/cases/aider__local_pleasecech_qwen3_6_plus_latest__ollama__markdown__patch_file/runtime/aider/warmup/home/.aider.conf.yml --no-git --yes-always --no-auto-commits --no-dirty-commits --no-check-update --analytics-disable --no-fancy-input --no-pretty --no-stream --no-suggest-shell-commands --model ollama/pleasecech/qwen3.6-plus:latest --message &#x27;Use the read tool to inspect patch-target.txt in the current workspace.
 Then use the patch tool to replace the exact line STATUS=old with STATUS=new in patch-target.txt in the current workspace.
 Do not retry on error.
 If the edit fails, reply only with FAIL.

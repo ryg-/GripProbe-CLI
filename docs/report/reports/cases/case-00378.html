@@ -23,7 +23,7 @@ section{margin:1.5rem 0}
 <p><span class='badge fail'>FAIL</span> <strong>Trajectory:</strong> <span class='badge traj-clean'>clean</span> | <strong>Invoked:</strong> <span class='badge invoked-yes'>yes</span> | <strong>Match:</strong> <span class='badge match-none'>0%</span></p>
 
 
-<section><h2>Shell Commands</h2><h3>Warmup</h3><pre>gptme --non-interactive --no-confirm --name gptme__local_gemma4_e2b__ollama__tool__patch_file-warmup --system short --workspace /work/results/runs/20260424T091656Z/cases/gptme__local_gemma4_e2b__ollama__tool__patch_file/workspace-warmup --tools read,patch --tool-format tool -m local/gemma4:e2b &#x27;Use the read tool to inspect patch-target.txt in the current workspace.
+<section><h2>CLI Agent Commands</h2><h3>Warmup</h3><pre>gptme --non-interactive --no-confirm --name gptme__local_gemma4_e2b__ollama__tool__patch_file-warmup --system short --workspace /work/results/runs/20260424T091656Z/cases/gptme__local_gemma4_e2b__ollama__tool__patch_file/workspace-warmup --tools read,patch --tool-format tool -m local/gemma4:e2b &#x27;Use the read tool to inspect patch-target.txt in the current workspace.
 Then use the patch tool to replace the exact line STATUS=old with STATUS=new in patch-target.txt in the current workspace.
 Do not retry on error.
 If the edit fails, reply only with FAIL.
