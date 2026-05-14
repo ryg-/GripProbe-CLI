@@ -21,21 +21,11 @@ from gripprobe.validator_runner import evaluate_validators
 
 
 class GptmeAdapter(CliAgentAdapter):
-    @staticmethod
-    def _normalize_http_base(url: str) -> str:
-        raw = (url or "").strip()
-        if not raw:
-            raw = "http://127.0.0.1:11434"
-        if "://" not in raw:
-            raw = f"http://{raw}"
-        return raw.rstrip("/")
-
     def _ensure_ollama_openai_env(self, case: CaseDefinition, env: dict[str, str]) -> None:
         if case.backend_id != "ollama":
             return
         if not env.get("OPENAI_BASE_URL"):
-            ollama_host = env.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-            env["OPENAI_BASE_URL"] = f"{self._normalize_http_base(ollama_host)}/v1"
+            env["OPENAI_BASE_URL"] = self._resolve_case_openai_base_url(case, env)
         if not env.get("OPENAI_API_KEY"):
             env["OPENAI_API_KEY"] = "ollama"
 
@@ -85,6 +75,7 @@ class GptmeAdapter(CliAgentAdapter):
 
         env = os.environ.copy()
         env.update(self.cli_agent_spec.env)
+        self._apply_case_backend_env_overrides(case, env)
         self._ensure_ollama_openai_env(case, env)
         warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
         measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")

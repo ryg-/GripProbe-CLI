@@ -184,3 +184,28 @@ def test_continue_cli_falls_back_to_home_config_for_model_endpoint(tmp_path: Pat
     isolated_config = Path(result.metadata["continue_config_path"])
     config_text = isolated_config.read_text(encoding="utf-8")
     assert "apiBase: http://127.0.0.1:11434" in config_text
+
+
+def test_continue_cli_prefers_case_proxy_ollama_host_over_process_env(tmp_path: Path, monkeypatch) -> None:
+    adapter = _adapter()
+    model_spec = _model_spec()
+    test_spec = _test_spec()
+    case = _case(tmp_path, test_spec)
+    case.run_metadata = {"telemetry_proxy_ollama_host": "http://127.0.0.1:18080"}
+    case.warmup_workspace_dir.mkdir(parents=True)
+    case.workspace_dir.mkdir(parents=True)
+    monkeypatch.setenv("OLLAMA_HOST", "http://127.0.0.1:11434")
+
+    def _fake_run_command(self, case_arg, args, env, stdout_path, stderr_path, workspace_dir=None):
+        active_workspace = workspace_dir or case_arg.workspace_dir
+        (active_workspace / "pwd-output.txt").write_text(str(active_workspace) + "\n", encoding="utf-8")
+        stdout_path.write_text("System:\nRan command: `pwd > pwd-output.txt`\n", encoding="utf-8")
+        stderr_path.write_text("", encoding="utf-8")
+        return 0, 0.1, "2026-04-20T18:00:00+02:00", "2026-04-20T18:00:01+02:00"
+
+    adapter.run_command = MethodType(_fake_run_command, adapter)
+    result = adapter.run_case(case, model_spec, test_spec)
+
+    isolated_config = Path(result.metadata["continue_config_path"])
+    config_text = isolated_config.read_text(encoding="utf-8")
+    assert "apiBase: http://127.0.0.1:18080" in config_text

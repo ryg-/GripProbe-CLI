@@ -63,11 +63,9 @@ class CodexAdapter(CliAgentAdapter):
             raw = f"http://{raw}"
         return raw.rstrip("/")
 
-    @classmethod
-    def _apply_oss_base_env(cls, env: dict[str, str]) -> None:
+    def _apply_oss_base_env(self, case: CaseDefinition, env: dict[str, str]) -> None:
         # Codex OSS provider uses its own env knobs and does not read OLLAMA_HOST directly.
-        ollama_host = env.get("OLLAMA_HOST") or os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-        base = cls._normalize_http_base(ollama_host)
+        base = self._resolve_case_ollama_host(case, env)
         env["CODEX_OSS_BASE_URL"] = base if base.endswith("/v1") else f"{base}/v1"
         parsed = urlparse(base)
         if parsed.port:
@@ -274,7 +272,8 @@ class CodexAdapter(CliAgentAdapter):
 
         env = os.environ.copy()
         env.update(self.cli_agent_spec.env)
-        self._apply_oss_base_env(env)
+        self._apply_case_backend_env_overrides(case, env)
+        self._apply_oss_base_env(case, env)
 
         warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
         measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")

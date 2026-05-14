@@ -144,6 +144,41 @@ class CliAgentAdapter(ABC):
             "TMPDIR": str(tmp_dir),
         }
 
+    @staticmethod
+    def _normalize_http_base(url: str) -> str:
+        raw = (url or "").strip()
+        if not raw:
+            raw = "http://127.0.0.1:11434"
+        if "://" not in raw:
+            raw = f"http://{raw}"
+        return raw.rstrip("/")
+
+    def _resolve_case_ollama_host(self, case: CaseDefinition, env: dict[str, str]) -> str:
+        metadata = case.run_metadata if isinstance(case.run_metadata, dict) else {}
+        for key in ("telemetry_proxy_ollama_host", "ollama_host"):
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                return self._normalize_http_base(value)
+        if env.get("OLLAMA_HOST"):
+            return self._normalize_http_base(env["OLLAMA_HOST"])
+        return self._normalize_http_base(os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
+
+    def _resolve_case_openai_base_url(self, case: CaseDefinition, env: dict[str, str]) -> str:
+        metadata = case.run_metadata if isinstance(case.run_metadata, dict) else {}
+        for key in ("telemetry_proxy_openai_base_url", "openai_base_url"):
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                return self._normalize_http_base(value)
+        if env.get("OPENAI_BASE_URL"):
+            return self._normalize_http_base(env["OPENAI_BASE_URL"])
+        return f"{self._resolve_case_ollama_host(case, env)}/v1"
+
+    def _apply_case_backend_env_overrides(self, case: CaseDefinition, env: dict[str, str]) -> None:
+        if case.backend_id != "ollama":
+            return
+        env["OLLAMA_HOST"] = self._resolve_case_ollama_host(case, env)
+        env["OPENAI_BASE_URL"] = self._resolve_case_openai_base_url(case, env)
+
     def _command_text(
         self,
         case: CaseDefinition,

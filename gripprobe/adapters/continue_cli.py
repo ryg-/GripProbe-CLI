@@ -23,13 +23,18 @@ class ContinueCliAdapter(CliAgentAdapter):
             return default_path
         return None
 
-    def _prepare_continue_home(self, case: CaseDefinition, runtime_env: dict[str, str]) -> tuple[Path, Path]:
+    def _prepare_continue_home(
+        self,
+        case: CaseDefinition,
+        runtime_env: dict[str, str],
+        base_env: dict[str, str],
+    ) -> tuple[Path, Path]:
         config_path = self._resolve_source_config_path()
         continue_home = Path(runtime_env["HOME"])
         continue_dir = continue_home / ".continue"
         continue_dir.mkdir(parents=True, exist_ok=True)
 
-        api_base = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+        api_base = self._resolve_case_ollama_host(case, base_env)
         model_entry: dict[str, object] = {
             "name": case.model_label,
             "provider": "ollama",
@@ -48,6 +53,9 @@ class ContinueCliAdapter(CliAgentAdapter):
                     if item.get("model") == case.backend_model_id or item.get("name") == case.model_label:
                         model_entry = item
                         break
+            if isinstance(model_entry, dict):
+                model_entry = dict(model_entry)
+                model_entry["apiBase"] = api_base
             payload["models"] = [model_entry]
         else:
             payload = {
@@ -89,10 +97,11 @@ class ContinueCliAdapter(CliAgentAdapter):
 
         env = os.environ.copy()
         env.update(self.cli_agent_spec.env)
+        self._apply_case_backend_env_overrides(case, env)
         warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
         measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")
-        _warmup_home, warmup_config = self._prepare_continue_home(case, warmup_runtime_env)
-        _measured_home, measured_config = self._prepare_continue_home(case, measured_runtime_env)
+        _warmup_home, warmup_config = self._prepare_continue_home(case, warmup_runtime_env, env)
+        _measured_home, measured_config = self._prepare_continue_home(case, measured_runtime_env, env)
         warmup_env = {**env, **warmup_runtime_env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
         measured_env = {**env, **measured_runtime_env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
         allowed_tools = case.allowed_tools or self.cli_agent_spec.default_tools

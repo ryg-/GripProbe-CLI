@@ -23,13 +23,18 @@ class OpencodeAdapter(CliAgentAdapter):
             return default_path
         return None
 
-    def _prepare_opencode_home(self, case: CaseDefinition, runtime_env: dict[str, str]) -> tuple[Path, Path]:
+    def _prepare_opencode_home(
+        self,
+        case: CaseDefinition,
+        runtime_env: dict[str, str],
+        base_env: dict[str, str],
+    ) -> tuple[Path, Path]:
         config_path = self._resolve_source_config_path()
         opencode_home = Path(runtime_env["HOME"])
         config_dir = Path(runtime_env["XDG_CONFIG_HOME"]) / "opencode"
         config_dir.mkdir(parents=True, exist_ok=True)
 
-        api_base = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+        api_base = self._resolve_case_ollama_host(case, base_env)
         if not api_base.endswith("/v1"):
             api_base = f"{api_base}/v1"
         model_key = case.backend_model_id
@@ -98,10 +103,11 @@ class OpencodeAdapter(CliAgentAdapter):
 
         env = os.environ.copy()
         env.update(self.cli_agent_spec.env)
+        self._apply_case_backend_env_overrides(case, env)
         warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
         measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")
-        _warmup_home, warmup_config = self._prepare_opencode_home(case, warmup_runtime_env)
-        _measured_home, measured_config = self._prepare_opencode_home(case, measured_runtime_env)
+        _warmup_home, warmup_config = self._prepare_opencode_home(case, warmup_runtime_env, env)
+        _measured_home, measured_config = self._prepare_opencode_home(case, measured_runtime_env, env)
         shared_env = {
             **env,
         }

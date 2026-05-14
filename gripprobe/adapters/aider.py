@@ -40,7 +40,7 @@ class AiderAdapter(CliAgentAdapter):
             return f"ollama/{case.backend_model_id}"
         return case.cli_agent_model_id
 
-    def _base_args(self, case: CaseDefinition, config_path: Path, workspace_dir: Path) -> list[str]:
+    def _base_args(self, case: CaseDefinition, config_path: Path, workspace_dir: Path, env: dict[str, str]) -> list[str]:
         args = [
             self.cli_agent_spec.executable,
             "--config",
@@ -61,7 +61,7 @@ class AiderAdapter(CliAgentAdapter):
             case.prompt,
         ]
         if case.backend_id == "ollama":
-            api_base = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+            api_base = self._resolve_case_ollama_host(case, env)
             args[1:1] = ["--openai-api-base", f"{api_base}/v1"]
         for path in sorted(workspace_dir.iterdir()):
             if path.is_file():
@@ -97,9 +97,10 @@ class AiderAdapter(CliAgentAdapter):
 
         env = os.environ.copy()
         env.update(self.cli_agent_spec.env)
+        self._apply_case_backend_env_overrides(case, env)
         ollama_api_base = ""
         if case.backend_id == "ollama":
-            ollama_api_base = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+            ollama_api_base = self._resolve_case_ollama_host(case, env)
         warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
         measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")
         warmup_home, warmup_config_path = self._prepare_aider_home(warmup_runtime_env)
@@ -115,8 +116,8 @@ class AiderAdapter(CliAgentAdapter):
         }
         warmup_env = {**shared_env, **warmup_runtime_env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
         measured_env = {**shared_env, **measured_runtime_env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
-        warmup_args = self._base_args(case, warmup_config_path, case.warmup_workspace_dir)
-        measured_args = self._base_args(case, measured_config_path, case.workspace_dir)
+        warmup_args = self._base_args(case, warmup_config_path, case.warmup_workspace_dir, warmup_env)
+        measured_args = self._base_args(case, measured_config_path, case.workspace_dir, measured_env)
         warmup_command = self._command_text(case, warmup_args, warmup_env, workspace_dir=case.warmup_workspace_dir)
         measured_command = self._command_text(case, measured_args, measured_env, workspace_dir=case.workspace_dir)
 

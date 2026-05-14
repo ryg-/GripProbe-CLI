@@ -273,3 +273,60 @@ def test_detail_uses_raw_case_json_override_for_metadata_blocks(tmp_path: Path) 
     assert "strongly_diverged" in detail_html
     assert "Trajectory Hints" in detail_html
     assert "raw trajectory reason" in detail_html
+
+
+def test_detail_telemetry_artifact_links_omitted_when_absent(tmp_path: Path) -> None:
+    reports_dir = tmp_path / "reports"
+    cases_dir = tmp_path / "cases"
+    case_dir = cases_dir / "case-telemetry"
+    reports_dir.mkdir(parents=True)
+    case_dir.mkdir(parents=True)
+
+    result = CaseResult(
+        case_id="case-telemetry",
+        run_id="run-1",
+        cli_agent_id="aider",
+        cli_agent="aider",
+        model=CaseModelInfo(
+            id="m",
+            label="m",
+            family="fam",
+            size_class="small",
+            quantization=None,
+            backend="ollama",
+            model_id="mid",
+            shell_model_id="smid",
+            model_hash="hash",
+        ),
+        format="tool",
+        test="t",
+        title="Telemetry Case",
+        status="PASS",
+        trajectory="clean",
+        invoked="yes",
+        match_percent=100,
+        timings=CaseTimings(warmup_seconds=0.1, measured_seconds=0.2),
+        logs=CaseLogs(
+            prompt="prompt.txt",
+            warmup_stdout="warmup.stdout",
+            warmup_stderr="warmup.stderr",
+            measured_stdout="measured.stdout",
+            measured_stderr="measured.stderr",
+        ),
+        metadata={},
+    )
+    raw_case_json = json.dumps({"metadata": {"event_capture_status": "collected"}})
+    write_case_detail_pages(
+        [result],
+        reports_dir,
+        cases_dir,
+        case_json_by_case_id={"case-telemetry": raw_case_json},
+        show_case_json=False,
+    )
+
+    detail_html = (reports_dir / "cases" / "case-telemetry.html").read_text(encoding="utf-8")
+    assert "<h2>Telemetry</h2>" in detail_html
+    assert "Telemetry Artifacts" not in detail_html
+    assert "artifacts/events.warmup.jsonl" not in detail_html
+    assert "artifacts/events.measured.jsonl" not in detail_html
+    assert "artifacts/proxy.http.jsonl" not in detail_html

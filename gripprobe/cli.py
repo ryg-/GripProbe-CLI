@@ -62,6 +62,7 @@ def cmd_run(
     keep_system_messages: bool,
     model_hash: str | None,
     metadata: dict[str, str],
+    telemetry_proxy: str,
 ) -> int:
     run_dir, results = run(
         root,
@@ -75,6 +76,7 @@ def cmd_run(
         keep_system_messages=keep_system_messages,
         model_hash=model_hash,
         run_metadata=metadata,
+        telemetry_proxy_mode=telemetry_proxy,
         progress=lambda line: print(line, flush=True),
     )
     print(run_dir)
@@ -135,6 +137,7 @@ def cmd_run_suite(
     model_hash: str | None,
     metadata: dict[str, str],
     resume_suite: bool,
+    telemetry_proxy: str,
 ) -> int:
     run_dirs = run_suite(
         root,
@@ -149,6 +152,7 @@ def cmd_run_suite(
         model_hash=model_hash,
         metadata=metadata,
         resume_suite=resume_suite,
+        telemetry_proxy_mode=telemetry_proxy,
     )
     for run_dir in run_dirs:
         print(run_dir)
@@ -177,6 +181,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional fallback model hash. For Ollama, GripProbe now resolves the digest automatically via /api/tags when possible.",
     )
     run_p.add_argument("--metadata", action="append", help="Attach run metadata as key=value; may be passed multiple times")
+    run_p.add_argument(
+        "--telemetry-proxy",
+        choices=["off", "auto", "force"],
+        default="auto",
+        help="Telemetry proxy mode: auto (default), off, or force. MVP currently extracts wrapper telemetry and records proxy mode as skipped/error metadata when proxy capture is unavailable.",
+    )
     run_suite_p = sub.add_parser("run-suite")
     run_suite_p.add_argument("--suite", default="default_cli_matrix")
     run_suite_p.add_argument("--cli-agents", nargs="*")
@@ -197,6 +207,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional fallback model hash. For Ollama, GripProbe now resolves the digest automatically via /api/tags when possible.",
     )
     run_suite_p.add_argument("--metadata", action="append", help="Attach run metadata as key=value; may be passed multiple times")
+    run_suite_p.add_argument(
+        "--telemetry-proxy",
+        choices=["off", "auto", "force"],
+        default="auto",
+        help="Telemetry proxy mode: auto (default), off, or force. MVP currently extracts wrapper telemetry and records proxy mode as skipped/error metadata when proxy capture is unavailable.",
+    )
     rebuild_p = sub.add_parser("rebuild-reports")
     rebuild_p.add_argument("--run-dir", required=True)
     rebuild_p.add_argument("--keep-system-messages", action="store_true")
@@ -248,6 +264,7 @@ def main() -> int:
             keep_system_messages=ns.keep_system_messages,
             model_hash=ns.model_hash,
             metadata=metadata,
+            telemetry_proxy=ns.telemetry_proxy,
         )
     if ns.cmd == "run-suite":
         cli_agents = ns.cli_agents if ns.cli_agents is not None else ns.shells
@@ -270,6 +287,7 @@ def main() -> int:
             model_hash=ns.model_hash,
             metadata=metadata,
             resume_suite=ns.resume_suite,
+            telemetry_proxy=ns.telemetry_proxy,
         )
     if ns.cmd == "rebuild-reports":
         return cmd_rebuild_reports(

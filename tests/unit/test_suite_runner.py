@@ -55,6 +55,7 @@ def test_run_suite_runs_all_shells_by_default(monkeypatch, specs_root: Path) -> 
         keep_system_messages=False,
         model_hash=None,
         run_metadata=None,
+        telemetry_proxy_mode="off",
         progress=None,
     ):
         calls.append(
@@ -98,6 +99,7 @@ def test_run_suite_respects_explicit_shell_filter(monkeypatch, specs_root: Path)
         keep_system_messages=False,
         model_hash=None,
         run_metadata=None,
+        telemetry_proxy_mode="off",
         progress=None,
     ):
         calls.append((shell_name, model_name))
@@ -134,6 +136,7 @@ def test_run_suite_matrix_runs_only_explicit_combinations(monkeypatch, specs_roo
         keep_system_messages=False,
         model_hash=None,
         run_metadata=None,
+        telemetry_proxy_mode="off",
         progress=None,
     ):
         calls.append((shell_name, model_name, tuple(formats_filter or ())))
@@ -220,6 +223,7 @@ def test_run_suite_resume_skips_completed_matrix_entries(monkeypatch, specs_root
         keep_system_messages=False,
         model_hash=None,
         run_metadata=None,
+        telemetry_proxy_mode="off",
         progress=None,
     ):
         calls.append((shell_name, model_name, tuple(formats_filter or ()), tuple(tests_filter or ())))
@@ -293,6 +297,7 @@ def test_run_suite_resume_does_not_skip_when_completed_tests_differ(monkeypatch,
         keep_system_messages=False,
         model_hash=None,
         run_metadata=None,
+        telemetry_proxy_mode="off",
         progress=None,
     ):
         calls.append((shell_name, model_name, tuple(formats_filter or ()), tuple(tests_filter or ())))
@@ -371,6 +376,7 @@ def test_run_suite_resume_reads_cli_agent_id_from_case_json(monkeypatch, specs_r
         keep_system_messages=False,
         model_hash=None,
         run_metadata=None,
+        telemetry_proxy_mode="off",
         progress=None,
     ):
         calls.append((shell_name, model_name, tuple(formats_filter or ()), tuple(tests_filter or ())))

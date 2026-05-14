@@ -387,6 +387,69 @@ def _render_failure_reason(case_json_raw: str, result: CaseResult) -> str:
     return f"<p><strong>Failure Reason:</strong> {escape(_sanitize_for_html(str(failure_reason)))}</p>"
 
 
+def _render_telemetry(
+    case_dir: Path,
+    detail_path: Path,
+    case_json_raw: str,
+    result: CaseResult,
+    *,
+    show_artifact_links: bool = True,
+) -> str:
+    metadata = _case_metadata_from_json_text(case_json_raw)
+    if not metadata:
+        metadata = result.metadata
+    rows: list[str] = []
+    fields = (
+        ("Capture Status", "event_capture_status"),
+        ("Proxy Mode", "telemetry_proxy_mode"),
+        ("Proxy Status", "telemetry_proxy_status"),
+        ("Proxy Skip Reason", "telemetry_proxy_skip_reason"),
+        ("Capture Skip Reason", "telemetry_capture_skip_reason"),
+        ("Source Tier", "telemetry_source_tier"),
+        ("Event Count", "telemetry_event_count"),
+        ("Warmup Events", "telemetry_warmup_event_count"),
+        ("Measured Events", "telemetry_measured_event_count"),
+        ("Tool Call Count", "telemetry_tool_call_count"),
+        ("Tool Result Count", "telemetry_tool_result_count"),
+        ("Invoked Confidence", "telemetry_invoked_confidence"),
+        ("Retry Loop Detected", "telemetry_retry_loop_detected"),
+        ("Tool Event Verdict", "tool_event_verdict"),
+        ("Tool Event Verdict Reason", "tool_event_verdict_reason"),
+    )
+    for label, key in fields:
+        if key not in metadata:
+            continue
+        value = metadata.get(key)
+        if value is None or value == "":
+            continue
+        rows.append(
+            f"<li><strong>{escape(label)}:</strong> {escape(_sanitize_for_html(str(value)))}</li>"
+        )
+    summary_raw = _read_text(case_dir / "artifacts" / "events.summary.json")
+    summary_block = f"<h3>events.summary.json</h3>{_pre_block(summary_raw)}" if summary_raw.strip() else ""
+    telemetry_artifact_items: list[str] = []
+    if show_artifact_links:
+        for relpath in (
+            "artifacts/events.warmup.jsonl",
+            "artifacts/events.measured.jsonl",
+            "artifacts/proxy.http.jsonl",
+        ):
+            artifact = case_dir / relpath
+            if not artifact.exists() or not artifact.is_file():
+                continue
+            href = escape(os.path.relpath(artifact, detail_path.parent))
+            telemetry_artifact_items.append(f"<li><a href='{href}'>{escape(relpath)}</a></li>")
+    telemetry_artifacts_block = (
+        "<h3>Telemetry Artifacts</h3><ul>" + "".join(telemetry_artifact_items) + "</ul>"
+        if telemetry_artifact_items
+        else ""
+    )
+    if not rows and not summary_block and not telemetry_artifacts_block:
+        return ""
+    body = f"<ul>{''.join(rows)}</ul>" if rows else ""
+    return body + summary_block + telemetry_artifacts_block
+
+
 def _render_runtime_snapshot(snapshot: object) -> str:
     if not isinstance(snapshot, dict):
         return ""
@@ -495,6 +558,13 @@ def _write_case_detail(
     run_comparison_html = _render_run_comparison(metadata_source_json, result)
     trajectory_hints_html = _render_trajectory_hints(metadata_source_json, result)
     failure_reason_html = _render_failure_reason(metadata_source_json, result)
+    telemetry_html = _render_telemetry(
+        case_dir,
+        detail_path,
+        metadata_source_json,
+        result,
+        show_artifact_links=show_artifacts,
+    )
     runtime_snapshots_html = _render_case_runtime_snapshots(metadata_source_json) if show_runtime_snapshots else ""
     cli_agent_commands_html = _render_cli_agent_commands(result)
     transcript_html = _render_transcript(case_dir)
@@ -533,6 +603,7 @@ def _write_case_detail(
 <p>{_status_badges(result)} <strong>Trajectory:</strong> <span class='badge {trajectory_class}'>{escape(result.trajectory)}</span> | <strong>Invoked:</strong> <span class='badge {invoked_class}'>{escape(result.invoked)}</span> | <strong>Match:</strong> <span class='badge {match_class}'>{result.match_percent}%</span></p>
 {failure_reason_html}
 {("<p class='ok'>The expected workspace artifact was present before the harness timeout elapsed.</p>") if _timeout_artifact_reached(result) else ''}
+{('<section><h2>Telemetry</h2>' + telemetry_html + '</section>') if telemetry_html else ''}
 {('<section><h2>CLI Agent Commands</h2>' + cli_agent_commands_html + '</section>') if cli_agent_commands_html else ''}
 {('<section><h2>Runtime Snapshots</h2>' + runtime_snapshots_html + '</section>') if runtime_snapshots_html else ''}
 {('<section><h2>Trajectory Hints</h2>' + trajectory_hints_html + '</section>') if trajectory_hints_html else ''}

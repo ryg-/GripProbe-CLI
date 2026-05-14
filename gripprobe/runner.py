@@ -29,6 +29,8 @@ from gripprobe.reporters.html_report import write_html_summary
 from gripprobe.reporters.markdown import write_markdown_summary
 from gripprobe.results import create_run_paths, write_json
 from gripprobe.spec_loader import load_cli_agent_specs, load_model_specs, load_test_specs
+from gripprobe.telemetry import extract_and_persist_case_telemetry, normalize_telemetry_proxy_mode
+from gripprobe.telemetry_proxy import OllamaTelemetryProxy
 
 
 DEFAULT_BACKEND = "ollama"
@@ -151,6 +153,33 @@ def _ollama_base_url() -> str:
     if "://" not in host:
         host = f"http://{host}"
     return host.rstrip("/")
+
+
+def _normalize_http_base(url: str) -> str:
+    raw = (url or "").strip()
+    if not raw:
+        raw = "http://127.0.0.1:11434"
+    if "://" not in raw:
+        raw = f"http://{raw}"
+    return raw.rstrip("/")
+
+
+def _resolve_ollama_host_for_backend(backend: BackendSpec) -> str:
+    env = backend.env or {}
+    explicit_host = str(env.get("OLLAMA_HOST", "")).strip()
+    if explicit_host:
+        return _normalize_http_base(explicit_host)
+    explicit_api_base = str(env.get("OLLAMA_API_BASE", "")).strip()
+    if explicit_api_base:
+        normalized = _normalize_http_base(explicit_api_base)
+        if normalized.endswith("/v1"):
+            normalized = normalized[:-3]
+        return normalized.rstrip("/")
+    return _ollama_base_url()
+
+
+def _create_ollama_telemetry_proxy(case_dir: Path, upstream_base_url: str) -> OllamaTelemetryProxy:
+    return OllamaTelemetryProxy(case_dir=case_dir, upstream_base_url=upstream_base_url)
 
 
 def _ollama_host_name() -> str:
@@ -834,7 +863,9 @@ def run(
     run_metadata: dict[str, str] | None = None,
     progress: Callable[[str], None] | None = None,
     shell_name: str | None = None,
+    telemetry_proxy_mode: str = "auto",
 ) -> tuple[Path, list[CaseResult]]:
+    proxy_mode = normalize_telemetry_proxy_mode(telemetry_proxy_mode)
     tests = load_test_specs(root)
     models = load_model_specs(root)
     cli_agents = load_cli_agent_specs(root)
@@ -940,6 +971,41 @@ def run(
                     search_challenge.required_token,
                 )
                 active_test_spec = _patch_web_search_validators(test_spec, search_challenge)
+            proxy_capture: OllamaTelemetryProxy | None = None
+            proxy_capture_status = "skipped"
+            proxy_capture_skip_reason: str | None = None
+            proxy_capture_artifact_relpath: str | None = None
+            proxy_capture_error: str | None = None
+            proxy_runtime_metadata: dict[str, str] = {}
+            if proxy_mode == "off":
+                proxy_capture_skip_reason = "disabled"
+            elif backend.id != "ollama":
+                if proxy_mode == "force":
+                    proxy_capture_status = "error"
+                    proxy_capture_skip_reason = "unsupported_backend"
+                else:
+                    proxy_capture_skip_reason = "unsupported_backend"
+            else:
+                upstream_base_url = _resolve_ollama_host_for_backend(backend)
+                try:
+                    proxy_capture = _create_ollama_telemetry_proxy(case_dir=case_dir, upstream_base_url=upstream_base_url)
+                    proxy_capture.start()
+                    if not proxy_capture.base_url:
+                        raise RuntimeError("telemetry proxy failed to publish base URL")
+                    proxy_capture_status = "collected"
+                    proxy_capture_skip_reason = None
+                    proxy_capture_artifact_relpath = proxy_capture.artifact_relpath
+                    proxy_runtime_metadata = {
+                        "telemetry_proxy_ollama_host": proxy_capture.base_url,
+                        "telemetry_proxy_openai_base_url": f"{proxy_capture.base_url}/v1",
+                        "telemetry_proxy_upstream_base_url": upstream_base_url,
+                        "telemetry_proxy_artifact_path": proxy_capture.artifact_relpath,
+                    }
+                except Exception as exc:  # noqa: BLE001
+                    proxy_capture = None
+                    proxy_capture_status = "error"
+                    proxy_capture_skip_reason = "proxy_start_failed"
+                    proxy_capture_error = str(exc)
             case = CaseDefinition(
                 case_id=case_id,
                 run_id=run_paths.run_id,
@@ -962,7 +1028,7 @@ def run(
                 allowed_tools=active_test_spec.allowed_tools,
                 container_image=container_image or cli_agent_spec.container_image,
                 keep_system_messages=keep_system_messages,
-                run_metadata=merged_run_metadata,
+                run_metadata={**merged_run_metadata, **proxy_runtime_metadata},
             )
             case_runtime_before = _collect_runtime_snapshot(include_ollama=backend.id == "ollama")
             try:
@@ -970,14 +1036,51 @@ def run(
             except AdapterError as exc:
                 result = _harness_error_result(case, model_spec, active_test_spec, str(exc))
             finally:
+                if proxy_capture is not None:
+                    try:
+                        proxy_capture.stop()
+                    except Exception as exc:  # noqa: BLE001
+                        proxy_capture_status = "error"
+                        proxy_capture_skip_reason = "proxy_stop_failed"
+                        proxy_capture_error = str(exc)
                 if web_challenge is not None:
                     web_challenge.stop()
                 if web_search_challenge is not None:
                     web_search_challenge.stop()
+            if proxy_capture_status == "collected" and proxy_capture_artifact_relpath:
+                proxy_artifact_path = case_dir / proxy_capture_artifact_relpath
+                if not proxy_artifact_path.exists():
+                    proxy_capture_status = "error"
+                    proxy_capture_skip_reason = "capture_missing"
             case_runtime_after = _collect_runtime_snapshot(include_ollama=backend.id == "ollama")
+            telemetry_metadata = extract_and_persist_case_telemetry(
+                case_dir=case_dir,
+                run_id=run_paths.run_id,
+                case_id=case_id,
+                cli_agent_id=cli_agent_spec.id,
+                telemetry_proxy_mode=proxy_mode,
+                proxy_capture_status=proxy_capture_status,
+                proxy_capture_skip_reason=proxy_capture_skip_reason,
+                proxy_artifact_relpath=proxy_capture_artifact_relpath,
+            )
+            proxy_required_failed = (
+                proxy_mode == "force"
+                and str(telemetry_metadata.get("telemetry_proxy_status")) != "collected"
+            )
+            if proxy_required_failed:
+                result.status = "HARNESS_ERROR"
+                result.invoked = "no"
+                result.match_percent = 0
+                result.metadata = {
+                    **result.metadata,
+                    "failure_reason": "proxy_required_but_not_available",
+                    "error": "telemetry proxy mode=force requires active proxy capture",
+                }
             result.metadata = {
                 **merged_run_metadata,
+                **proxy_runtime_metadata,
                 **result.metadata,
+                **({"telemetry_proxy_runtime_error": proxy_capture_error} if proxy_capture_error else {}),
                 **(
                     {
                         "web_challenge": {
@@ -1008,6 +1111,7 @@ def run(
                     "before": case_runtime_before,
                     "after": case_runtime_after,
                 },
+                **telemetry_metadata,
             }
             write_json(case_dir / "case.json", result.model_dump())
             results.append(result)

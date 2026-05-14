@@ -259,6 +259,7 @@ def run_suite(
     model_hash: str | None = None,
     metadata: dict[str, str] | None = None,
     resume_suite: bool = False,
+    telemetry_proxy_mode: str = "auto",
 ) -> list[Path]:
     if cli_agents is None and shells is not None:
         cli_agents = list(shells)
@@ -342,6 +343,7 @@ def run_suite(
                         keep_system_messages=keep_system_messages,
                         model_hash=model_hash,
                         run_metadata=merged_metadata,
+                        telemetry_proxy_mode=telemetry_proxy_mode,
                         progress=lambda line: print(line, flush=True),
                     )
                     run_dirs.append(run_dir)
@@ -362,6 +364,7 @@ def run_suite(
                 keep_system_messages=keep_system_messages,
                 model_hash=model_hash,
                 run_metadata=merged_metadata,
+                telemetry_proxy_mode=telemetry_proxy_mode,
                 progress=lambda line: print(line, flush=True),
             )
             run_dirs.append(run_dir)
@@ -429,6 +432,7 @@ def run_suite(
                         keep_system_messages=keep_system_messages,
                         model_hash=model_hash,
                         run_metadata=merged_metadata,
+                        telemetry_proxy_mode=telemetry_proxy_mode,
                         progress=lambda line: print(line, flush=True),
                     )
                     run_dirs.append(run_dir)
@@ -449,6 +453,7 @@ def run_suite(
                 keep_system_messages=keep_system_messages,
                 model_hash=model_hash,
                 run_metadata=merged_metadata,
+                telemetry_proxy_mode=telemetry_proxy_mode,
                 progress=lambda line: print(line, flush=True),
             )
             run_dirs.append(run_dir)

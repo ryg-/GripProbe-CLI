@@ -277,6 +277,10 @@ Why selected:
 - [ ] Aggregate headline uses `strict_pass_score`.
 - [ ] `PASS_WITH_POLICY_VIOLATION` contributes `0.8` to `overall_score` and `0.0` to `strict_pass_score`.
 - [ ] `wrapper_parse_error` produces `HARNESS_ERROR`.
+- [ ] Internal case report (raw/internal) includes direct links to telemetry JSONL artifacts when present:
+  - `artifacts/events.warmup.jsonl`
+  - `artifacts/events.measured.jsonl`
+  - `artifacts/proxy.http.jsonl`
 
 ## 12. Test Plan
 
@@ -300,6 +304,7 @@ Why selected:
 - How this appears in case pages vs aggregate pages:
     - in aggregate page only reinvented fail statuses
     - in internal case pages - link to full traces and reasons for calculated status
+    - internal case pages include direct links to telemetry artifacts (`events.warmup.jsonl`, `events.measured.jsonl`, `proxy.http.jsonl`) when present
     - in aggregate case pages reasons for new statuses.
     - aggregate never links raw proxy trace; it shows only sanitized summary/excerpt/problematic lines.
 
@@ -337,7 +342,3 @@ Why selected:
   - `tool_event_verdict=tool_event_inconclusive`
   - `tool_event_verdict_reason=proxy_error`
 - `--telemetry-proxy auto` remains non-fatal (`skipped` when proxy routing is unsupported).
-- Internal case report (raw/internal report) must include direct links to telemetry JSONL artifacts when present:
-  - `artifacts/events.warmup.jsonl`
-  - `artifacts/events.measured.jsonl`
-  - `artifacts/proxy.http.jsonl`
