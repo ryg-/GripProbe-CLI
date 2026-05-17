@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, Literal
 
 TelemetryProxyMode = Literal["off", "auto", "force"]
@@ -65,7 +66,7 @@ def extract_and_persist_case_telemetry(
     telemetry_proxy_mode: TelemetryProxyMode,
     proxy_capture_status: TelemetryProxyStatus | None = None,
     proxy_capture_skip_reason: str | None = None,
-    proxy_artifact_relpath: str | None = "artifacts/proxy.http.jsonl",
+    proxy_artifact_relpaths: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     artifacts_dir = case_dir / "artifacts"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
@@ -107,29 +108,55 @@ def extract_and_persist_case_telemetry(
         telemetry_proxy_status = proxy_capture_status
         telemetry_proxy_skip_reason = proxy_capture_skip_reason
 
+    proxy_artifact_paths = {
+        phase: relpath
+        for phase, relpath in (proxy_artifact_relpaths or {}).items()
+        if phase in {"warmup", "measured"} and relpath
+    }
+    proxy_http_counts: dict[str, int] = {"warmup": 0, "measured": 0}
     if telemetry_proxy_status == "collected":
-        if not proxy_artifact_relpath:
+        if set(proxy_artifact_paths) != {"warmup", "measured"}:
             telemetry_proxy_status = "error"
             telemetry_proxy_skip_reason = "capture_missing"
         else:
-            try:
-                proxy_events = _extract_proxy_events(
-                    proxy_path=case_dir / proxy_artifact_relpath,
-                    run_id=run_id,
-                    case_id=case_id,
-                    sequence_start=len(measured_events) + 1,
-                )
-                measured_events.extend(proxy_events)
-            except Exception:
-                telemetry_proxy_status = "error"
-                telemetry_proxy_skip_reason = "capture_missing"
+            for phase in ("warmup", "measured"):
+                relpath = proxy_artifact_paths[phase]
+                try:
+                    proxy_events, proxy_line_count = _extract_proxy_events(
+                        proxy_path=case_dir / relpath,
+                        run_id=run_id,
+                        case_id=case_id,
+                        phase=phase,  # type: ignore[arg-type]
+                        sequence_start=(len(warmup_events) + 1 if phase == "warmup" else len(measured_events) + 1),
+                    )
+                    proxy_http_counts[phase] = proxy_line_count
+                    if phase == "warmup":
+                        warmup_events.extend(proxy_events)
+                    else:
+                        measured_events.extend(proxy_events)
+                except Exception:
+                    telemetry_proxy_status = "error"
+                    telemetry_proxy_skip_reason = "capture_missing"
+                    break
 
     _write_jsonl(artifacts_dir / "events.warmup.jsonl", warmup_events)
     _write_jsonl(artifacts_dir / "events.measured.jsonl", measured_events)
 
     total_events = [*warmup_events, *measured_events]
-    tool_call_events = [event for event in total_events if event.get("event_type") == "tool_call_start"]
-    tool_result_events = [event for event in total_events if event.get("event_type") == "tool_call_result"]
+    warmup_tool_call_events = [event for event in warmup_events if event.get("event_type") == "tool_call_start"]
+    measured_tool_call_events = [event for event in measured_events if event.get("event_type") == "tool_call_start"]
+    warmup_tool_result_events = [event for event in warmup_events if event.get("event_type") == "tool_call_result"]
+    measured_tool_result_events = [event for event in measured_events if event.get("event_type") == "tool_call_result"]
+    tool_call_events = [*warmup_tool_call_events, *measured_tool_call_events]
+    tool_result_events = [*warmup_tool_result_events, *measured_tool_result_events]
+    proxy_nonstructured_tool_call_events = [
+        event
+        for event in tool_call_events
+        if event.get("source") == "proxy"
+        and event.get("source_tier") == "C"
+        and isinstance(event.get("payload"), dict)
+        and event["payload"].get("evidence_mode") == "proxy_nonstructured"
+    ]
     telemetry_source_tier = _highest_source_tier(total_events)
     telemetry_retry_loop_detected = _detect_retry_loop(tool_call_events)
 
@@ -137,8 +164,8 @@ def extract_and_persist_case_telemetry(
     tool_event_verdict, tool_event_verdict_reason = _derive_tool_event_verdict(
         cli_agent_id=cli_agent_id,
         event_capture_status=event_capture_status,
-        tool_call_count=len(tool_call_events),
-        tool_result_count=len(tool_result_events),
+        tool_call_count=len(measured_tool_call_events),
+        tool_result_count=len(measured_tool_result_events),
         telemetry_proxy_mode=telemetry_proxy_mode,
         telemetry_proxy_status=telemetry_proxy_status,
     )
@@ -158,6 +185,7 @@ def extract_and_persist_case_telemetry(
         "telemetry_source_tier": telemetry_source_tier,
         "telemetry_event_count": len(total_events),
         "telemetry_tool_call_count": len(tool_call_events),
+        "telemetry_proxy_tool_call_nonstructured_count": len(proxy_nonstructured_tool_call_events),
         "telemetry_tool_result_count": len(tool_result_events),
         "telemetry_invoked_confidence": telemetry_invoked_confidence,
         "telemetry_retry_loop_detected": telemetry_retry_loop_detected,
@@ -167,7 +195,16 @@ def extract_and_persist_case_telemetry(
             "warmup": len(warmup_events),
             "measured": len(measured_events),
         },
-        "telemetry_proxy_http_path": proxy_artifact_relpath,
+        "phase_tool_call_counts": {
+            "warmup": len(warmup_tool_call_events),
+            "measured": len(measured_tool_call_events),
+        },
+        "phase_tool_result_counts": {
+            "warmup": len(warmup_tool_result_events),
+            "measured": len(measured_tool_result_events),
+        },
+        "telemetry_proxy_http_paths": proxy_artifact_paths,
+        "telemetry_proxy_http_counts": proxy_http_counts,
     }
     _write_json(artifacts_dir / "events.summary.json", summary)
 
@@ -180,6 +217,7 @@ def extract_and_persist_case_telemetry(
         "telemetry_source_tier": telemetry_source_tier,
         "telemetry_event_count": len(total_events),
         "telemetry_tool_call_count": len(tool_call_events),
+        "telemetry_proxy_tool_call_nonstructured_count": len(proxy_nonstructured_tool_call_events),
         "telemetry_tool_result_count": len(tool_result_events),
         "telemetry_invoked_confidence": telemetry_invoked_confidence,
         "telemetry_retry_loop_detected": telemetry_retry_loop_detected,
@@ -188,9 +226,17 @@ def extract_and_persist_case_telemetry(
         "telemetry_events_warmup_path": "artifacts/events.warmup.jsonl",
         "telemetry_events_measured_path": "artifacts/events.measured.jsonl",
         "telemetry_events_summary_path": "artifacts/events.summary.json",
-        "telemetry_proxy_http_path": proxy_artifact_relpath,
+        "telemetry_proxy_warmup_http_path": proxy_artifact_paths.get("warmup"),
+        "telemetry_proxy_measured_http_path": proxy_artifact_paths.get("measured"),
+        "telemetry_proxy_http_paths": proxy_artifact_paths,
+        "telemetry_proxy_warmup_http_count": proxy_http_counts["warmup"],
+        "telemetry_proxy_measured_http_count": proxy_http_counts["measured"],
         "telemetry_warmup_event_count": len(warmup_events),
         "telemetry_measured_event_count": len(measured_events),
+        "telemetry_warmup_tool_call_count": len(warmup_tool_call_events),
+        "telemetry_measured_tool_call_count": len(measured_tool_call_events),
+        "telemetry_warmup_tool_result_count": len(warmup_tool_result_events),
+        "telemetry_measured_tool_result_count": len(measured_tool_result_events),
     }
 
 
@@ -258,7 +304,7 @@ def _extract_events_by_phase(case_dir: Path, run_id: str, case_id: str) -> tuple
 
 def _is_transcript_candidate(path: Path) -> bool:
     name = path.name
-    if name in {"events.warmup.jsonl", "events.measured.jsonl", "proxy.http.jsonl"}:
+    if name in {"events.warmup.jsonl", "events.measured.jsonl", "proxy.warmup.http.jsonl", "proxy.measured.http.jsonl"}:
         return False
     if name == "conversation.jsonl":
         return True
@@ -282,104 +328,167 @@ def _extract_proxy_events(
     proxy_path: Path,
     run_id: str,
     case_id: str,
+    phase: Literal["warmup", "measured"],
     sequence_start: int,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], int]:
     if not proxy_path.exists():
         raise FileNotFoundError(str(proxy_path))
     events: list[dict[str, Any]] = []
     sequence = sequence_start
+    line_count = 0
     for index, raw_line in enumerate(proxy_path.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
         line = raw_line.strip()
         if not line:
             continue
+        line_count += 1
         try:
             payload = json.loads(line)
         except json.JSONDecodeError:
             continue
         if not isinstance(payload, dict):
             continue
-        timestamp = _as_string(payload.get("timestamp")) or _utc_now_iso()
-        path = _as_string(payload.get("path"))
-        method = _as_string(payload.get("method")).upper() or "UNKNOWN"
-        response_payload = payload.get("response")
-        response_status: int | None = None
-        if isinstance(response_payload, dict):
-            response_status = _to_int(response_payload.get("status"))
-        tool_names_raw = payload.get("tool_names")
+        timestamp = _as_string(payload.get("x_gripprobe_timestamp")) or _utc_now_iso()
+        path = _as_string(payload.get("x_gripprobe_path"))
+        method = _as_string(payload.get("x_gripprobe_method")).upper() or "UNKNOWN"
+        response_status = _to_int(payload.get("x_gripprobe_response_status"))
+        if response_status is None:
+            response_payload = payload.get("x_gripprobe_response")
+            if isinstance(response_payload, dict):
+                response_status = _to_int(response_payload.get("x_gripprobe_status"))
+        tool_names_raw = payload.get("x_gripprobe_tool_names")
         tool_names: list[str] = []
         if isinstance(tool_names_raw, list):
             for value in tool_names_raw:
                 if isinstance(value, str) and value.strip():
                     tool_names.append(value.strip())
-        call_count = _to_int(payload.get("tool_call_count")) or 0
-        result_count = _to_int(payload.get("tool_result_count")) or 0
+        call_count = _to_int(payload.get("x_gripprobe_tool_call_count"))
+        result_count = _to_int(payload.get("x_gripprobe_tool_result_count"))
+        call_count = call_count or 0
+        result_count = result_count or 0
+        latency_ms = _to_int(payload.get("x_gripprobe_duration_ms"))
         if call_count > len(tool_names):
             tool_names.extend(["unknown"] * (call_count - len(tool_names)))
         for tool_name in tool_names:
-            events.append(
-                {
-                    "event_type": "tool_call_start",
-                    "run_id": run_id,
-                    "case_id": case_id,
-                    "phase": "measured",
-                    "event_id": f"measured-{sequence:04d}",
-                    "trace_id": "measured",
-                    "tool_call_id": None,
-                    "response_id": None,
-                    "source_tier": "A",
-                    "payload": _sanitize_obj(
-                        {
-                            "tool_name": tool_name,
-                            "http_method": method,
-                            "http_path": path,
-                            "response_status": response_status,
-                        }
-                    ),
-                    "timestamp": _sanitize_text(timestamp),
-                    "sequence": sequence,
-                    "source": "proxy",
-                    "status": "started",
-                    "latency_ms": _to_int(payload.get("duration_ms")),
-                    "exit_code": None,
-                    "error_type": None,
-                    "raw_artifact_ref": f"{proxy_path.name}:{index}",
-                    "redaction_status": "redacted",
-                }
-            )
+            events.append(_build_proxy_event(
+                event_type="tool_call_start",
+                run_id=run_id,
+                case_id=case_id,
+                phase=phase,
+                sequence=sequence,
+                source_tier="A",
+                status="started",
+                timestamp=timestamp,
+                raw_artifact_ref=f"{proxy_path.name}:{index}",
+                tool_name=tool_name,
+                tool_call_id=None,
+                method=method,
+                path=path,
+                response_status=response_status,
+                latency_ms=latency_ms,
+                evidence_mode=None,
+            ))
             sequence += 1
         for _ in range(max(result_count, 0)):
-            events.append(
-                {
-                    "event_type": "tool_call_result",
-                    "run_id": run_id,
-                    "case_id": case_id,
-                    "phase": "measured",
-                    "event_id": f"measured-{sequence:04d}",
-                    "trace_id": "measured",
-                    "tool_call_id": None,
-                    "response_id": None,
-                    "source_tier": "A",
-                    "payload": _sanitize_obj(
-                        {
-                            "tool_name": tool_names[0] if tool_names else "unknown",
-                            "http_method": method,
-                            "http_path": path,
-                            "response_status": response_status,
-                        }
-                    ),
-                    "timestamp": _sanitize_text(timestamp),
-                    "sequence": sequence,
-                    "source": "proxy",
-                    "status": "success",
-                    "latency_ms": _to_int(payload.get("duration_ms")),
-                    "exit_code": None,
-                    "error_type": None,
-                    "raw_artifact_ref": f"{proxy_path.name}:{index}",
-                    "redaction_status": "redacted",
-                }
-            )
+            events.append(_build_proxy_event(
+                event_type="tool_call_result",
+                run_id=run_id,
+                case_id=case_id,
+                phase=phase,
+                sequence=sequence,
+                source_tier="A",
+                status="success",
+                timestamp=timestamp,
+                raw_artifact_ref=f"{proxy_path.name}:{index}",
+                tool_name=tool_names[0] if tool_names else "unknown",
+                tool_call_id=None,
+                method=method,
+                path=path,
+                response_status=response_status,
+                latency_ms=latency_ms,
+                evidence_mode=None,
+            ))
             sequence += 1
-    return events
+        nonstructured_count = _to_int(payload.get("x_gripprobe_tool_call_nonstructured_count")) or 0
+        nonstructured_names = _strings_from_list(payload.get("x_gripprobe_tool_names_nonstructured"))
+        nonstructured_call_ids = _strings_from_list(payload.get("x_gripprobe_tool_call_ids_nonstructured"))
+        if nonstructured_count > len(nonstructured_names):
+            nonstructured_names.extend(["unknown"] * (nonstructured_count - len(nonstructured_names)))
+        for offset, tool_name in enumerate(nonstructured_names):
+            events.append(_build_proxy_event(
+                event_type="tool_call_start",
+                run_id=run_id,
+                case_id=case_id,
+                phase=phase,
+                sequence=sequence,
+                source_tier="C",
+                status="started",
+                timestamp=timestamp,
+                raw_artifact_ref=f"{proxy_path.name}:{index}",
+                tool_name=tool_name,
+                tool_call_id=nonstructured_call_ids[offset] if offset < len(nonstructured_call_ids) else None,
+                method=method,
+                path=path,
+                response_status=response_status,
+                latency_ms=latency_ms,
+                evidence_mode="proxy_nonstructured",
+            ))
+            sequence += 1
+    return events, line_count
+
+
+def _strings_from_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+
+
+def _build_proxy_event(
+    *,
+    event_type: Literal["tool_call_start", "tool_call_result"],
+    run_id: str,
+    case_id: str,
+    phase: Literal["warmup", "measured"],
+    sequence: int,
+    source_tier: Literal["A", "C"],
+    status: str,
+    timestamp: str,
+    raw_artifact_ref: str,
+    tool_name: str,
+    tool_call_id: str | None,
+    method: str,
+    path: str,
+    response_status: int | None,
+    latency_ms: int | None,
+    evidence_mode: str | None,
+) -> dict[str, Any]:
+    event_payload = {
+        "tool_name": tool_name,
+        "http_method": method,
+        "http_path": path,
+        "response_status": response_status,
+        "evidence_mode": evidence_mode,
+    }
+    return {
+        "event_type": event_type,
+        "run_id": run_id,
+        "case_id": case_id,
+        "phase": phase,
+        "event_id": f"{phase}-{sequence:04d}",
+        "trace_id": phase,
+        "tool_call_id": tool_call_id,
+        "response_id": None,
+        "source_tier": source_tier,
+        "payload": _sanitize_obj({key: value for key, value in event_payload.items() if value is not None}),
+        "timestamp": _sanitize_text(timestamp),
+        "sequence": sequence,
+        "source": "proxy",
+        "status": status,
+        "latency_ms": latency_ms,
+        "exit_code": None,
+        "error_type": None,
+        "raw_artifact_ref": raw_artifact_ref,
+        "redaction_status": "redacted",
+    }
 
 
 def _extract_events_from_path(
@@ -671,14 +780,14 @@ def _derive_tool_event_verdict(
     telemetry_proxy_mode: TelemetryProxyMode,
     telemetry_proxy_status: TelemetryProxyStatus,
 ) -> tuple[ToolEventVerdict, ToolEventVerdictReason]:
-    if telemetry_proxy_mode == "force" and telemetry_proxy_status == "error":
-        return "tool_event_inconclusive", "proxy_error"
     if event_capture_status == "wrapper_parse_error":
         return "tool_event_inconclusive", "wrapper_parse_error"
     if event_capture_status == "missing":
         return "tool_event_inconclusive", "capture_missing"
     if tool_call_count > 0 or tool_result_count > 0:
         return "confirmed_tool_use", "none"
+    if telemetry_proxy_mode == "force" and telemetry_proxy_status == "error":
+        return "tool_event_inconclusive", "proxy_error"
     if cli_agent_id not in _PARSER_CAPABLE_CLI_AGENTS:
         return "tool_event_not_observable", "parser_not_capable_for_shell"
     return "no_tool_event_observed", "structured_event_absent"

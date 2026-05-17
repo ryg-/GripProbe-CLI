@@ -50,7 +50,8 @@ Scope: local workflow only (no PR requirements).
         - wrapper event extraction is always enabled.
 - Trigger condition (fill exactly):
     - `always extract wrapper events after warmup/measured phases`
-    - `if telemetry_proxy_mode != off and backend/protocol supports routing then run per-case proxy capture`
+    - `if telemetry_proxy_mode != off and backend/protocol supports routing then run phase-scoped proxy capture`
+    - `proxy lifecycle is per phase: start/stop once for warmup, then start/stop once for measured`
 - Skip reasons taxonomy:
     - Skip reasons describe capture/proxy lifecycle only.
     - Verdict reasons describe evaluator evidence classification and may differ from skip reasons.
@@ -127,7 +128,27 @@ Scope: local workflow only (no PR requirements).
     - `cases/<id>/artifacts/events.warmup.jsonl`
     - `cases/<id>/artifacts/events.measured.jsonl`
     - `cases/<id>/artifacts/events.summary.json`
-    - `cases/<id>/artifacts/proxy.http.jsonl` (if proxy enabled)
+    - `cases/<id>/artifacts/proxy.warmup.http.jsonl` (if proxy enabled)
+    - `cases/<id>/artifacts/proxy.measured.http.jsonl` (if proxy enabled)
+- Proxy artifact naming contract (`proxy.warmup.http.jsonl`, `proxy.measured.http.jsonl`):
+    - All fields emitted by GripProbe proxy must use the prefix `x_gripprobe_`.
+    - Mandatory top-level proxy keys must be prefixed, including tool evidence counters.
+    - Example key set:
+        - `x_gripprobe_timestamp`
+        - `x_gripprobe_method`
+        - `x_gripprobe_path`
+        - `x_gripprobe_query`
+        - `x_gripprobe_upstream_url`
+        - `x_gripprobe_duration_ms`
+        - `x_gripprobe_request`
+        - `x_gripprobe_response`
+        - `x_gripprobe_tool_call_count`
+        - `x_gripprobe_tool_call_nonstructured_count`
+        - `x_gripprobe_tool_names`
+        - `x_gripprobe_tool_names_nonstructured`
+        - `x_gripprobe_tool_call_ids_nonstructured`
+        - `x_gripprobe_tool_result_count`
+        - `x_gripprobe_proxy_error`
 - New metadata fields (proposed):
     - `event_capture_status: collected|partial|missing|wrapper_parse_error`
     -  wrapper event extraction is mandatory and is never `skipped`; unsupported parser capability must produce `tool_event_not_observable`, not skipped capture.
@@ -137,6 +158,7 @@ Scope: local workflow only (no PR requirements).
     - `telemetry_source_tier: A|B|C|D|none`
     - `telemetry_event_count: int`
     - `telemetry_tool_call_count: int`
+    - `telemetry_proxy_tool_call_nonstructured_count: int`
     - `telemetry_tool_result_count: int`
     - `telemetry_invoked_confidence: float`
     - `telemetry_retry_loop_detected: bool`
@@ -238,7 +260,7 @@ Why selected:
 - Failure mode safety:
     - telemetry proxy failure must not crash case result generation; proxy failures are recorded in metadata and reports.
 - Publication suitability:
-    - raw `proxy.http.jsonl` is internal-only under `results/runs`.
+    - raw `proxy.warmup.http.jsonl` and `proxy.measured.http.jsonl` are internal-only under `results/runs`.
     - aggregate reports never link raw proxy traces.
     - aggregate may show only sanitized summaries/excerpts/problematic lines.
 
@@ -248,7 +270,7 @@ Why selected:
 1. Replace adapter-local final classification with `event_evaluator` output after validators and telemetry extraction.
 2. Update aggregate cell label/class/score logic to render `PASS_WITH_POLICY_VIOLATION` separately from `PASS`.
 3. Add mandatory wrapper event extraction and event schema.
-4. Add optional per-case proxy lifecycle in runner and adapter routing hooks.
+4. Add optional per-phase proxy lifecycle in runner and adapter routing hooks.
 5. Add `event_evaluator` that derives canonical `status`, `trajectory`, `invoked`, scoring fields, and `failure_reason`.
 6. Add metadata/artifact persistence and report rendering.
 7. Add tests for event extraction, evaluator verdicts, proxy skip/error paths, and new taxonomy.
@@ -280,7 +302,12 @@ Why selected:
 - [ ] Internal case report (raw/internal) includes direct links to telemetry JSONL artifacts when present:
   - `artifacts/events.warmup.jsonl`
   - `artifacts/events.measured.jsonl`
-  - `artifacts/proxy.http.jsonl`
+  - `artifacts/proxy.warmup.http.jsonl`
+  - `artifacts/proxy.measured.http.jsonl`
+- [ ] Proxy lifecycle is phase-scoped and deterministic: one start/stop for warmup and one start/stop for measured.
+- [ ] Proxy events are attributed to the correct phase in reporting (warmup proxy events never inflate measured counts, and vice versa).
+- [ ] `proxy.warmup.http.jsonl` and `proxy.measured.http.jsonl` use prefixed proxy keys only (`x_gripprobe_*`), including tool counters (`x_gripprobe_tool_call_count`, `x_gripprobe_tool_result_count`).
+- [ ] Non-structured proxy tool markers are counted separately as tier C evidence and never merged into the tier A counter.
 
 ## 12. Test Plan
 
@@ -300,11 +327,11 @@ Why selected:
     - canonical failure source: `event_evaluator`
     - telemetry evidence source: `wrapper|proxy` with tier `A|B|C|D`
 - How to debug failures:
-    - where to inspect `events.*.jsonl`, `events.summary.json`, `proxy.http.jsonl`.
+    - where to inspect `events.*.jsonl`, `events.summary.json`, `proxy.warmup.http.jsonl`, `proxy.measured.http.jsonl`.
 - How this appears in case pages vs aggregate pages:
     - in aggregate page only reinvented fail statuses
     - in internal case pages - link to full traces and reasons for calculated status
-    - internal case pages include direct links to telemetry artifacts (`events.warmup.jsonl`, `events.measured.jsonl`, `proxy.http.jsonl`) when present
+    - internal case pages include direct links to telemetry artifacts (`events.warmup.jsonl`, `events.measured.jsonl`, `proxy.warmup.http.jsonl`, `proxy.measured.http.jsonl`) when present
     - in aggregate case pages reasons for new statuses.
     - aggregate never links raw proxy trace; it shows only sanitized summary/excerpt/problematic lines.
 
@@ -331,6 +358,7 @@ Why selected:
 ## 16. Implementation Notes
 
 - `2026-05-14`: in current MVP implementation, `--telemetry-proxy force` is treated as a strict requirement.
+- Proxy capture for reporting must be phase-scoped (separate warmup and measured proxy sessions) to avoid cross-phase contamination in counters and timelines.
 - If proxy capture is not available/collected, the runner upgrades the case to:
   - `status=HARNESS_ERROR`
   - `invoked=no`

@@ -24,12 +24,12 @@ OUTLIER_FACTOR = 2.5
 DEFAULT_HARDWARE_PROFILE_ID = "unspecified"
 TESTS_DOC_PUBLIC_URL = "https://raw.githubusercontent.com/ryg-/GripProbe-CLI/refs/heads/main/docs/tests.md"
 PROJECT_REPO_URL = "https://github.com/ryg-/GripProbe-CLI/"
-REPORT_TITLE = "GripProbe CLI-Agent Compatibility Matrix"
+REPORT_TITLE = "GripProbe Compatibility Report"
 REPORT_SUBTITLE = (
     "This report measures real CLI-agent × model compatibility by executed outcomes "
     "(not text-only responses). Rows are agent/version + model/hash + format groups; "
-    "cells link to measured cases, with color-coded outcomes, normalized Score, "
-    "Typical Time (median), and Outliers."
+    "cells link to measured cases, with color-coded outcomes, normalized strict Score, "
+    "secondary Overall Score, Typical Time (median), and Outliers."
 )
 _CLI_AGENT_VERSION_SORT_RE = re.compile(r"^v?(\d+)\.(\d+)(?:\.(\d+))?(?:([-+].+))?$")
 
@@ -209,8 +209,12 @@ def _aggregate_cell_class(items: list[CaseResult]) -> str:
     statuses = {item.status for item in items}
     if statuses == {"PASS"}:
         return "agg-all-pass"
+    if statuses == {"PASS_WITH_POLICY_VIOLATION"}:
+        return "agg-policy"
     if "PASS" in statuses:
         return "agg-mixed"
+    if "PASS_WITH_POLICY_VIOLATION" in statuses:
+        return "agg-policy"
     severity = _worst_failure_severity(items)
     return f"agg-fail-{severity}"
 
@@ -239,7 +243,11 @@ def _worst_failure_severity(items: list[CaseResult]) -> str:
 
 
 def _aggregate_cell_label(items: list[CaseResult]) -> str:
-    return "PASS" if any(item.status == "PASS" for item in items) else "FAIL"
+    if any(item.status == "PASS" for item in items):
+        return "PASS"
+    if any(item.status == "PASS_WITH_POLICY_VIOLATION" for item in items):
+        return "POLICY"
+    return "FAIL"
 
 
 def _display_failure_reason(value: object) -> str:
@@ -437,7 +445,10 @@ def _test_weight(test_items: list[CaseResult]) -> float:
 
 
 def _representative_case(test_items: list[CaseResult]) -> CaseResult:
-    return next((item for item in test_items if item.status == "PASS"), test_items[0])
+    return next(
+        (item for item in test_items if item.status == "PASS"),
+        next((item for item in test_items if item.status == "PASS_WITH_POLICY_VIOLATION"), test_items[0]),
+    )
 
 
 def _group_score(by_test: dict[str, list[CaseResult]]) -> float:
@@ -450,12 +461,46 @@ def _group_score(by_test: dict[str, list[CaseResult]]) -> float:
             continue
         weight = _test_weight(test_items)
         representative = _representative_case(test_items)
-        if representative.status == "PASS":
-            weighted_pass_sum += weight
+        weighted_pass_sum += weight * _strict_score_value(representative)
         weight_sum += weight
     if weight_sum == 0:
         return 0.0
     return weighted_pass_sum / weight_sum
+
+
+def _group_overall_score(by_test: dict[str, list[CaseResult]]) -> float:
+    if not by_test:
+        return 0.0
+    weighted_score_sum = 0.0
+    weight_sum = 0.0
+    for test_items in by_test.values():
+        if not test_items:
+            continue
+        weight = _test_weight(test_items)
+        representative = _representative_case(test_items)
+        weighted_score_sum += weight * _overall_score_value(representative)
+        weight_sum += weight
+    if weight_sum == 0:
+        return 0.0
+    return weighted_score_sum / weight_sum
+
+
+def _strict_score_value(item: CaseResult) -> float:
+    value = item.metadata.get("strict_pass_score")
+    if isinstance(value, (int, float)):
+        return float(value)
+    return 1.0 if item.status == "PASS" else 0.0
+
+
+def _overall_score_value(item: CaseResult) -> float:
+    value = item.metadata.get("overall_score")
+    if isinstance(value, (int, float)):
+        return float(value)
+    if item.status == "PASS":
+        return 1.0
+    if item.status == "PASS_WITH_POLICY_VIOLATION":
+        return 0.8
+    return 0.0
 
 
 def _group_typical_time_and_outliers(
@@ -623,6 +668,7 @@ def write_aggregate_html_summary(
         has_extended_set = any(_has_extended_test_tags(item) for item in items)
         by_test = grouped_by_test[group_key]
         score = _group_score(by_test)
+        overall_score = _group_overall_score(by_test)
         typical_time, outlier_count, outlier_total = _group_typical_time_and_outliers(by_test, baseline_medians_by_test)
         outlier_rate = (outlier_count / outlier_total) if outlier_total else 0.0
         run_ids = sorted({str(item.run_id) for item in items})
@@ -645,7 +691,7 @@ def write_aggregate_html_summary(
             label = _aggregate_cell_label(test_items)
             pass_time_html = (
                 f"<span class='cell-time'>{escape(_format_duration(primary_item.timings.measured_seconds))}</span>"
-                if label == "PASS"
+                if label in {"PASS", "POLICY"}
                 else ""
             )
             tooltip = " | ".join(
@@ -668,6 +714,7 @@ def write_aggregate_html_summary(
             f"data-hw='{escape(hardware_profile_id)}' "
             f"data-extended='{'yes' if has_extended_set else 'no'}' "
             f"data-score='{score:.4f}' "
+            f"data-overall='{overall_score:.4f}' "
             f"data-typical='{typical_time:.4f}' "
             f"data-outliers='{outlier_rate:.4f}'>"
             f"<td><a href='{group_link}'>{escape(cli_agent_id)}"
@@ -679,6 +726,7 @@ def write_aggregate_html_summary(
             "</a></td>"
             f"<td>{escape(tool_format)}</td>"
             f"<td>{score * 100:.1f}%</td>"
+            f"<td>{overall_score * 100:.1f}%</td>"
             f"<td>{_format_duration(typical_time)}</td>"
             f"<td>{outlier_count}/{outlier_total}</td>"
             f"{''.join(cells)}"
@@ -704,6 +752,7 @@ th{{background:#ece8dc;position:sticky;top:0;font-size:.92rem}}
 a{{color:#0b57d0;text-decoration:none;font-weight:600}}
 a:hover{{text-decoration:underline}}
 .agg-all-pass{{background:#b9e8c2}}
+.agg-policy{{background:#fff0cc}}
 .agg-mixed{{background:#fff0cc}}
 .agg-fail-soft{{background:#e8ddc7}}
 .agg-fail-behavioral{{background:#f6d5b2}}
@@ -736,6 +785,7 @@ a:hover{{text-decoration:underline}}
 .legend-sub{{font-size:.66rem;color:#666;line-height:1.25}}
 .legend-swatch{{display:inline-block;width:12px;height:12px;border:1px solid #bdb7aa;border-radius:2px;flex:0 0 auto}}
 .legend-pass{{background:#b9e8c2}}
+.legend-policy{{background:#fff0cc}}
 .legend-mixed{{background:#fff0cc}}
 .legend-soft{{background:#e8ddc7}}
 .legend-behavioral{{background:#f6d5b2}}
@@ -782,13 +832,15 @@ a:hover{{text-decoration:underline}}
 <aside class='legend'>
 <div class='legend-title'>Failure Colors</div>
 <div class='legend-row'><span class='legend-swatch legend-pass'></span><span class='legend-row-text'><span>PASS</span></span></div>
+<div class='legend-row'><span class='legend-swatch legend-policy'></span><span class='legend-row-text'><span>POLICY</span><span class='legend-sub'>Validators passed, but required tool evidence is missing or inconclusive. Counts as 0 strict pass, 0.8 overall.</span></span></div>
 <div class='legend-row'><span class='legend-swatch legend-mixed'></span><span class='legend-row-text'><span>MIXED</span><span class='legend-sub'>Group has at least one PASS and at least one failure for the same test cell.</span></span></div>
 <div class='legend-row'><span class='legend-swatch legend-soft'></span><span class='legend-row-text'><span>SOFT FAIL</span><span class='legend-sub'>Output shape/content mismatch after execution.</span></span></div>
 <div class='legend-row'><span class='legend-swatch legend-behavioral'></span><span class='legend-row-text'><span>BEHAVIORAL FAIL</span><span class='legend-sub'>No tool call / tool unsupported / behavior-level policy mismatch.</span></span></div>
 <div class='legend-row'><span class='legend-swatch legend-error'></span><span class='legend-row-text'><span>ERROR FAIL</span><span class='legend-sub'>Execution-level failure such as timeout.</span></span></div>
 <div class='legend-row'><span class='legend-swatch legend-critical'></span><span class='legend-row-text'><span>CRITICAL FAIL</span><span class='legend-sub'>Harness or shell-level error, highest severity.</span></span></div>
 <div class='legend-title legend-metrics-title'>Aggregate Metrics</div>
-<div class='legend-metric'><strong>Score</strong>: normalized weighted pass ratio across visible tests (sanity tests use lower weight than non-sanity).</div>
+<div class='legend-metric'><strong>Score</strong>: normalized weighted strict pass ratio across visible tests; policy violations do not increase it.</div>
+<div class='legend-metric'><strong>Overall</strong>: secondary weighted score where policy violations contribute 0.8.</div>
 <div class='legend-metric'><strong>Typical Time</strong>: median measured time across representative results in the row.</div>
 <div class='legend-metric'><strong>Outliers</strong>: count of tests in the row where time is above baseline median × {OUTLIER_FACTOR:.1f}.</div>
 </aside>
@@ -813,6 +865,7 @@ a:hover{{text-decoration:underline}}
 <th>Model<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('model', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('model', 'desc')">▼</button></span></th>
 <th>Format<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('format', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('format', 'desc')">▼</button></span></th>
 <th>Score<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('score', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('score', 'desc')">▼</button></span></th>
+<th>Overall<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('overall', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('overall', 'desc')">▼</button></span></th>
 <th>Typical Time<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('typical', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('typical', 'desc')">▼</button></span></th>
 <th>Outliers<span class='sort-controls'><button type='button' class='sort-btn' onclick="sortRows('outliers', 'asc')">▲</button><button type='button' class='sort-btn' onclick="sortRows('outliers', 'desc')">▼</button></span></th>
 {header_tests}<th>Runs</th></tr></thead>
@@ -826,7 +879,7 @@ function sortRows(key, direction) {{
   if (!tbody) return;
   var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
   rows.sort(function(a, b) {{
-    if (key === "score" || key === "typical" || key === "outliers") {{
+    if (key === "score" || key === "overall" || key === "typical" || key === "outliers") {{
       var av = Number(a.getAttribute("data-" + key) || "0");
       var bv = Number(b.getAttribute("data-" + key) || "0");
       var cmpNum = av - bv;

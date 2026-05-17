@@ -25,6 +25,7 @@ TEXT_ARTIFACTS = (
 )
 STATUS_CLASS = {
     "PASS": "pass",
+    "PASS_WITH_POLICY_VIOLATION": "policy",
     "FAIL": "fail",
     "TIMEOUT": "timeout",
     "NO_TOOL_CALL": "notool",
@@ -49,6 +50,7 @@ _CSS_CLASS_ORDER = (
     "muted",
     "badge",
     "pass",
+    "policy",
     "fail",
     "timeout",
     "timeout-artifact",
@@ -71,6 +73,7 @@ _CSS_CLASS_RULES = {
     "muted": ".muted{color:#666}",
     "badge": ".badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-weight:700}",
     "pass": ".pass{background:#d9f2df;color:#115c23}",
+    "policy": ".policy{background:#fff4bf;color:#705600}",
     "fail": ".fail{background:#f9d7d7;color:#7a1520}",
     "timeout": ".timeout{background:#fde6c8;color:#7d4b00}",
     "timeout-artifact": ".timeout-artifact{background:#d8f0e1;color:#165a30}",
@@ -89,6 +92,7 @@ _CSS_CLASS_RULES = {
     "match-none": ".match-none{background:#f9d7d7;color:#7a1520}",
     "ok": ".ok{color:#115c23;font-weight:600}",
 }
+_TELEMETRY_PREVIEW_JSONL_LIMIT = 50
 
 
 def _collect_css_classes(html_fragment: str) -> set[str]:
@@ -387,6 +391,159 @@ def _render_failure_reason(case_json_raw: str, result: CaseResult) -> str:
     return f"<p><strong>Failure Reason:</strong> {escape(_sanitize_for_html(str(failure_reason)))}</p>"
 
 
+def _json_for_script_tag(value: object) -> str:
+    # Prevent accidental closing of script tag when embedding JSON payloads.
+    return json.dumps(value, ensure_ascii=False).replace("</", "<\\/")
+
+
+def _render_telemetry_viewer_script() -> str:
+    return (
+        "<script>"
+        "function gripprobeOpenTelemetryViewer(payloadId, rawHref){"
+        "var payloadNode=document.getElementById(payloadId);"
+        "if(!payloadNode){return true;}"
+        "var popup=window.open('about:blank', '_blank');"
+        "if(!popup){return true;}"
+        "var payload=null;"
+        "try{payload=JSON.parse(payloadNode.textContent||'null');}catch(_err){payload=null;}"
+        "var doc=popup.document;"
+        "doc.open();"
+        "doc.write(\"<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Telemetry Viewer</title><style>body{font-family:system-ui,sans-serif;margin:1.25rem;background:#f7f7f3;color:#111;line-height:1.45}pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}a{color:#0b57d0}.muted{color:#666}</style></head><body><h1>Telemetry Artifact Viewer</h1><p id='viewer-hint' class='muted'></p><pre id='viewer-content'></pre><p><a id='viewer-raw-link' target='_blank' rel='noopener noreferrer'></a></p></body></html>\");"
+        "doc.close();"
+        "var hint=doc.getElementById('viewer-hint');"
+        "var content=doc.getElementById('viewer-content');"
+        "var rawLink=doc.getElementById('viewer-raw-link');"
+        "rawLink.setAttribute('href',rawHref);"
+        "if(!payload||typeof payload!=='object'){"
+        "hint.textContent='Interactive preview is unavailable; open the raw artifact using the link below.';"
+        "rawLink.textContent='Open raw artifact';"
+        "return false;"
+        "}"
+        "var relpath=String(payload.relpath||'artifact');"
+        "rawLink.textContent='Open raw artifact: '+relpath;"
+        "hint.textContent='Interactive rendering for '+relpath;"
+        "var text=String(payload.content||'');"
+        "var kind=String(payload.kind||'text');"
+        "try{"
+        "if(kind==='json'){content.textContent=JSON.stringify(JSON.parse(text),null,2);}"
+        "else if(kind==='jsonl'){"
+        "var lines=text.split(/\\r?\\n/).filter(function(line){return line.trim().length>0;});"
+        "var entries=[];"
+        "for(var i=0;i<lines.length;i++){"
+        "try{entries.push(JSON.parse(lines[i]));}"
+        "catch(_lineErr){entries.push({line:i+1,parse_error:'invalid_json',raw:lines[i]});}"
+        "}"
+        "content.textContent=JSON.stringify(entries,null,2);"
+        "hint.textContent=hint.textContent+' ('+lines.length+' line(s))';"
+        "}"
+        "else{content.textContent=text;}"
+        "}catch(_parseErr){"
+        "hint.textContent='Interactive preview failed; showing sanitized raw text.';"
+        "content.textContent=text;"
+        "}"
+        "return false;"
+        "}"
+        "</script>"
+    )
+
+
+def _render_json_preview(raw_text: str) -> str:
+    if not raw_text.strip():
+        return ""
+    try:
+        payload = json.loads(raw_text)
+    except json.JSONDecodeError:
+        return raw_text
+    sanitized_payload = _sanitize_obj(payload)
+    return json.dumps(sanitized_payload, indent=2, ensure_ascii=False)
+
+
+def _compact_dict(data: dict[str, object]) -> dict[str, object]:
+    return {key: value for key, value in data.items() if value is not None and value != ""}
+
+
+def _summarize_jsonl_entry(payload: object, line_no: int) -> object:
+    if not isinstance(payload, dict):
+        return {"line": line_no, "value": _sanitize_obj(payload)}
+
+    # Wrapper/telemetry events summary.
+    if any(key in payload for key in ("event_type", "source_tier", "phase", "status")):
+        event_payload = payload.get("payload")
+        tool_name = None
+        if isinstance(event_payload, dict):
+            tool_name = event_payload.get("tool_name")
+        return _compact_dict(
+            {
+                "line": line_no,
+                "timestamp": payload.get("timestamp"),
+                "phase": payload.get("phase"),
+                "event_type": payload.get("event_type"),
+                "source_tier": payload.get("source_tier"),
+                "status": payload.get("status"),
+                "tool_name": tool_name,
+                "raw_artifact_ref": payload.get("raw_artifact_ref"),
+            }
+        )
+
+    # Proxy capture summary.
+    if any(
+        key in payload
+        for key in (
+            "x_gripprobe_method",
+            "x_gripprobe_path",
+            "x_gripprobe_duration_ms",
+            "x_gripprobe_tool_call_count",
+            "x_gripprobe_tool_call_nonstructured_count",
+            "x_gripprobe_tool_result_count",
+        )
+    ):
+        response_status = payload.get("x_gripprobe_response_status")
+        if response_status is None:
+            response = payload.get("x_gripprobe_response")
+            if isinstance(response, dict):
+                response_status = response.get("x_gripprobe_status")
+        return _compact_dict(
+            {
+                "line": line_no,
+                "timestamp": payload.get("x_gripprobe_timestamp"),
+                "method": payload.get("x_gripprobe_method"),
+                "path": payload.get("x_gripprobe_path"),
+                "duration_ms": payload.get("x_gripprobe_duration_ms"),
+                "response_status": response_status,
+                "tool_call_count": payload.get("x_gripprobe_tool_call_count"),
+                "tool_call_nonstructured_count": payload.get("x_gripprobe_tool_call_nonstructured_count"),
+                "tool_result_count": payload.get("x_gripprobe_tool_result_count"),
+                "proxy_error": payload.get("x_gripprobe_proxy_error"),
+            }
+        )
+
+    return _compact_dict(
+        {
+            "line": line_no,
+            "keys": sorted(str(key) for key in payload.keys()),
+        }
+    )
+
+
+def _render_jsonl_preview(raw_text: str, limit: int = _TELEMETRY_PREVIEW_JSONL_LIMIT) -> tuple[str, int, bool]:
+    lines = [line for line in raw_text.splitlines() if line.strip()]
+    preview_entries: list[object] = []
+    for line_no, line in enumerate(lines[:limit], start=1):
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            preview_entries.append(
+                {
+                    "line": line_no,
+                    "parse_error": "invalid_json",
+                    "raw": _sanitize_for_html(line),
+                }
+            )
+            continue
+        preview_entries.append(_sanitize_obj(_summarize_jsonl_entry(payload, line_no)))
+    return json.dumps(preview_entries, indent=2, ensure_ascii=False), len(lines), len(lines) > limit
+
+
 def _render_telemetry(
     case_dir: Path,
     detail_path: Path,
@@ -410,7 +567,12 @@ def _render_telemetry(
         ("Warmup Events", "telemetry_warmup_event_count"),
         ("Measured Events", "telemetry_measured_event_count"),
         ("Tool Call Count", "telemetry_tool_call_count"),
+        ("Warmup Tool Calls", "telemetry_warmup_tool_call_count"),
+        ("Measured Tool Calls", "telemetry_measured_tool_call_count"),
+        ("Proxy Non-Structured Tool Calls", "telemetry_proxy_tool_call_nonstructured_count"),
         ("Tool Result Count", "telemetry_tool_result_count"),
+        ("Warmup Tool Results", "telemetry_warmup_tool_result_count"),
+        ("Measured Tool Results", "telemetry_measured_tool_result_count"),
         ("Invoked Confidence", "telemetry_invoked_confidence"),
         ("Retry Loop Detected", "telemetry_retry_loop_detected"),
         ("Tool Event Verdict", "tool_event_verdict"),
@@ -426,28 +588,83 @@ def _render_telemetry(
             f"<li><strong>{escape(label)}:</strong> {escape(_sanitize_for_html(str(value)))}</li>"
         )
     summary_raw = _read_text(case_dir / "artifacts" / "events.summary.json")
-    summary_block = f"<h3>events.summary.json</h3>{_pre_block(summary_raw)}" if summary_raw.strip() else ""
+    summary_pretty = _render_json_preview(summary_raw)
+    summary_block = f"<h3>events.summary.json</h3>{_pre_block(summary_pretty)}" if summary_pretty.strip() else ""
     telemetry_artifact_items: list[str] = []
+    telemetry_preview_blocks: list[str] = []
+    viewer_payload_scripts: list[str] = []
+    viewer_enabled = False
     if show_artifact_links:
-        for relpath in (
-            "artifacts/events.warmup.jsonl",
-            "artifacts/events.measured.jsonl",
-            "artifacts/proxy.http.jsonl",
-        ):
+        telemetry_files = (
+            ("artifacts/events.warmup.jsonl", "jsonl"),
+            ("artifacts/events.measured.jsonl", "jsonl"),
+            ("artifacts/proxy.warmup.http.jsonl", "jsonl"),
+            ("artifacts/proxy.measured.http.jsonl", "jsonl"),
+            ("artifacts/events.summary.json", "json"),
+        )
+        for idx, (relpath, kind) in enumerate(telemetry_files):
             artifact = case_dir / relpath
             if not artifact.exists() or not artifact.is_file():
                 continue
             href = escape(os.path.relpath(artifact, detail_path.parent))
-            telemetry_artifact_items.append(f"<li><a href='{href}'>{escape(relpath)}</a></li>")
+            payload_id = f"telemetry-viewer-data-{idx}"
+            content = _read_text(artifact)
+            viewer_payload_scripts.append(
+                "<script type='application/json' id='"
+                + escape(payload_id)
+                + "'>"
+                + _json_for_script_tag(
+                    {
+                        "relpath": relpath,
+                        "kind": kind,
+                        "content": content,
+                    }
+                )
+                + "</script>"
+            )
+            viewer_link = (
+                f"<a href='{href}' target='_blank' rel='noopener noreferrer' "
+                f"onclick=\"return gripprobeOpenTelemetryViewer('{escape(payload_id)}', this.href)\">"
+                "Open Interactive Viewer</a>"
+            )
+            telemetry_artifact_items.append(
+                f"<li><a href='{href}'>{escape(relpath)}</a> | {viewer_link}</li>"
+            )
+            viewer_enabled = True
+            if kind != "jsonl":
+                continue
+            preview_json, line_count, is_truncated = _render_jsonl_preview(content)
+            limit_info = (
+                f"<p class='muted'>Showing first {_TELEMETRY_PREVIEW_JSONL_LIMIT} of {line_count} line(s).</p>"
+                if is_truncated
+                else f"<p class='muted'>{line_count} line(s).</p>"
+            )
+            telemetry_preview_blocks.append(
+                f"<h4>{escape(relpath)}</h4>"
+                + limit_info
+                + _pre_block(preview_json)
+            )
     telemetry_artifacts_block = (
         "<h3>Telemetry Artifacts</h3><ul>" + "".join(telemetry_artifact_items) + "</ul>"
         if telemetry_artifact_items
         else ""
     )
-    if not rows and not summary_block and not telemetry_artifacts_block:
+    telemetry_preview_section = (
+        "<h3>Telemetry Preview</h3>"
+        + summary_block
+        + "".join(telemetry_preview_blocks)
+        if show_artifact_links and (summary_block or telemetry_preview_blocks)
+        else summary_block
+    )
+    viewer_script = (
+        _render_telemetry_viewer_script() + "".join(viewer_payload_scripts)
+        if show_artifact_links and viewer_enabled
+        else ""
+    )
+    if not rows and not telemetry_preview_section and not telemetry_artifacts_block:
         return ""
     body = f"<ul>{''.join(rows)}</ul>" if rows else ""
-    return body + summary_block + telemetry_artifacts_block
+    return body + telemetry_preview_section + telemetry_artifacts_block + viewer_script
 
 
 def _render_runtime_snapshot(snapshot: object) -> str:

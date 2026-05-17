@@ -139,6 +139,66 @@ def test_opencode_uses_isolated_single_model_config(tmp_path: Path) -> None:
     assert payload["provider"]["ollama"]["models"]["qwen2.5:7b"]["name"] == "Qwen2.5 7B"
 
 
+def test_opencode_ignores_source_baseurl_and_uses_case_proxy_host(tmp_path: Path, monkeypatch) -> None:
+    adapter = _adapter()
+    model_spec = _model_spec()
+    test_spec = _test_spec()
+    case = _case(tmp_path, test_spec)
+    case.run_metadata = {"telemetry_proxy_ollama_host": "http://127.0.0.1:18080"}
+    case.warmup_workspace_dir.mkdir(parents=True)
+    case.workspace_dir.mkdir(parents=True)
+
+    source_config = tmp_path / "opencode-source.json"
+    source_config.write_text(
+        json.dumps(
+            {
+                "provider": {
+                    "ollama": {
+                        "options": {
+                            "baseURL": "http://c:11434/v1",
+                            "apiKey": "source-key",
+                            "timeout": 123000,
+                            "chunkTimeout": 17000,
+                        }
+                    }
+                }
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GRIPPROBE_OPENCODE_CONFIG", str(source_config))
+
+    def _fake_run_command(
+        self,
+        case_arg,
+        args: list[str],
+        env: dict[str, str],
+        stdout_path,
+        stderr_path,
+        workspace_dir=None,
+    ):
+        active_workspace = workspace_dir or case_arg.workspace_dir
+        (active_workspace / "pwd-output.txt").write_text(str(active_workspace) + "\n", encoding="utf-8")
+        stdout_path.write_text('{"type":"message","role":"assistant","content":"DONE"}\n', encoding="utf-8")
+        stderr_path.write_text("", encoding="utf-8")
+        return 0, 0.1, "2026-04-21T10:00:00+02:00", "2026-04-21T10:00:01+02:00"
+
+    adapter.run_command = MethodType(_fake_run_command, adapter)
+
+    result = adapter.run_case(case, model_spec, test_spec)
+    assert result.status == "PASS"
+
+    isolated_config = Path(result.metadata["opencode_config_path"])
+    payload = json.loads(isolated_config.read_text(encoding="utf-8"))
+    options = payload["provider"]["ollama"]["options"]
+    assert options["baseURL"] == "http://127.0.0.1:18080/v1"
+    assert options["apiKey"] == "source-key"
+    assert options["timeout"] == 123000
+    assert options["chunkTimeout"] == 17000
+
+
 def test_opencode_classifies_text_only_completion_as_no_invocation(tmp_path: Path) -> None:
     adapter = _adapter()
     spec = _test_spec()

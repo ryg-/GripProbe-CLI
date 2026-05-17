@@ -335,7 +335,17 @@ class CaseResult(BaseModel):
     format: str
     test: str
     title: str
-    status: Literal["PASS", "FAIL", "TIMEOUT", "NO_TOOL_CALL", "TOOL_UNSUPPORTED", "SHELL_ERROR", "HARNESS_ERROR", "SKIPPED"]
+    status: Literal[
+        "PASS",
+        "PASS_WITH_POLICY_VIOLATION",
+        "FAIL",
+        "TIMEOUT",
+        "NO_TOOL_CALL",
+        "TOOL_UNSUPPORTED",
+        "SHELL_ERROR",
+        "HARNESS_ERROR",
+        "SKIPPED",
+    ]
     trajectory: Literal["clean", "recovered", "violated"] = "clean"
     invoked: Literal["yes", "no", "maybe"]
     match_percent: int

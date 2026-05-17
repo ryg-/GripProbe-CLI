@@ -326,7 +326,110 @@ def test_detail_telemetry_artifact_links_omitted_when_absent(tmp_path: Path) -> 
 
     detail_html = (reports_dir / "cases" / "case-telemetry.html").read_text(encoding="utf-8")
     assert "<h2>Telemetry</h2>" in detail_html
+    assert "Telemetry Preview" not in detail_html
     assert "Telemetry Artifacts" not in detail_html
     assert "artifacts/events.warmup.jsonl" not in detail_html
     assert "artifacts/events.measured.jsonl" not in detail_html
-    assert "artifacts/proxy.http.jsonl" not in detail_html
+    assert "artifacts/proxy.warmup.http.jsonl" not in detail_html
+    assert "artifacts/proxy.measured.http.jsonl" not in detail_html
+    assert "Open Interactive Viewer" not in detail_html
+    assert "gripprobeOpenTelemetryViewer" not in detail_html
+
+
+def test_detail_telemetry_preview_truncation_and_viewer_markup(tmp_path: Path) -> None:
+    reports_dir = tmp_path / "reports"
+    cases_dir = tmp_path / "cases"
+    case_dir = cases_dir / "case-telemetry-preview"
+    artifacts_dir = case_dir / "artifacts"
+    reports_dir.mkdir(parents=True)
+    artifacts_dir.mkdir(parents=True)
+
+    warmup_lines = "\n".join(json.dumps({"entry": idx, "phase": "warmup"}) for idx in range(55))
+    measured_lines = "\n".join(json.dumps({"entry": idx, "phase": "measured"}) for idx in range(2))
+    proxy_lines = json.dumps(
+        {
+            "x_gripprobe_timestamp": "2026-05-14T18:58:15+00:00",
+            "x_gripprobe_method": "POST",
+            "x_gripprobe_path": "/api/show",
+            "x_gripprobe_duration_ms": 549,
+            "x_gripprobe_response_status": 200,
+            "x_gripprobe_tool_call_count": 0,
+            "x_gripprobe_tool_call_nonstructured_count": 1,
+            "x_gripprobe_tool_result_count": 0,
+        }
+    )
+    summary_payload = json.dumps({"phase": "measured", "ok": True})
+
+    (artifacts_dir / "events.warmup.jsonl").write_text(warmup_lines + "\n", encoding="utf-8")
+    (artifacts_dir / "events.measured.jsonl").write_text(measured_lines + "\n", encoding="utf-8")
+    (artifacts_dir / "proxy.warmup.http.jsonl").write_text(proxy_lines + "\n", encoding="utf-8")
+    (artifacts_dir / "proxy.measured.http.jsonl").write_text(proxy_lines + "\n", encoding="utf-8")
+    (artifacts_dir / "events.summary.json").write_text(summary_payload, encoding="utf-8")
+
+    result = CaseResult(
+        case_id="case-telemetry-preview",
+        run_id="run-1",
+        cli_agent_id="aider",
+        cli_agent="aider",
+        model=CaseModelInfo(
+            id="m",
+            label="m",
+            family="fam",
+            size_class="small",
+            quantization=None,
+            backend="ollama",
+            model_id="mid",
+            shell_model_id="smid",
+            model_hash="hash",
+        ),
+        format="tool",
+        test="t",
+        title="Telemetry Preview Case",
+        status="PASS",
+        trajectory="clean",
+        invoked="yes",
+        match_percent=100,
+        timings=CaseTimings(warmup_seconds=0.1, measured_seconds=0.2),
+        logs=CaseLogs(
+            prompt="prompt.txt",
+            warmup_stdout="warmup.stdout",
+            warmup_stderr="warmup.stderr",
+            measured_stdout="measured.stdout",
+            measured_stderr="measured.stderr",
+        ),
+        metadata={},
+    )
+    raw_case_json = json.dumps(
+        {
+            "metadata": {
+                "event_capture_status": "collected",
+                "telemetry_proxy_tool_call_nonstructured_count": 1,
+            }
+        }
+    )
+    write_case_detail_pages(
+        [result],
+        reports_dir,
+        cases_dir,
+        case_json_by_case_id={"case-telemetry-preview": raw_case_json},
+        show_case_json=False,
+    )
+
+    detail_html = (reports_dir / "cases" / "case-telemetry-preview.html").read_text(encoding="utf-8")
+    assert "<h2>Telemetry</h2>" in detail_html
+    assert "Telemetry Preview" in detail_html
+    assert "events.summary.json" in detail_html
+    assert "&quot;phase&quot;: &quot;measured&quot;" in detail_html
+    assert "&quot;ok&quot;: true" in detail_html
+    assert "&quot;method&quot;: &quot;POST&quot;" in detail_html
+    assert "&quot;path&quot;: &quot;/api/show&quot;" in detail_html
+    assert "&quot;response_status&quot;: 200" in detail_html
+    assert "&quot;tool_call_nonstructured_count&quot;: 1" in detail_html
+    assert "Proxy Non-Structured Tool Calls" in detail_html
+    assert "artifacts/events.warmup.jsonl" in detail_html
+    assert "artifacts/proxy.warmup.http.jsonl" in detail_html
+    assert "artifacts/proxy.measured.http.jsonl" in detail_html
+    assert "Showing first 50 of 55 line(s)." in detail_html
+    assert "Open Interactive Viewer" in detail_html
+    assert "gripprobeOpenTelemetryViewer" in detail_html
+    assert "window.open('about:blank', '_blank')" in detail_html

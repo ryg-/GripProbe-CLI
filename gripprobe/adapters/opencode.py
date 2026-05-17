@@ -59,7 +59,8 @@ class OpencodeAdapter(CliAgentAdapter):
                     "npm": ollama_payload.get("npm", "@ai-sdk/openai-compatible"),
                     "name": ollama_payload.get("name", "Ollama"),
                     "options": {
-                        "baseURL": options.get("baseURL", api_base),
+                        # Never inherit source-config endpoint: it can bypass telemetry proxy routing.
+                        "baseURL": api_base,
                         "apiKey": options.get("apiKey", "dummy"),
                         "timeout": options.get("timeout", 600000),
                         "chunkTimeout": options.get("chunkTimeout", 30000),

@@ -549,6 +549,27 @@ def test_aggregate_reports_computes_weighted_score_typical_time_and_outliers(tmp
     assert ">0/2</td>" in summary_html
 
 
+def test_aggregate_reports_renders_policy_violation_as_non_strict_pass(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs" / "run-a"
+    _write_case(run_dir, "case-1", "Case One", "PASS_WITH_POLICY_VIOLATION")
+    case_path = run_dir / "cases" / "case-1" / "case.json"
+    payload = json.loads(case_path.read_text(encoding="utf-8"))
+    payload["metadata"]["strict_pass_score"] = 0.0
+    payload["metadata"]["overall_score"] = 0.8
+    payload["metadata"]["failure_reason"] = "no_tool_call_observed"
+    case_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    output_dir, _ = aggregate_reports([run_dir], tmp_path / "aggregate")
+    summary_html = (output_dir / "reports" / "summary.html").read_text(encoding="utf-8")
+
+    assert "<td class='agg-policy'" in summary_html
+    assert ">POLICY<span class='cell-time'>2.0s</span></a>" in summary_html
+    assert "data-score='0.0000'" in summary_html
+    assert "data-overall='0.8000'" in summary_html
+    assert ">0.0%</td>" in summary_html
+    assert ">80.0%</td>" in summary_html
+
+
 def test_aggregate_reports_counts_outliers_by_test_baseline(tmp_path: Path) -> None:
     run_a = tmp_path / "runs" / "run-a"
     run_b = tmp_path / "runs" / "run-b"

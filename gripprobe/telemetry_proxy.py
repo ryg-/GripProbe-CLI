@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 import urllib.error
@@ -28,7 +29,7 @@ class OllamaTelemetryProxy:
         *,
         case_dir: Path,
         upstream_base_url: str,
-        artifact_relpath: str = "artifacts/proxy.http.jsonl",
+        artifact_relpath: str = "artifacts/proxy.measured.http.jsonl",
     ) -> None:
         self.case_dir = case_dir
         self.upstream_base_url = upstream_base_url.rstrip("/")
@@ -175,7 +176,7 @@ class OllamaTelemetryProxy:
             pass
 
         response_payload = self._safe_json_loads(response_body)
-        tool_calls, tool_results = _extract_tool_evidence(
+        tool_calls, tool_results, nonstructured_tool_names, nonstructured_tool_call_ids = _extract_tool_evidence(
             request_payload=request_payload,
             response_payload=response_payload,
             response_body=response_body,
@@ -184,25 +185,30 @@ class OllamaTelemetryProxy:
         request_text = request_body.decode("utf-8", errors="replace")
         response_text = response_body.decode("utf-8", errors="replace")
         event = {
-            "timestamp": self._utc_now_iso(),
-            "method": handler.command,
-            "path": parsed.path,
-            "query": parsed.query or None,
-            "upstream_url": upstream_url,
-            "duration_ms": round((time.monotonic() - started) * 1000),
-            "request": {
-                "headers": self._sanitize_headers(request_headers),
-                "body_excerpt": self._sanitize_text(request_text[:2000]),
+            "x_gripprobe_schema_version": 1,
+            "x_gripprobe_timestamp": self._utc_now_iso(),
+            "x_gripprobe_method": handler.command,
+            "x_gripprobe_path": parsed.path,
+            "x_gripprobe_query": parsed.query or None,
+            "x_gripprobe_upstream_url": upstream_url,
+            "x_gripprobe_duration_ms": round((time.monotonic() - started) * 1000),
+            "x_gripprobe_request": {
+                "x_gripprobe_headers": self._sanitize_headers(request_headers),
+                "x_gripprobe_body_excerpt": self._sanitize_text(request_text[:2000]),
             },
-            "response": {
-                "status": response_status,
-                "headers": self._sanitize_headers(response_headers),
-                "body_excerpt": self._sanitize_text(response_text[:2000]),
+            "x_gripprobe_response": {
+                "x_gripprobe_status": response_status,
+                "x_gripprobe_headers": self._sanitize_headers(response_headers),
+                "x_gripprobe_body_excerpt": self._sanitize_text(response_text[:2000]),
             },
-            "tool_call_count": len(tool_calls),
-            "tool_names": tool_calls,
-            "tool_result_count": tool_results,
-            "proxy_error": self._sanitize_text(proxy_error) if proxy_error else None,
+            "x_gripprobe_response_status": response_status,
+            "x_gripprobe_tool_call_count": len(tool_calls),
+            "x_gripprobe_tool_names": tool_calls,
+            "x_gripprobe_tool_call_nonstructured_count": len(nonstructured_tool_names),
+            "x_gripprobe_tool_names_nonstructured": nonstructured_tool_names,
+            "x_gripprobe_tool_call_ids_nonstructured": nonstructured_tool_call_ids,
+            "x_gripprobe_tool_result_count": tool_results,
+            "x_gripprobe_proxy_error": self._sanitize_text(proxy_error) if proxy_error else None,
         }
         self._append_event({k: v for k, v in event.items() if v is not None})
 
@@ -213,7 +219,7 @@ def _extract_tool_evidence(
     response_payload: dict[str, Any] | list[Any] | None,
     response_body: bytes,
     response_headers: dict[str, str],
-) -> tuple[list[str], int]:
+) -> tuple[list[str], int, list[str], list[str]]:
     tool_calls: list[str] = []
     tool_results = 0
 
@@ -223,7 +229,27 @@ def _extract_tool_evidence(
     content_type = (response_headers.get("Content-Type") or response_headers.get("content-type") or "").lower()
     if "text/event-stream" in content_type or response_body.startswith(b"event: "):
         tool_calls.extend(_extract_tool_calls_from_sse(response_body))
-    return tool_calls, tool_results
+    nonstructured_tool_names, nonstructured_tool_call_ids = _extract_nonstructured_tool_markers(response_body)
+    return tool_calls, tool_results, nonstructured_tool_names, nonstructured_tool_call_ids
+
+
+def _extract_nonstructured_tool_markers(raw: bytes) -> tuple[list[str], list[str]]:
+    text = raw.decode("utf-8", errors="replace")
+    names: list[str] = []
+    call_ids: list[str] = []
+    for match in _iter_nonstructured_tool_marker_matches(text):
+        tool_name = match[0].strip()
+        tool_call_id = match[1].strip() if len(match) > 1 else ""
+        names.append(tool_name.lower() or "unknown")
+        call_ids.append(tool_call_id or "unknown")
+    return names, call_ids
+
+
+def _iter_nonstructured_tool_marker_matches(text: str) -> list[tuple[str, str]]:
+    markers: list[tuple[str, str]] = []
+    for match in re.finditer(r"@([A-Za-z_][A-Za-z0-9_-]*)\((call_[^) \t]+)\)", text):
+        markers.append((match.group(1), match.group(2)))
+    return markers
 
 
 def _count_tool_results_in_obj(payload: object) -> int:
@@ -309,4 +335,3 @@ def _redact_assignments(text: str, key: str) -> str:
         else:
             start = idx + len(key)
     return "".join(pieces)
-

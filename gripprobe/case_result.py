@@ -7,6 +7,7 @@ from gripprobe.models import CaseDefinition, CaseLogs, CaseModelInfo, CaseResult
 
 CaseStatus = Literal[
     "PASS",
+    "PASS_WITH_POLICY_VIOLATION",
     "FAIL",
     "TIMEOUT",
     "NO_TOOL_CALL",
