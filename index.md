@@ -1,7 +1,7 @@
 ---
 layout: default
-title: GripProbe Reports
-description: GripProbe CLI benchmark reports for model x shell compatibility.
+title: GripProbe CLI Agent Compatibility Benchmark
+description: Local CLI AI agent benchmark for real tool-use execution, local LLM compatibility, and observable artifact verification.
 permalink: /
 ---
 
