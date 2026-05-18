@@ -1,6 +1,6 @@
 title: GripProbe Reports
 description: GripProbe CLI benchmark reports for model x shell compatibility.
-url: "https://nameless.dns-cloud.net"
+url: "https://local-agent-bench.org"
 baseurl: ""
 google_site_verification: "zpbEZcqiQfU8rpibLey6EeB5beWnV9ARc_gtfeCZi30"
 webmaster_verifications:
@@ -8,5 +8,15 @@ webmaster_verifications:
 
 plugins:
   - jekyll-sitemap
+
+defaults:
+  - scope:
+      path: "docs/report/reports-v1/cases"
+    values:
+      sitemap: false
+  - scope:
+      path: "docs/report/reports-v1/runs"
+    values:
+      sitemap: false
 
 markdown: kramdown
