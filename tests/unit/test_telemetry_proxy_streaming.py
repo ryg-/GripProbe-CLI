@@ -8,6 +8,7 @@ from http.client import IncompleteRead
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Event, Thread
+from typing import Any, cast
 
 import gripprobe.telemetry_proxy as telemetry_proxy_module
 from gripprobe.telemetry_proxy import OllamaTelemetryProxy
@@ -110,7 +111,7 @@ class _StreamingUpstream:
                 self.end_headers()
 
             def do_POST(self) -> None:
-                if self.path == "/chat":
+                if self.path in {"/chat", "/api/chat"}:
                     content_length = int(self.headers.get("Content-Length", "0") or "0")
                     body = self.rfile.read(content_length) if content_length > 0 else b"{}"
                     self.send_response(200)
@@ -133,7 +134,14 @@ class _StreamingUpstream:
             def log_message(self, format: str, *args: object) -> None:
                 return
 
-        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        def handler_factory(
+            request: Any,
+            client_address: Any,
+            server: ThreadingHTTPServer,
+        ) -> BaseHTTPRequestHandler:
+            return Handler(request, client_address, server)
+
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), handler_factory)
         self.base_url = f"http://127.0.0.1:{self._server.server_port}"
         self._thread = Thread(target=self._server.serve_forever, daemon=True)
         self.stall_started = Event()
@@ -216,7 +224,7 @@ class _BrokenPipeWriter:
 
 
 class _DeterministicHandler:
-    def __init__(self, writer: _BrokenPipeWriter) -> None:
+    def __init__(self, writer: _BrokenPipeWriter | _RecordingWriter) -> None:
         self.wfile = writer
 
     def send_response(self, _: int) -> None:
@@ -229,11 +237,11 @@ class _DeterministicHandler:
         return
 
 
-def _read_proxy_events(path: Path) -> list[dict[str, object]]:
+def _read_proxy_events(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def _wait_for_proxy_events(path: Path, expected_count: int, timeout_seconds: float = 2.0) -> list[dict[str, object]]:
+def _wait_for_proxy_events(path: Path, expected_count: int, timeout_seconds: float = 2.0) -> list[dict[str, Any]]:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         events = _read_proxy_events(path)
@@ -407,7 +415,7 @@ def test_proxy_stop_aborts_waiting_header_open_and_persists_event(tmp_path: Path
 def test_proxy_records_client_disconnect_exception_type(tmp_path: Path) -> None:
     proxy = OllamaTelemetryProxy(case_dir=tmp_path, upstream_base_url="http://example.invalid")
     relay_result = proxy._relay_streaming_response(
-        handler=_DeterministicHandler(_BrokenPipeWriter()),
+        handler=cast(BaseHTTPRequestHandler, cast(object, _DeterministicHandler(_BrokenPipeWriter()))),
         upstream_response=_DeterministicStreamingResponse([b"data: first\n\n", b"data: second\n\n"]),
         response_status=200,
         response_headers={"Content-Type": "text/event-stream"},
@@ -423,7 +431,7 @@ def test_proxy_records_upstream_incomplete_read_without_client_disconnect(tmp_pa
     proxy = OllamaTelemetryProxy(case_dir=tmp_path, upstream_base_url="http://example.invalid")
     writer = _RecordingWriter()
     relay_result = proxy._relay_streaming_response(
-        handler=_DeterministicHandler(writer),
+        handler=cast(BaseHTTPRequestHandler, cast(object, _DeterministicHandler(writer))),
         upstream_response=_IncompleteReadStreamingResponse([b"data: first\n\n", b"__INCOMPLETE_READ__"]),
         response_status=200,
         response_headers={"Content-Type": "text/event-stream"},
@@ -517,7 +525,7 @@ def test_proxy_filters_tools_before_upstream_request(tmp_path: Path) -> None:
             ],
         }
         request = urllib.request.Request(
-            f"{proxy.base_url}/chat",
+            f"{proxy.base_url}/api/chat",
             method="POST",
             data=json.dumps(payload).encode("utf-8"),
             headers={"Content-Type": "application/json"},
@@ -595,7 +603,7 @@ def test_proxy_strips_git_context_from_system_message(tmp_path: Path) -> None:
             ],
         }
         request = urllib.request.Request(
-            f"{proxy.base_url}/chat",
+            f"{proxy.base_url}/api/chat",
             method="POST",
             data=json.dumps(payload).encode("utf-8"),
             headers={"Content-Type": "application/json"},

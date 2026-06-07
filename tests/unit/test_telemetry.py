@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from gripprobe.telemetry import extract_and_persist_case_telemetry
 from gripprobe.telemetry_proxy import _extract_tool_evidence, _extract_tool_evidence_details
 
 
-def _read_jsonl(path: Path) -> list[dict[str, object]]:
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     lines = path.read_text(encoding="utf-8").splitlines()
     return [json.loads(line) for line in lines if line.strip()]
 

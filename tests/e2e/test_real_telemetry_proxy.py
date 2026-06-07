@@ -7,6 +7,7 @@ import urllib.error
 import urllib.request
 from contextlib import suppress
 from pathlib import Path
+from typing import Any, Iterator
 
 import pytest
 
@@ -30,7 +31,7 @@ def live_ollama_model() -> str:
 
 
 @pytest.fixture()
-def live_proxy(tmp_path: Path, live_ollama_base_url: str) -> OllamaTelemetryProxy:
+def live_proxy(tmp_path: Path, live_ollama_base_url: str) -> Iterator[OllamaTelemetryProxy]:
     _require_live_ollama(live_ollama_base_url)
     proxy = OllamaTelemetryProxy(case_dir=tmp_path, upstream_base_url=live_ollama_base_url)
     proxy.start()
@@ -150,17 +151,17 @@ def _require_live_ollama(base_url: str) -> None:
     assert "version" in payload
 
 
-def _last_proxy_event(proxy: OllamaTelemetryProxy) -> dict[str, object]:
+def _last_proxy_event(proxy: OllamaTelemetryProxy) -> dict[str, Any]:
     events = _read_proxy_events(proxy.artifact_path)
     assert events
     return events[-1]
 
 
-def _read_proxy_events(path: Path) -> list[dict[str, object]]:
+def _read_proxy_events(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def _wait_for_disconnect_event(proxy: OllamaTelemetryProxy, timeout_seconds: float = 10.0) -> dict[str, object]:
+def _wait_for_disconnect_event(proxy: OllamaTelemetryProxy, timeout_seconds: float = 10.0) -> dict[str, Any]:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         events = _read_proxy_events(proxy.artifact_path)

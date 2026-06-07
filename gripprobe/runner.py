@@ -14,7 +14,7 @@ from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse, urlsplit
-from typing import Any, Callable, Iterable, Literal, cast
+from typing import Any, Callable, Iterable, Literal
 
 from gripprobe.adapters.base import AdapterError
 from gripprobe.adapters.aider import AiderAdapter
@@ -30,7 +30,11 @@ from gripprobe.reporters.html_report import write_html_summary
 from gripprobe.reporters.markdown import write_markdown_summary
 from gripprobe.results import create_run_paths, write_json
 from gripprobe.spec_loader import load_cli_agent_specs, load_model_specs, load_test_specs
-from gripprobe.telemetry import extract_and_persist_case_telemetry, normalize_telemetry_proxy_mode
+from gripprobe.telemetry import (
+    TelemetryProxyStatus,
+    extract_and_persist_case_telemetry,
+    normalize_telemetry_proxy_mode,
+)
 from gripprobe.telemetry_proxy import OllamaTelemetryProxy
 
 
@@ -59,7 +63,8 @@ def _collect_cli_agent_runtime_metadata(executable: str) -> dict[str, str]:
         "cli_agent_executable": executable_name,
         "shell_executable": executable_name,
     }
-    resolved = shutil.which(cast(str, executable_name))
+    resolve_executable: Callable[[str], str | None] = getattr(shutil, "which")
+    resolved = resolve_executable(executable_name)
     if resolved:
         home = str(Path.home())
         sanitized_path = resolved.replace(home, "$HOME", 1) if resolved.startswith(home) else resolved
@@ -931,6 +936,7 @@ def _harness_error_result(case: CaseDefinition, model_spec: ModelSpec, test_spec
 
 
 _TelemetryPhase = Literal["warmup", "measured"]
+_TELEMETRY_PHASES: tuple[_TelemetryPhase, ...] = ("warmup", "measured")
 
 
 def _phase_from_command_paths(
@@ -958,9 +964,9 @@ def _run_case_with_phase_proxy(
     upstream_base_url: str,
 ) -> tuple[CaseResult, dict[str, str], dict[str, str], str | None]:
     original_run_command = adapter.run_command
-    phase_statuses: dict[str, str] = {}
-    phase_skip_reasons: dict[str, str] = {}
-    phase_artifacts: dict[str, str] = {}
+    phase_statuses: dict[_TelemetryPhase, str] = {}
+    phase_skip_reasons: dict[_TelemetryPhase, str] = {}
+    phase_artifacts: dict[_TelemetryPhase, str] = {}
     proxy_runtime_error: str | None = None
     expected_phase_artifacts: dict[_TelemetryPhase, str] = {
         "warmup": _proxy_relpath_for_phase("warmup"),
@@ -983,7 +989,7 @@ def _run_case_with_phase_proxy(
     capture_ollama_usage = bool((model_spec.policy_overrides or {}).get("telemetry_proxy_capture_ollama_usage"))
     capture_stream_timing = bool((model_spec.policy_overrides or {}).get("telemetry_proxy_capture_stream_timing"))
 
-    for phase in ("warmup", "measured"):
+    for phase in _TELEMETRY_PHASES:
         artifact_relpath = expected_phase_artifacts[phase]
         try:
             proxy_kwargs: dict[str, Any] = {}
@@ -1039,6 +1045,7 @@ def _run_case_with_phase_proxy(
         stderr_path: Path,
         workspace_dir: Path | None = None,
     ):
+        nonlocal proxy_runtime_error
         phase = _phase_from_command_paths(case=command_case, stdout_path=stdout_path, workspace_dir=workspace_dir)
         proxy_capture = proxies.get(phase)
         if proxy_capture is None or not proxy_capture.base_url:
@@ -1086,11 +1093,15 @@ def _run_case_with_phase_proxy(
                 phase_skip_reasons[phase] = "capture_missing"
 
     adapter.run_command = _run_command_with_proxy
+    result: CaseResult | None = None
     try:
         result = adapter.run_case(case, model_spec, test_spec)
     finally:
         adapter.run_command = original_run_command
-        for phase, proxy_capture in proxies.items():
+        for phase in _TELEMETRY_PHASES:
+            proxy_capture = proxies.get(phase)
+            if proxy_capture is None:
+                continue
             if phase in stopped_phases:
                 continue
             try:
@@ -1102,6 +1113,8 @@ def _run_case_with_phase_proxy(
                 if proxy_runtime_error is None:
                     proxy_runtime_error = str(exc)
 
+    if result is None:
+        raise RuntimeError("adapter completed without returning a case result")
     proxy_runtime_metadata = {
         "telemetry_proxy_upstream_base_url": upstream_base_url,
         "telemetry_proxy_warmup_artifact_path": _proxy_relpath_for_phase("warmup"),
@@ -1246,7 +1259,7 @@ def run(
                     search_challenge.required_token,
                 )
                 active_test_spec = _patch_web_search_validators(test_spec, search_challenge)
-            proxy_capture_status = "skipped"
+            proxy_capture_status: TelemetryProxyStatus = "skipped"
             proxy_capture_skip_reason: str | None = None
             proxy_capture_artifact_relpaths: dict[str, str] = {}
             proxy_capture_error: str | None = None
@@ -1261,11 +1274,12 @@ def run(
                 else:
                     proxy_capture_skip_reason = "unsupported_backend"
             else:
-                upstream_base_url = _resolve_ollama_host_for_backend(backend)
+                resolved_upstream_base_url = _resolve_ollama_host_for_backend(backend)
+                upstream_base_url = resolved_upstream_base_url
                 proxy_capture_status = "collected"
                 proxy_capture_skip_reason = None
                 proxy_runtime_metadata = {
-                    "telemetry_proxy_upstream_base_url": upstream_base_url,
+                    "telemetry_proxy_upstream_base_url": resolved_upstream_base_url,
                     "telemetry_proxy_warmup_artifact_path": _proxy_relpath_for_phase("warmup"),
                     "telemetry_proxy_measured_artifact_path": _proxy_relpath_for_phase("measured"),
                 }

@@ -38,7 +38,7 @@ _WINDOWS_USERNAME_PATH_RE = re.compile(r"(?<![\w$])[A-Za-z]:\\+Users\\+[^\\/\s\"
 _TOOL_CALL_ID_PATTERN = re.compile(r"@([A-Za-z_][A-Za-z0-9_-]*)\((call_[^) \t]+)\)")
 _RECIPIENT_PATTERN = re.compile(r'recipient_name"\s*:\s*"([^"]+)"')
 _CONTINUE_TOOL_CALL_PATTERN = re.compile(r"\b(Read|Write|Edit|Bash|Shell|Exec|Run)\(")
-_EXIT_CODE_PATTERN = re.compile(r"\bexit_code=(\-?\d+)\b")
+_EXIT_CODE_PATTERN = re.compile(r"\bexit_code=(-?\d+)\b")
 _RAN_COMMAND_PATTERN = re.compile(r"\bRan command:\s*`?([^`]+)`?", flags=re.IGNORECASE)
 
 
@@ -265,7 +265,7 @@ def _extract_events_by_phase(case_dir: Path, run_id: str, case_id: str) -> tuple
             base_missing.append(name)
             continue
         base_present.append(name)
-        phase = "warmup" if name.startswith("warmup.") else "measured"
+        phase: Literal["warmup", "measured"] = "warmup" if name.startswith("warmup.") else "measured"
         events, sequence, source_structured, source_markers = _extract_events_from_path(
             path=path,
             phase=phase,

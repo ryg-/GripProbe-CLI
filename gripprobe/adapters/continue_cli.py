@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import re
 import shutil
-from typing import Any
+from typing import Any, Callable
 import yaml
 
 from gripprobe.adapters.base import CliAgentAdapter
@@ -178,12 +178,14 @@ class ContinueCliAdapter(CliAgentAdapter):
         model_spec: ModelSpec,
         runtime_env: dict[str, str],
     ) -> tuple[list[str], bool]:
+        executable_name = str(self.cli_agent_spec.executable)
         policy = self._continue_policy(model_spec)
         if policy.get("runtime_patches") is not True:
-            return [self.cli_agent_spec.executable], False
-        executable = shutil.which(self.cli_agent_spec.executable)
+            return [executable_name], False
+        resolve_executable: Callable[[str], str | None] = getattr(shutil, "which")
+        executable = resolve_executable(executable_name)
         if not executable:
-            return [self.cli_agent_spec.executable], False
+            return [executable_name], False
         resolved = Path(executable).resolve()
         package_root: Path | None = None
         for candidate in [resolved.parent, *resolved.parents]:
@@ -191,7 +193,7 @@ class ContinueCliAdapter(CliAgentAdapter):
                 package_root = candidate
                 break
         if package_root is None:
-            return [self.cli_agent_spec.executable], False
+            return [executable_name], False
 
         patch_root = Path(runtime_env["HOME"]) / ".continue-cli-patched"
         if patch_root.exists():
@@ -215,10 +217,10 @@ class ContinueCliAdapter(CliAgentAdapter):
             },
         )
         if not patch_applied:
-            return [self.cli_agent_spec.executable], False
+            return [executable_name], False
         if dist_cli.exists():
             return ["node", str(dist_cli)], True
-        return [self.cli_agent_spec.executable], False
+        return [executable_name], False
 
     def _classify(self, test_spec: TestSpec, workspace: Path, stdout: str, stderr: str) -> tuple[CaseStatus, ToolInvocation, int, str, str]:
         if "does not support tools" in stdout or "does not support tools" in stderr:
