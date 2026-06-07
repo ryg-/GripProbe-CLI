@@ -4,6 +4,24 @@ This document is the baseline catalog for test scenarios in `specs/tests`.
 It starts with complex scenarios and web-specific cases, and can be extended over time.
 For shell-level behavior differences that affect test outcomes, see [Shell Behavior](./shell.md).
 
+## Real Proxy Test Runs
+
+- GripProbe includes an opt-in live test module for the Ollama telemetry proxy at `tests/e2e/test_real_telemetry_proxy.py`.
+- The live suite covers three cases against a real local Ollama instance only:
+  - one NDJSON streaming session via `/api/generate`
+  - one SSE streaming session via `/v1/chat/completions`
+  - one client-disconnect session to verify proxy disconnect capture
+- Default live target:
+  - Ollama base URL: `http://127.0.0.1:12434`
+  - model: `granite4:3b`
+- Override with environment variables when needed:
+  - `GRIPPROBE_REAL_OLLAMA_HOST`
+  - `GRIPPROBE_REAL_PROXY_MODEL`
+- Run command:
+  - `source .venv/bin/activate`
+  - `GRIPPROBE_RUN_REAL_E2E=1 GRIPPROBE_REAL_OLLAMA_HOST=http://127.0.0.1:12434 GRIPPROBE_REAL_PROXY_MODEL=granite4:3b PYTHONPATH=. pytest tests/e2e/test_real_telemetry_proxy.py`
+- The faster local proxy-only unit coverage remains in `tests/unit/test_telemetry_proxy_streaming.py`.
+
 ## Web Nonce Proof (`web_nonce_proof`)
 
 - Goal: verify that the model performs a real HTTP fetch and computes a derived value.

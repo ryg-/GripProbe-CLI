@@ -7,6 +7,18 @@ python -m gripprobe.cli --root . validate
 python -m gripprobe.cli --root . run --cli-agent gptme --model local/qwen2.5:7b --backend ollama
 ```
 
+If you have `qwen2.5-coder:7b` in Ollama (common), use the matching GripProbe model label:
+
+```bash
+python -m gripprobe.cli --root . run --cli-agent gptme --model local/qwen2.5-coder:7b --backend ollama
+```
+
+If you use the smaller coder variant, the matching label is `local/qwen2.5-coder:1.5b`:
+
+```bash
+python -m gripprobe.cli --root . run --cli-agent gptme --model local/qwen2.5-coder:1.5b --backend ollama
+```
+
 `--backend` is selected explicitly at runtime and defaults to `ollama`.
 This avoids ambiguous backend choice when a model spec defines multiple backends.
 
@@ -32,6 +44,9 @@ Run the default suite against an external Ollama endpoint:
 OLLAMA_HOST=http://ollama-host:11434 docker compose run --rm gripprobe \
   python3 -m gripprobe.cli --root . run-suite
 ```
+
+Note: if you paste the command across multiple lines, keep the trailing `\`.
+Without it, only `docker compose run ...` runs in the container and the next line (`python3 -m gripprobe.cli ...`) runs on your host Python (which may not have dependencies installed).
 
 If runtime probes should be collected from the Ollama host over SSH, also set:
 
