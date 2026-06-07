@@ -190,6 +190,22 @@ def _find_conversation_jsonl(case_dir: Path) -> Path | None:
     return matches[0] if matches else None
 
 
+def _looks_like_tool_markdown(text: str) -> bool:
+    lowered = text.lower()
+    if "```tool" in lowered:
+        return True
+    markers = (
+        "tool_call",
+        "function_call",
+        "<tool_call",
+        "</tool_call>",
+        '"tool_name"',
+        "'tool_name'",
+        "tool_name:",
+    )
+    return any(marker in lowered for marker in markers)
+
+
 def _render_transcript(case_dir: Path) -> str:
     convo_path = _find_conversation_jsonl(case_dir)
     if convo_path is None:
@@ -204,10 +220,22 @@ def _render_transcript(case_dir: Path) -> str:
             item = json.loads(line)
         except json.JSONDecodeError:
             continue
-        role = escape(str(item.get("role", "unknown")))
-        content = escape(_sanitize_for_html(str(item.get("content", ""))))
+        role_raw = str(item.get("role", "unknown"))
+        role_key = role_raw.strip().lower()
+        content_raw = _sanitize_for_html(str(item.get("content", "")))
+        content = escape(content_raw)
+        classes = ["message"]
+        if role_key == "user":
+            classes.append("msg-user")
+        elif role_key in ("assistant", "llm", "model"):
+            classes.append("msg-llm")
+        elif role_key == "tool":
+            classes.append("msg-tool")
+        if _looks_like_tool_markdown(content_raw):
+            classes.append("msg-tool-md")
+        role = escape(role_raw)
         rows.append(
-            "<section class='message'>"
+            f"<section class='{' '.join(classes)}'>"
             f"<h3>{role}</h3>"
             f"<pre>{content}</pre>"
             "</section>"
@@ -397,54 +425,334 @@ def _json_for_script_tag(value: object) -> str:
 
 
 def _render_telemetry_viewer_script() -> str:
-    return (
-        "<script>"
-        "function gripprobeOpenTelemetryViewer(payloadId, rawHref){"
-        "var payloadNode=document.getElementById(payloadId);"
-        "if(!payloadNode){return true;}"
-        "var popup=window.open('about:blank', '_blank');"
-        "if(!popup){return true;}"
-        "var payload=null;"
-        "try{payload=JSON.parse(payloadNode.textContent||'null');}catch(_err){payload=null;}"
-        "var doc=popup.document;"
-        "doc.open();"
-        "doc.write(\"<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Telemetry Viewer</title><style>body{font-family:system-ui,sans-serif;margin:1.25rem;background:#f7f7f3;color:#111;line-height:1.45}pre{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}a{color:#0b57d0}.muted{color:#666}</style></head><body><h1>Telemetry Artifact Viewer</h1><p id='viewer-hint' class='muted'></p><pre id='viewer-content'></pre><p><a id='viewer-raw-link' target='_blank' rel='noopener noreferrer'></a></p></body></html>\");"
-        "doc.close();"
-        "var hint=doc.getElementById('viewer-hint');"
-        "var content=doc.getElementById('viewer-content');"
-        "var rawLink=doc.getElementById('viewer-raw-link');"
-        "rawLink.setAttribute('href',rawHref);"
-        "if(!payload||typeof payload!=='object'){"
-        "hint.textContent='Interactive preview is unavailable; open the raw artifact using the link below.';"
-        "rawLink.textContent='Open raw artifact';"
-        "return false;"
-        "}"
-        "var relpath=String(payload.relpath||'artifact');"
-        "rawLink.textContent='Open raw artifact: '+relpath;"
-        "hint.textContent='Interactive rendering for '+relpath;"
-        "var text=String(payload.content||'');"
-        "var kind=String(payload.kind||'text');"
-        "try{"
-        "if(kind==='json'){content.textContent=JSON.stringify(JSON.parse(text),null,2);}"
-        "else if(kind==='jsonl'){"
-        "var lines=text.split(/\\r?\\n/).filter(function(line){return line.trim().length>0;});"
-        "var entries=[];"
-        "for(var i=0;i<lines.length;i++){"
-        "try{entries.push(JSON.parse(lines[i]));}"
-        "catch(_lineErr){entries.push({line:i+1,parse_error:'invalid_json',raw:lines[i]});}"
-        "}"
-        "content.textContent=JSON.stringify(entries,null,2);"
-        "hint.textContent=hint.textContent+' ('+lines.length+' line(s))';"
-        "}"
-        "else{content.textContent=text;}"
-        "}catch(_parseErr){"
-        "hint.textContent='Interactive preview failed; showing sanitized raw text.';"
-        "content.textContent=text;"
-        "}"
-        "return false;"
-        "}"
-        "</script>"
-    )
+    return """<script>
+function gripprobeOpenTelemetryViewer(payloadId, rawHref){
+function tryParseJsonString(value){
+if(typeof value!=='string'){return value;}
+var trimmed=value.trim();
+if(!trimmed){return value;}
+var start=trimmed.charAt(0);
+var end=trimmed.charAt(trimmed.length-1);
+if(!((start==='{'&&end==='}')||(start==='['&&end===']'))){return value;}
+try{return JSON.parse(trimmed);}catch(_jsonErr){return value;}
+}
+function decodeEscapedExcerpt(value){
+if(typeof value!=='string'){return value;}
+if(value.indexOf('\\\\\"')===-1&&value.indexOf('\\\\n')===-1&&value.indexOf('\\\\t')===-1&&value.indexOf('\\\\r')===-1){return value;}
+var text=value;
+text=text.replace(/\\\\r\\\\n/g,'\\n');
+text=text.replace(/\\\\n/g,'\\n');
+text=text.replace(/\\\\t/g,'\\t');
+text=text.replace(/\\\\r/g,'\\r');
+text=text.replace(/\\\\\\\"/g,'"');
+text=text.replace(/\\\\\\\\/g,'\\\\');
+return text;
+}
+function tryParseSseStream(value){
+if(typeof value!=='string'){return value;}
+if(value.indexOf('data:')===-1){return value;}
+var normalized=value.replace(/\\r\\n/g,'\\n');
+var blocks=normalized.split(/\\n\\n+/);
+var chunks=[];
+for(var bi=0;bi<blocks.length;bi++){
+var block=blocks[bi];
+if(!block||!block.trim()){continue;}
+var lines=block.split(/\\n/);
+var payloadLines=[];
+for(var li=0;li<lines.length;li++){
+var line=lines[li];
+if(line.indexOf('data:')===0){payloadLines.push(line.slice(5).trim());}
+}
+if(payloadLines.length===0){continue;}
+var payloadText=payloadLines.join('\\n');
+if(payloadText==='[DONE]'){chunks.push({event:'done'});continue;}
+try{chunks.push(JSON.parse(payloadText));}
+catch(_sseErr){chunks.push({event:'raw',data:payloadText});}
+}
+if(chunks.length===0){return value;}
+return {x_gripprobe_view:'sse_chunks',chunks:chunks};
+}
+function normalizeBodyExcerpt(value){
+var parsed=tryParseJsonString(value);
+if(parsed!==value){return normalizeForView(parsed);}
+var sseParsed=tryParseSseStream(value);
+if(sseParsed!==value){return normalizeForView(sseParsed);}
+var decoded=decodeEscapedExcerpt(value);
+if(decoded!==value){
+parsed=tryParseJsonString(decoded);
+if(parsed!==decoded){return normalizeForView(parsed);}
+sseParsed=tryParseSseStream(decoded);
+if(sseParsed!==decoded){return normalizeForView(sseParsed);}
+}
+return decoded;
+}
+function normalizeForView(node){
+if(Array.isArray(node)){return node.map(normalizeForView);}
+if(node&&typeof node==='object'){
+var out={};
+for(var k in node){
+if(!Object.prototype.hasOwnProperty.call(node,k)){continue;}
+var v=node[k];
+if((k==='x_gripprobe_body_excerpt'||k==='body_excerpt')&&typeof v==='string'){
+out[k]=normalizeBodyExcerpt(v);
+}else{
+out[k]=normalizeForView(v);
+}
+}
+return out;
+}
+return node;
+}
+function looksLikeToolMarkdown(text){
+if(typeof text!=='string'){return false;}
+var lowered=text.toLowerCase();
+if(lowered.indexOf('```tool')!==-1){return true;}
+var markers=['tool_call','function_call','<tool_call','</tool_call>','\"tool_name\"',\"'tool_name'\",'tool_name:'];
+for(var i=0;i<markers.length;i++){
+if(lowered.indexOf(markers[i])!==-1){return true;}
+}
+return false;
+}
+function hasToolSignals(entry){
+if(!entry||typeof entry!=='object'){return false;}
+if(typeof entry.event_type==='string'&&entry.event_type.toLowerCase().indexOf('tool')!==-1){return true;}
+if(typeof entry.source_tier==='string'&&entry.source_tier.toLowerCase().indexOf('tool')!==-1){return true;}
+if(typeof entry.role==='string'&&entry.role.toLowerCase()==='tool'){return true;}
+if(entry.payload&&typeof entry.payload==='object'&&entry.payload.tool_name){return true;}
+if(entry.tool_name){return true;}
+if(entry.tool_call||entry.tool_calls||entry.function_call||entry.function_calls){return true;}
+if(typeof entry.x_gripprobe_tool_call_count==='number'&&entry.x_gripprobe_tool_call_count>0){return true;}
+if(typeof entry.x_gripprobe_tool_call_nonstructured_count==='number'&&entry.x_gripprobe_tool_call_nonstructured_count>0){return true;}
+if(typeof entry.x_gripprobe_tool_result_count==='number'&&entry.x_gripprobe_tool_result_count>0){return true;}
+return false;
+}
+function classifyViewerEntry(entry){
+var classes=['tv-row'];
+var roleClass='';
+if(entry&&typeof entry==='object'){
+var tier='';
+if(typeof entry.source_tier==='string'){tier=entry.source_tier.toLowerCase();}
+else if(typeof entry.role==='string'){tier=entry.role.toLowerCase();}
+if(tier==='user'){roleClass='tv-user';}
+if(tier==='assistant'||tier==='llm'||tier==='model'){roleClass='tv-llm';}
+if(tier==='tool'){roleClass='tv-tool';}
+if(hasToolSignals(entry)&&roleClass!=='tv-user'){roleClass='tv-tool';}
+var textSignals='';
+if(typeof entry.x_gripprobe_body_excerpt==='string'){textSignals+=entry.x_gripprobe_body_excerpt+'\\n';}
+if(typeof entry.body_excerpt==='string'){textSignals+=entry.body_excerpt+'\\n';}
+if(typeof entry.content==='string'){textSignals+=entry.content+'\\n';}
+if(entry.payload&&typeof entry.payload.content==='string'){textSignals+=entry.payload.content+'\\n';}
+if(looksLikeToolMarkdown(textSignals)){classes.push('tv-tool-md');}
+}
+if(roleClass){classes.push(roleClass);}
+return classes.join(' ');
+}
+function extractToolCallIds(entry){
+if(!entry||typeof entry!=='object'){return {ids:[],source:''};}
+if(Array.isArray(entry.x_gripprobe_tool_call_ids)&&entry.x_gripprobe_tool_call_ids.length>0){
+return {ids:entry.x_gripprobe_tool_call_ids,source:'x_gripprobe_tool_call_ids'};
+}
+if(entry.payload&&typeof entry.payload==='object'){
+if(Array.isArray(entry.payload.tool_call_ids)&&entry.payload.tool_call_ids.length>0){
+return {ids:entry.payload.tool_call_ids,source:'payload.tool_call_ids'};
+}
+if(Array.isArray(entry.payload.x_gripprobe_tool_call_ids)&&entry.payload.x_gripprobe_tool_call_ids.length>0){
+return {ids:entry.payload.x_gripprobe_tool_call_ids,source:'payload.x_gripprobe_tool_call_ids'};
+}
+}
+if(entry.x_gripprobe_response&&typeof entry.x_gripprobe_response==='object'){
+if(Array.isArray(entry.x_gripprobe_response.x_gripprobe_tool_call_ids)&&entry.x_gripprobe_response.x_gripprobe_tool_call_ids.length>0){
+return {ids:entry.x_gripprobe_response.x_gripprobe_tool_call_ids,source:'x_gripprobe_response.x_gripprobe_tool_call_ids'};
+}
+if(Array.isArray(entry.x_gripprobe_response.tool_call_ids)&&entry.x_gripprobe_response.tool_call_ids.length>0){
+return {ids:entry.x_gripprobe_response.tool_call_ids,source:'x_gripprobe_response.tool_call_ids'};
+}
+}
+return {ids:[],source:''};
+}
+function summarizeRow(entry,index){
+var parts=['Line '+(index+1)];
+if(entry&&typeof entry==='object'){
+var tier=entry.source_tier||entry.role;
+if(tier){parts.push('source=' + String(tier));}
+if(entry.event_type){parts.push('event=' + String(entry.event_type));}
+if(entry.x_gripprobe_method||entry.x_gripprobe_path){
+parts.push(String(entry.x_gripprobe_method||'') + ' ' + String(entry.x_gripprobe_path||''));
+}
+if(entry.payload&&typeof entry.payload==='object'&&entry.payload.tool_name){
+parts.push('tool=' + String(entry.payload.tool_name));
+}else if(entry.tool_name){
+parts.push('tool=' + String(entry.tool_name));
+}
+var toolCallIds=extractToolCallIds(entry);
+if(toolCallIds.ids.length>0){
+parts.push('tool_call_ids=' + toolCallIds.ids.join(','));
+parts.push('ids_source=' + toolCallIds.source);
+}
+}
+return parts.join(' | ');
+}
+function compactEntryForRow(entry){
+if(!entry||typeof entry!=='object'){return entry;}
+var out={};
+for(var key in entry){
+if(!Object.prototype.hasOwnProperty.call(entry,key)){continue;}
+var value=entry[key];
+if((key==='x_gripprobe_body_excerpt'||key==='body_excerpt')&&typeof value==='string'){
+if(value.length>600){
+out[key]=value.slice(0,600)+'\\n... [truncated in compact view]';
+}else{
+out[key]=value;
+}
+continue;
+}
+if((key==='x_gripprobe_body_excerpt'||key==='body_excerpt')&&(value&&typeof value==='object')){
+var previewLen=0;
+try{previewLen=JSON.stringify(value).length;}catch(_previewErr){previewLen=1000;}
+if(previewLen>600){
+out[key]='[structured excerpt hidden in compact view]';
+}else{
+out[key]=value;
+}
+continue;
+}
+out[key]=value;
+}
+return out;
+}
+function formatViewerValue(value,indent,key){
+var space=' '.repeat(indent);
+var next=' '.repeat(indent+2);
+if((key==='x_gripprobe_body_excerpt'||key==='body_excerpt')&&typeof value==='string'){
+var lines=value.split(/\\r?\\n/);
+return '|\\n'+lines.map(function(line){return next+line;}).join('\\n');
+}
+if(Array.isArray(value)){
+if(value.length===0){return '[]';}
+return '[\\n'+value.map(function(item){return next+formatViewerValue(item,indent+2,null);}).join(',\\n')+'\\n'+space+']';
+}
+if(value&&typeof value==='object'){
+var keys=Object.keys(value);
+if(keys.length===0){return '{}';}
+return '{\\n'+keys.map(function(childKey){return next+JSON.stringify(childKey)+': '+formatViewerValue(value[childKey],indent+2,childKey);}).join(',\\n')+'\\n'+space+'}';
+}
+return JSON.stringify(value);
+}
+var payloadNode=document.getElementById(payloadId);
+if(!payloadNode){return true;}
+var popup=window.open('about:blank', '_blank');
+if(!popup){return true;}
+var payload=null;
+try{payload=JSON.parse(payloadNode.textContent||'null');}catch(_err){payload=null;}
+var doc=popup.document;
+doc.open();
+doc.write("<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Telemetry Viewer</title><style>body{font-family:system-ui,sans-serif;margin:1.25rem;background:#f7f7f3;color:#111;line-height:1.45}pre{white-space:pre-wrap;overflow:auto;background:#f0eee8;padding:1rem;border:1px solid #d6d1c4;border-radius:6px}a{color:#0b57d0}.muted{color:#666}.viewer-rows{display:none;margin-top:1rem}.tv-row{margin:.75rem 0;border:1px solid #d6d1c4;border-radius:8px;overflow:hidden}.tv-row-meta{font-size:.85rem;padding:.4rem .6rem;background:#ece8dc;color:#555;border-bottom:1px solid #d6d1c4}.tv-row pre{margin:0;border:none;border-radius:0;background:transparent}.tv-user{background:#eaf3ff}.tv-llm{background:#ecfdf3}.tv-tool{background:#fff7e8}.tv-tool-md{box-shadow:inset 0 0 0 2px #f2c14e}.hljs{background:#f0eee8 !important}.hljs-ln td{vertical-align:top}.hljs-ln-numbers{user-select:none;text-align:right;color:#7a7468;border-right:1px solid #d6d1c4;padding-right:.75rem;white-space:nowrap;width:1%}.hljs-ln-code{padding-left:.75rem;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}</style><link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css'></head><body><h1>Telemetry Artifact Viewer</h1><p id='viewer-hint' class='muted'></p><div id='viewer-rows' class='viewer-rows'></div><pre id='viewer-pre'><code id='viewer-code'></code></pre><p><a id='viewer-raw-link' target='_blank' rel='noopener noreferrer'></a></p></body></html>");
+doc.close();
+var hint=doc.getElementById('viewer-hint');
+var codeEl=doc.getElementById('viewer-code');
+var preEl=doc.getElementById('viewer-pre');
+var rowsEl=doc.getElementById('viewer-rows');
+var rawLink=doc.getElementById('viewer-raw-link');
+rawLink.setAttribute('href',rawHref);
+try{
+var viewerUrl=new URL(rawHref,window.location.href);
+viewerUrl.hash='telemetry-viewer';
+if(popup.history&&popup.history.replaceState){
+popup.history.replaceState(null,'',viewerUrl.toString());
+}
+}catch(_urlErr){}
+if(!payload||typeof payload!=='object'){
+hint.textContent='Interactive preview is unavailable; open the raw artifact using the link below.';
+rawLink.textContent='Open raw artifact';
+return false;
+}
+var relpath=String(payload.relpath||'artifact');
+rawLink.textContent='Open raw artifact: '+relpath;
+hint.textContent='Interactive rendering for '+relpath+' · viewer v5';
+var text=String(payload.content||'');
+var kind=String(payload.kind||'text');
+var renderedText='';
+var language='plaintext';
+var renderedRows=false;
+function renderJsonlRows(entries){
+if(!rowsEl||!preEl){return false;}
+rowsEl.innerHTML='';
+for(var i=0;i<entries.length;i++){
+var rowEntry=entries[i];
+var row=doc.createElement('div');
+row.className=classifyViewerEntry(rowEntry);
+var meta=doc.createElement('div');
+meta.className='tv-row-meta';
+meta.textContent=summarizeRow(rowEntry,i);
+var pre=doc.createElement('pre');
+var code=doc.createElement('code');
+code.className='language-json tv-row-code';
+code.textContent=formatViewerValue(compactEntryForRow(rowEntry),0,null);
+pre.appendChild(code);
+row.appendChild(meta);
+row.appendChild(pre);
+rowsEl.appendChild(row);
+}
+rowsEl.style.display='block';
+preEl.style.display='none';
+return true;
+}
+try{
+if(kind==='json'){
+renderedText=formatViewerValue(normalizeForView(JSON.parse(text)),0,null);
+language='json';
+}else if(kind==='jsonl'){
+var lines=text.split(/\\r?\\n/).filter(function(line){return line.trim().length>0;});
+var entries=[];
+for(var i=0;i<lines.length;i++){
+try{entries.push(normalizeForView(JSON.parse(lines[i])));}
+catch(_lineErr){entries.push({line:i+1,parse_error:'invalid_json',raw:lines[i]});}
+}
+renderedRows=renderJsonlRows(entries);
+if(!renderedRows){renderedText=formatViewerValue(entries,0,null);}
+language='json';
+hint.textContent=hint.textContent+' ('+lines.length+' line(s))';
+}else{
+renderedText=text;
+language='plaintext';
+}
+}catch(_parseErr){
+hint.textContent='Interactive preview failed; showing sanitized raw text.';
+renderedText=text;
+language='plaintext';
+}
+if(!renderedRows){
+codeEl.textContent=renderedText;
+codeEl.className='language-'+language;
+if(preEl){preEl.style.display='block';}
+if(rowsEl){rowsEl.style.display='none';}
+}
+function applyHighlight(){
+try{
+if(popup.hljs&&popup.hljs.highlightElement){
+if(!renderedRows&&codeEl){popup.hljs.highlightElement(codeEl);}
+var rowCodes=doc.querySelectorAll('.tv-row-code');
+for(var i=0;i<rowCodes.length;i++){popup.hljs.highlightElement(rowCodes[i]);}
+}
+if(popup.hljs&&popup.hljs.lineNumbersBlock){
+if(!renderedRows&&codeEl){popup.hljs.lineNumbersBlock(codeEl);}
+}
+}catch(_hlErr){}
+}
+var scriptHl=doc.createElement('script');
+scriptHl.src='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js';
+scriptHl.onload=function(){
+var scriptLn=doc.createElement('script');
+scriptLn.src='https://cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.9.0/highlightjs-line-numbers.min.js';
+scriptLn.onload=applyHighlight;
+scriptLn.onerror=applyHighlight;
+doc.head.appendChild(scriptLn);
+};
+scriptHl.onerror=function(){};
+doc.head.appendChild(scriptHl);
+return false;
+}
+</script>"""
 
 
 def _render_json_preview(raw_text: str) -> str:
@@ -848,6 +1156,10 @@ pre{{white-space:pre-wrap;word-break:break-word;background:#f0eee8;padding:1rem;
 code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
 section{{margin:1.5rem 0}}
 .message{{border-top:1px solid #d6d1c4;padding-top:1rem}}
+.message.msg-user{{background:#eaf3ff;border-left:4px solid #4a8cff;padding-left:.75rem}}
+.message.msg-llm{{background:#ecfdf3;border-left:4px solid #3aa76d;padding-left:.75rem}}
+.message.msg-tool{{background:#fff7e8;border-left:4px solid #d79a2b;padding-left:.75rem}}
+.message.msg-tool-md{{box-shadow:inset 0 0 0 2px #f2c14e}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}}
 .panel{{background:#fbfaf7;border:1px solid #d6d1c4;border-radius:8px;padding:1rem}}
 {badge_css}

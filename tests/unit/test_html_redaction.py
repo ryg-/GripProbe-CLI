@@ -4,7 +4,11 @@ import json
 from pathlib import Path
 
 from gripprobe.models import CaseLogs, CaseModelInfo, CaseResult, CaseTimings
-from gripprobe.reporters.html_report import write_case_detail_pages, write_html_summary
+from gripprobe.reporters.html_report import (
+    _render_telemetry_viewer_script,
+    write_case_detail_pages,
+    write_html_summary,
+)
 
 
 def test_html_detail_hides_shell_executable_path(tmp_path: Path) -> None:
@@ -433,3 +437,91 @@ def test_detail_telemetry_preview_truncation_and_viewer_markup(tmp_path: Path) -
     assert "Open Interactive Viewer" in detail_html
     assert "gripprobeOpenTelemetryViewer" in detail_html
     assert "window.open('about:blank', '_blank')" in detail_html
+    assert "viewer v5" in detail_html
+    assert "function normalizeBodyExcerpt" in detail_html
+    assert "function formatViewerValue" in detail_html
+    assert "function classifyViewerEntry" in detail_html
+    assert "function renderJsonlRows" in detail_html
+    assert "function extractToolCallIds" in detail_html
+    assert "function summarizeRow" in detail_html
+
+
+def test_telemetry_viewer_parses_body_excerpt_before_decoding_escapes() -> None:
+    script = _render_telemetry_viewer_script()
+    normalize_start = script.index("function normalizeBodyExcerpt(value)")
+    normalize_end = script.index("function normalizeForView(node)")
+    normalize_body = script[normalize_start:normalize_end]
+
+    raw_json_parse = normalize_body.index("var parsed=tryParseJsonString(value);")
+    raw_sse_parse = normalize_body.index("var sseParsed=tryParseSseStream(value);")
+    escaped_decode = normalize_body.index("var decoded=decodeEscapedExcerpt(value);")
+    decoded_json_parse = normalize_body.index("parsed=tryParseJsonString(decoded);")
+    decoded_sse_parse = normalize_body.index("sseParsed=tryParseSseStream(decoded);")
+
+    assert raw_json_parse < escaped_decode
+    assert raw_sse_parse < escaped_decode
+    assert escaped_decode < decoded_json_parse
+    assert escaped_decode < decoded_sse_parse
+
+
+def test_transcript_role_and_tool_markdown_highlighting(tmp_path: Path) -> None:
+    reports_dir = tmp_path / "reports"
+    cases_dir = tmp_path / "cases"
+    case_dir = cases_dir / "case-transcript-highlight"
+    reports_dir.mkdir(parents=True)
+    case_dir.mkdir(parents=True)
+
+    conversation = [
+        {"role": "user", "content": "Please list files"},
+        {"role": "assistant", "content": "```tool\n{\"tool_call\":\"ls\"}\n```"},
+        {"role": "tool", "content": "{\"ok\": true}"},
+    ]
+    (case_dir / "conversation.jsonl").write_text(
+        "\n".join(json.dumps(entry) for entry in conversation) + "\n",
+        encoding="utf-8",
+    )
+
+    result = CaseResult(
+        case_id="case-transcript-highlight",
+        run_id="run-1",
+        cli_agent_id="aider",
+        cli_agent="aider",
+        model=CaseModelInfo(
+            id="m",
+            label="m",
+            family="fam",
+            size_class="small",
+            quantization=None,
+            backend="ollama",
+            model_id="mid",
+            shell_model_id="smid",
+            model_hash="hash",
+        ),
+        format="tool",
+        test="t",
+        title="Transcript Highlight Case",
+        status="PASS",
+        trajectory="clean",
+        invoked="yes",
+        match_percent=100,
+        timings=CaseTimings(warmup_seconds=0.1, measured_seconds=0.2),
+        logs=CaseLogs(
+            prompt="prompt.txt",
+            warmup_stdout="warmup.stdout",
+            warmup_stderr="warmup.stderr",
+            measured_stdout="measured.stdout",
+            measured_stderr="measured.stderr",
+        ),
+        metadata={},
+    )
+
+    write_case_detail_pages([result], reports_dir, cases_dir, show_case_json=False)
+    detail_html = (reports_dir / "cases" / "case-transcript-highlight.html").read_text(encoding="utf-8")
+
+    assert "class='message msg-user'" in detail_html
+    assert "class='message msg-llm msg-tool-md'" in detail_html
+    assert "class='message msg-tool'" in detail_html
+    assert ".message.msg-user{" in detail_html
+    assert ".message.msg-llm{" in detail_html
+    assert ".message.msg-tool{" in detail_html
+    assert ".message.msg-tool-md{" in detail_html
