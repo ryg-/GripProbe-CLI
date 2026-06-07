@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     npm \
     openssh-client \
     patch \
+    procps \
+    strace \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /work
