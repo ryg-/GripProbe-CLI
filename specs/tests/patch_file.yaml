@@ -7,6 +7,14 @@ prompt: |
   Do not retry on error.
   If the edit fails, reply only with FAIL.
   If the edit succeeds, reply only with DONE.
+  Do not continue reasoning after DONE.
+  Do not call any additional tools after DONE.
+  End your response immediately after DONE.
+  If the user instructs you to use a tool, you must actually call the required tool.
+  A text-only reply such as DONE or FAIL without the required tool call is incorrect.
+  Do not simulate execution, do not assume success, and do not claim completion before the tool result is returned.
+  If the exact shell command writes or edits a file, that is expected; still run it exactly as written.
+
 allowed_tools:
   - read
   - patch

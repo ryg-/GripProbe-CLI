@@ -1,0 +1,33 @@
+id: patch_file_shell
+title: Patch File Via Shell
+category: shell
+prompt: |
+  Use the shell tool to modify patch-target.txt in the current workspace.
+  Replace the exact line STATUS=old with STATUS=new.
+  Compute the shell command yourself.
+  Do not use Python.
+  Do not retry on error.
+  If the edit fails, reply only with FAIL.
+  If the edit succeeds, reply only with DONE.
+  Do not continue reasoning after DONE.
+  Do not call any additional tools after DONE.
+  End your response immediately after DONE.
+  To use this tool, emit a structured Bash function call. Do not write <tool_call> text or describe the command in reasoning.
+allowed_tools:
+  - shell
+validators:
+  - type: patch_applied
+    target_file: patch-target.txt
+    expected_line: STATUS=new
+supported_cli_agents:
+  - aider
+  - codex
+  - gptme
+  - continue-cli
+  - opencode
+supported_formats:
+  - markdown
+  - tool
+tags:
+  - mvp
+  - sanity
