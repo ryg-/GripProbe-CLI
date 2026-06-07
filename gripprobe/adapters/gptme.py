@@ -21,6 +21,22 @@ from gripprobe.validator_runner import evaluate_validators
 
 
 class GptmeAdapter(CliAgentAdapter):
+    def _resolve_system_mode(self) -> str:
+        mode = os.environ.get("GRIPPROBE_GPTME_SYSTEM_MODE", "short").strip().lower()
+        if mode in {"off", "none", "disable", "disabled"}:
+            return "off"
+        if mode in {"custom"}:
+            return "custom"
+        if mode in {"full", "default"}:
+            return "full"
+        return "short"
+
+    def _resolve_custom_system_prompt(self) -> str:
+        custom_prompt = os.environ.get("GRIPPROBE_GPTME_SYSTEM_CUSTOM", "").strip()
+        if custom_prompt:
+            return custom_prompt
+        return "Use tools first. Keep reasoning extremely short. Reply only with tool calls and final DONE/FAIL."
+
     def _ensure_ollama_openai_env(self, case: CaseDefinition, env: dict[str, str]) -> None:
         if case.backend_id != "ollama":
             return
@@ -60,8 +76,6 @@ class GptmeAdapter(CliAgentAdapter):
             *self.cli_agent_spec.default_args,
             "--name",
             f"{case.case_id}-warmup",
-            "--system",
-            "short",
             "--workspace",
             str(case.workspace_dir),
             "--tools",
@@ -72,6 +86,12 @@ class GptmeAdapter(CliAgentAdapter):
             case.cli_agent_model_id,
             case.prompt,
         ]
+        system_mode = self._resolve_system_mode()
+        if system_mode == "custom":
+            custom_prompt = self._resolve_custom_system_prompt()
+            base_args[base_args.index("--workspace"):base_args.index("--workspace")] = ["--system", custom_prompt]
+        elif system_mode != "off":
+            base_args[base_args.index("--workspace"):base_args.index("--workspace")] = ["--system", system_mode]
 
         env = os.environ.copy()
         env.update(self.cli_agent_spec.env)

@@ -28,13 +28,14 @@ class OpencodeAdapter(CliAgentAdapter):
         case: CaseDefinition,
         runtime_env: dict[str, str],
         base_env: dict[str, str],
+        phase: str,
     ) -> tuple[Path, Path]:
         config_path = self._resolve_source_config_path()
         opencode_home = Path(runtime_env["HOME"])
         config_dir = Path(runtime_env["XDG_CONFIG_HOME"]) / "opencode"
         config_dir.mkdir(parents=True, exist_ok=True)
 
-        api_base = self._resolve_case_ollama_host(case, base_env)
+        api_base = self._resolve_case_ollama_host_for_phase(case, base_env, phase)
         if not api_base.endswith("/v1"):
             api_base = f"{api_base}/v1"
         model_key = case.backend_model_id
@@ -107,8 +108,8 @@ class OpencodeAdapter(CliAgentAdapter):
         self._apply_case_backend_env_overrides(case, env)
         warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
         measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")
-        _warmup_home, warmup_config = self._prepare_opencode_home(case, warmup_runtime_env, env)
-        _measured_home, measured_config = self._prepare_opencode_home(case, measured_runtime_env, env)
+        _warmup_home, warmup_config = self._prepare_opencode_home(case, warmup_runtime_env, env, "warmup")
+        _measured_home, measured_config = self._prepare_opencode_home(case, measured_runtime_env, env, "measured")
         shared_env = {
             **env,
         }

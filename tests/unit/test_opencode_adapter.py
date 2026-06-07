@@ -215,3 +215,37 @@ def test_opencode_classifies_text_only_completion_as_no_invocation(tmp_path: Pat
     assert match_percent == 0
     assert expected == str(tmp_path)
     assert observed == ""
+
+
+def test_opencode_uses_phase_specific_proxy_hosts(tmp_path: Path) -> None:
+    adapter = _adapter()
+    model_spec = _model_spec()
+    test_spec = _test_spec()
+    case = _case(tmp_path, test_spec)
+    case.run_metadata = {
+        "telemetry_proxy_warmup_ollama_host": "http://127.0.0.1:19081",
+        "telemetry_proxy_measured_ollama_host": "http://127.0.0.1:19082",
+    }
+    case.warmup_workspace_dir.mkdir(parents=True)
+    case.workspace_dir.mkdir(parents=True)
+
+    captured_args: list[list[str]] = []
+
+    def _fake_run_command(self, case_arg, args, env, stdout_path, stderr_path, workspace_dir=None):
+        captured_args.append(list(args))
+        active_workspace = workspace_dir or case_arg.workspace_dir
+        (active_workspace / "pwd-output.txt").write_text(str(active_workspace) + "\n", encoding="utf-8")
+        stdout_path.write_text('{"type":"message","role":"assistant","content":"DONE"}\n', encoding="utf-8")
+        stderr_path.write_text("", encoding="utf-8")
+        return 0, 0.1, "2026-04-21T10:00:00+02:00", "2026-04-21T10:00:01+02:00"
+
+    adapter.run_command = MethodType(_fake_run_command, adapter)
+    result = adapter.run_case(case, model_spec, test_spec)
+
+    assert result.status == "PASS"
+    warmup_config = case.case_dir / "runtime" / "opencode" / "warmup" / "config" / "opencode" / "opencode.json"
+    measured_config = Path(result.metadata["opencode_config_path"])
+    warmup_payload = json.loads(warmup_config.read_text(encoding="utf-8"))
+    measured_payload = json.loads(measured_config.read_text(encoding="utf-8"))
+    assert warmup_payload["provider"]["ollama"]["options"]["baseURL"] == "http://127.0.0.1:19081/v1"
+    assert measured_payload["provider"]["ollama"]["options"]["baseURL"] == "http://127.0.0.1:19082/v1"

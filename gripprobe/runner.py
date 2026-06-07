@@ -183,11 +183,27 @@ def _create_ollama_telemetry_proxy(
     case_dir: Path,
     upstream_base_url: str,
     artifact_relpath: str = "artifacts/proxy.measured.http.jsonl",
+    filter_tools: bool = False,
+    allowed_tool_names: list[str] | None = None,
+    strip_git_context: bool = False,
+    strip_commit_signature_context: bool = False,
+    reasoning_effort: str | None = None,
+    temperature_override: float | None = None,
+    capture_ollama_usage: bool = False,
+    capture_stream_timing: bool = False,
 ) -> OllamaTelemetryProxy:
     return OllamaTelemetryProxy(
         case_dir=case_dir,
         upstream_base_url=upstream_base_url,
         artifact_relpath=artifact_relpath,
+        filter_tools=filter_tools,
+        allowed_tool_names=allowed_tool_names,
+        strip_git_context=strip_git_context,
+        strip_commit_signature_context=strip_commit_signature_context,
+        reasoning_effort=reasoning_effort,
+        temperature_override=temperature_override,
+        capture_ollama_usage=capture_ollama_usage,
+        capture_stream_timing=capture_stream_timing,
     )
 
 
@@ -360,7 +376,7 @@ def _prepare_workspace(path: Path, test_id: str) -> None:
             file.unlink()
         elif file.is_dir():
             shutil.rmtree(file)
-    if test_id in {"patch_file", "patch_file_codex_apply_patch"}:
+    if test_id in {"patch_file", "patch_file_codex_apply_patch", "patch_file_shell"}:
         (path / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
     if test_id == "patch_file_prepared":
         (path / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
@@ -808,6 +824,63 @@ def _apply_model_policy_overrides(cli_agent_spec: CliAgentSpec, model_spec: Mode
     return cli_agent_spec
 
 
+def _apply_prompt_policy_overrides(prompt: str, model_spec: ModelSpec) -> str:
+    overrides = model_spec.policy_overrides or {}
+    updated = prompt
+
+    if bool(overrides.get("prompt_append_no_think")) and "/no_think" not in updated:
+        updated = f"{updated.rstrip()}\n/no_think\n"
+
+    prompt_suffix = overrides.get("prompt_suffix")
+    if isinstance(prompt_suffix, str) and prompt_suffix:
+        updated = f"{updated.rstrip()}\n{prompt_suffix.rstrip()}\n"
+
+    return updated
+
+
+_PROXY_TOOL_NAME_MAP = {
+    "shell": "Bash",
+    "read": "Read",
+    "save": "Write",
+    "write": "Write",
+    "patch": "MultiEdit",
+    "fetch": "Fetch",
+    "list": "List",
+}
+
+
+def _resolve_proxy_allowed_tool_names(
+    case: CaseDefinition,
+    cli_agent_spec: CliAgentSpec,
+    model_spec: ModelSpec | None = None,
+) -> list[str]:
+    raw_tools = case.allowed_tools or cli_agent_spec.default_tools
+    names: list[str] = []
+    for tool_name in raw_tools:
+        resolved = _PROXY_TOOL_NAME_MAP.get(tool_name, tool_name)
+        if resolved not in names:
+            names.append(resolved)
+    include_exit = True
+    extra_tool_names: list[str] = []
+    if model_spec is not None:
+        overrides = model_spec.policy_overrides or {}
+        include_exit = bool(overrides.get("proxy_include_exit_tool", True))
+        raw_extra_tool_names = overrides.get("proxy_include_tool_names")
+        if isinstance(raw_extra_tool_names, list):
+            for tool_name in raw_extra_tool_names:
+                if not isinstance(tool_name, str):
+                    continue
+                resolved = _PROXY_TOOL_NAME_MAP.get(tool_name, tool_name)
+                if resolved not in extra_tool_names:
+                    extra_tool_names.append(resolved)
+    for tool_name in extra_tool_names:
+        if tool_name not in names:
+            names.append(tool_name)
+    if include_exit and "Bash" in names and "Exit" not in names:
+        names.append("Exit")
+    return names
+
+
 def _filter_tests(tests: list[TestSpec], selected: Iterable[str] | None) -> list[TestSpec]:
     if not selected:
         return tests
@@ -879,6 +952,7 @@ def _run_case_with_phase_proxy(
     *,
     adapter: Any,
     case: CaseDefinition,
+    cli_agent_spec: CliAgentSpec,
     model_spec: ModelSpec,
     test_spec: TestSpec,
     upstream_base_url: str,
@@ -888,7 +962,74 @@ def _run_case_with_phase_proxy(
     phase_skip_reasons: dict[str, str] = {}
     phase_artifacts: dict[str, str] = {}
     proxy_runtime_error: str | None = None
-    last_proxy_base_url: str | None = None
+    expected_phase_artifacts: dict[_TelemetryPhase, str] = {
+        "warmup": _proxy_relpath_for_phase("warmup"),
+        "measured": _proxy_relpath_for_phase("measured"),
+    }
+    proxies: dict[_TelemetryPhase, OllamaTelemetryProxy] = {}
+    stopped_phases: set[_TelemetryPhase] = set()
+    filter_tools = bool((model_spec.policy_overrides or {}).get("telemetry_proxy_filter_tools"))
+    allowed_tool_names = _resolve_proxy_allowed_tool_names(case, cli_agent_spec, model_spec) if filter_tools else []
+    strip_git_context = bool((model_spec.policy_overrides or {}).get("telemetry_proxy_strip_git_context"))
+    strip_commit_signature_context = bool(
+        (model_spec.policy_overrides or {}).get("telemetry_proxy_strip_commit_signature_context")
+    )
+    raw_reasoning_effort = (model_spec.policy_overrides or {}).get("telemetry_proxy_reasoning_effort")
+    reasoning_effort = str(raw_reasoning_effort).strip() if isinstance(raw_reasoning_effort, str) else None
+    raw_temperature_override = (model_spec.policy_overrides or {}).get("telemetry_proxy_temperature_override")
+    temperature_override: float | None = None
+    if isinstance(raw_temperature_override, (int, float)):
+        temperature_override = float(raw_temperature_override)
+    capture_ollama_usage = bool((model_spec.policy_overrides or {}).get("telemetry_proxy_capture_ollama_usage"))
+    capture_stream_timing = bool((model_spec.policy_overrides or {}).get("telemetry_proxy_capture_stream_timing"))
+
+    for phase in ("warmup", "measured"):
+        artifact_relpath = expected_phase_artifacts[phase]
+        try:
+            proxy_kwargs: dict[str, Any] = {}
+            if filter_tools:
+                proxy_kwargs = {
+                    "filter_tools": True,
+                    "allowed_tool_names": allowed_tool_names,
+                }
+            if strip_git_context:
+                proxy_kwargs["strip_git_context"] = True
+            if strip_commit_signature_context:
+                proxy_kwargs["strip_commit_signature_context"] = True
+            if reasoning_effort:
+                proxy_kwargs["reasoning_effort"] = reasoning_effort
+            if temperature_override is not None:
+                proxy_kwargs["temperature_override"] = temperature_override
+            if capture_ollama_usage:
+                proxy_kwargs["capture_ollama_usage"] = True
+            if capture_stream_timing:
+                proxy_kwargs["capture_stream_timing"] = True
+            proxy_capture = _create_ollama_telemetry_proxy(
+                case_dir=case.case_dir,
+                upstream_base_url=upstream_base_url,
+                artifact_relpath=artifact_relpath,
+                **proxy_kwargs,
+            )
+            proxy_capture.start()
+            if not proxy_capture.base_url:
+                raise RuntimeError("telemetry proxy failed to publish base URL")
+            proxies[phase] = proxy_capture
+            phase_statuses[phase] = "collected"
+            phase_skip_reasons[phase] = ""
+            phase_artifacts[phase] = artifact_relpath
+        except Exception as exc:  # noqa: BLE001
+            phase_statuses[phase] = "error"
+            phase_skip_reasons[phase] = "proxy_start_failed"
+            if proxy_runtime_error is None:
+                proxy_runtime_error = str(exc)
+
+    phase_proxy_metadata: dict[str, str] = {}
+    for phase, proxy_capture in proxies.items():
+        if proxy_capture.base_url:
+            phase_proxy_metadata[f"telemetry_proxy_{phase}_ollama_host"] = proxy_capture.base_url
+            phase_proxy_metadata[f"telemetry_proxy_{phase}_openai_base_url"] = f"{proxy_capture.base_url}/v1"
+    if phase_proxy_metadata:
+        case.run_metadata = {**case.run_metadata, **phase_proxy_metadata}
 
     def _run_command_with_proxy(
         command_case: CaseDefinition,
@@ -898,23 +1039,11 @@ def _run_case_with_phase_proxy(
         stderr_path: Path,
         workspace_dir: Path | None = None,
     ):
-        nonlocal last_proxy_base_url, proxy_runtime_error
         phase = _phase_from_command_paths(case=command_case, stdout_path=stdout_path, workspace_dir=workspace_dir)
-        artifact_relpath = _proxy_relpath_for_phase(phase)
-        proxy_capture: OllamaTelemetryProxy | None = None
-        try:
-            proxy_capture = _create_ollama_telemetry_proxy(
-                case_dir=command_case.case_dir,
-                upstream_base_url=upstream_base_url,
-                artifact_relpath=artifact_relpath,
-            )
-            proxy_capture.start()
-            if not proxy_capture.base_url:
-                raise RuntimeError("telemetry proxy failed to publish base URL")
-        except Exception as exc:  # noqa: BLE001
+        proxy_capture = proxies.get(phase)
+        if proxy_capture is None or not proxy_capture.base_url:
             phase_statuses[phase] = "error"
-            phase_skip_reasons[phase] = "proxy_start_failed"
-            proxy_runtime_error = str(exc)
+            phase_skip_reasons[phase] = "proxy_unavailable"
             return original_run_command(
                 command_case,
                 args,
@@ -927,7 +1056,6 @@ def _run_case_with_phase_proxy(
             phase_statuses[phase] = "collected"
             phase_skip_reasons[phase] = ""
             phase_artifacts[phase] = proxy_capture.artifact_relpath
-            last_proxy_base_url = proxy_capture.base_url
             env["OLLAMA_HOST"] = proxy_capture.base_url
             env["OPENAI_BASE_URL"] = f"{proxy_capture.base_url}/v1"
             return original_run_command(
@@ -939,33 +1067,57 @@ def _run_case_with_phase_proxy(
                 workspace_dir=workspace_dir,
             )
         finally:
-            if proxy_capture is not None:
+            if phase not in stopped_phases:
                 try:
                     proxy_capture.stop()
+                    stopped_phases.add(phase)
                 except Exception as exc:  # noqa: BLE001
                     phase_statuses[phase] = "error"
                     phase_skip_reasons[phase] = "proxy_stop_failed"
-                    proxy_runtime_error = str(exc)
-                if phase_statuses.get(phase) == "collected" and not (command_case.case_dir / artifact_relpath).exists():
-                    phase_statuses[phase] = "error"
-                    phase_skip_reasons[phase] = "capture_missing"
+                    if proxy_runtime_error is None:
+                        proxy_runtime_error = str(exc)
+            artifact_relpath = expected_phase_artifacts.get(phase)
+            if (
+                artifact_relpath
+                and phase_statuses.get(phase) == "collected"
+                and not (command_case.case_dir / artifact_relpath).exists()
+            ):
+                phase_statuses[phase] = "error"
+                phase_skip_reasons[phase] = "capture_missing"
 
     adapter.run_command = _run_command_with_proxy
     try:
         result = adapter.run_case(case, model_spec, test_spec)
     finally:
         adapter.run_command = original_run_command
+        for phase, proxy_capture in proxies.items():
+            if phase in stopped_phases:
+                continue
+            try:
+                proxy_capture.stop()
+                stopped_phases.add(phase)
+            except Exception as exc:  # noqa: BLE001
+                phase_statuses[phase] = "error"
+                phase_skip_reasons[phase] = "proxy_stop_failed"
+                if proxy_runtime_error is None:
+                    proxy_runtime_error = str(exc)
 
     proxy_runtime_metadata = {
         "telemetry_proxy_upstream_base_url": upstream_base_url,
         "telemetry_proxy_warmup_artifact_path": _proxy_relpath_for_phase("warmup"),
         "telemetry_proxy_measured_artifact_path": _proxy_relpath_for_phase("measured"),
+        **phase_proxy_metadata,
     }
-    if last_proxy_base_url:
+    default_proxy_base_url = (
+        proxies.get("measured").base_url
+        if proxies.get("measured") is not None
+        else (proxies.get("warmup").base_url if proxies.get("warmup") is not None else None)
+    )
+    if default_proxy_base_url:
         proxy_runtime_metadata.update(
             {
-                "telemetry_proxy_ollama_host": last_proxy_base_url,
-                "telemetry_proxy_openai_base_url": f"{last_proxy_base_url}/v1",
+                "telemetry_proxy_ollama_host": default_proxy_base_url,
+                "telemetry_proxy_openai_base_url": f"{default_proxy_base_url}/v1",
             }
         )
     return result, proxy_runtime_metadata, phase_artifacts, proxy_runtime_error
@@ -1132,7 +1284,7 @@ def run(
                 tool_format=tool_format,
                 test_id=active_test_spec.id,
                 test_title=active_test_spec.title,
-                prompt=active_test_spec.prompt,
+                prompt=_apply_prompt_policy_overrides(active_test_spec.prompt, model_spec),
                 warmup_workspace_dir=warmup_workspace_dir,
                 workspace_dir=workspace_dir,
                 case_dir=case_dir,
@@ -1147,6 +1299,7 @@ def run(
                     result, phase_proxy_metadata, proxy_capture_artifact_relpaths, proxy_capture_error = _run_case_with_phase_proxy(
                         adapter=adapter,
                         case=case,
+                        cli_agent_spec=cli_agent_spec,
                         model_spec=model_spec,
                         test_spec=active_test_spec,
                         upstream_base_url=upstream_base_url,

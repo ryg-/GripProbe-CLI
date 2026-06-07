@@ -163,6 +163,14 @@ class CliAgentAdapter(ABC):
             return self._normalize_http_base(env["OLLAMA_HOST"])
         return self._normalize_http_base(os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
 
+    def _resolve_case_ollama_host_for_phase(self, case: CaseDefinition, env: dict[str, str], phase: str) -> str:
+        metadata = case.run_metadata if isinstance(case.run_metadata, dict) else {}
+        phase_key = f"telemetry_proxy_{phase}_ollama_host"
+        value = metadata.get(phase_key)
+        if isinstance(value, str) and value.strip():
+            return self._normalize_http_base(value)
+        return self._resolve_case_ollama_host(case, env)
+
     def _resolve_case_openai_base_url(self, case: CaseDefinition, env: dict[str, str]) -> str:
         metadata = case.run_metadata if isinstance(case.run_metadata, dict) else {}
         for key in ("telemetry_proxy_openai_base_url", "openai_base_url"):
@@ -172,6 +180,14 @@ class CliAgentAdapter(ABC):
         if env.get("OPENAI_BASE_URL"):
             return self._normalize_http_base(env["OPENAI_BASE_URL"])
         return f"{self._resolve_case_ollama_host(case, env)}/v1"
+
+    def _resolve_case_openai_base_url_for_phase(self, case: CaseDefinition, env: dict[str, str], phase: str) -> str:
+        metadata = case.run_metadata if isinstance(case.run_metadata, dict) else {}
+        phase_key = f"telemetry_proxy_{phase}_openai_base_url"
+        value = metadata.get(phase_key)
+        if isinstance(value, str) and value.strip():
+            return self._normalize_http_base(value)
+        return self._resolve_case_openai_base_url(case, env)
 
     def _apply_case_backend_env_overrides(self, case: CaseDefinition, env: dict[str, str]) -> None:
         if case.backend_id != "ollama":

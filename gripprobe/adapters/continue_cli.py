@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import re
+import shutil
+from typing import Any
 import yaml
 
 from gripprobe.adapters.base import CliAgentAdapter
@@ -12,6 +15,85 @@ from gripprobe.validator_runner import evaluate_validators
 
 
 class ContinueCliAdapter(CliAgentAdapter):
+    _CONTINUE_TOOL_NAME_MAP = {
+        "shell": "Bash",
+        "read": "Read",
+        "save": "Write",
+        "write": "Write",
+        "patch": "MultiEdit",
+        "fetch": "Fetch",
+        "list": "List",
+    }
+
+    def _repo_root(self) -> Path:
+        return Path(__file__).resolve().parents[2]
+
+    def _runtime_patch_specs_path(self) -> Path:
+        return self._repo_root() / "specs" / "cli_agents" / "patches" / f"{self.cli_agent_spec.id}.yaml"
+
+    def _load_runtime_patch_specs(self) -> list[dict[str, Any]]:
+        specs_path = self._runtime_patch_specs_path()
+        if not specs_path.exists():
+            return []
+        payload = yaml.safe_load(specs_path.read_text(encoding="utf-8")) or {}
+        patches = payload.get("patches")
+        if not isinstance(patches, list):
+            return []
+        normalized: list[dict[str, Any]] = []
+        for item in patches:
+            if isinstance(item, dict):
+                normalized.append(item)
+        return normalized
+
+    def _apply_runtime_patches(self, patch_root: Path, replacements: dict[str, str]) -> bool:
+        patch_specs = self._load_runtime_patch_specs()
+        if not patch_specs:
+            return False
+        applied_any = False
+        for patch in patch_specs:
+            file_relpath = str(patch.get("file") or "").strip()
+            pattern_text = str(patch.get("pattern") or "")
+            replacement_template = str(patch.get("replacement") or "")
+            if not file_relpath or not pattern_text or not replacement_template:
+                return False
+            target_file = patch_root / file_relpath
+            if not target_file.exists():
+                return False
+            content = target_file.read_text(encoding="utf-8")
+            replacement = replacement_template
+            for key, value in replacements.items():
+                replacement = replacement.replace(f"{{{{{key}}}}}", value)
+            patched, replaced_count = re.subn(pattern_text, replacement, content, count=1, flags=re.MULTILINE)
+            if replaced_count != 1:
+                return False
+            target_file.write_text(patched, encoding="utf-8")
+            applied_any = True
+        return applied_any
+
+    def _resolve_allowed_continue_tool_names(self, case: CaseDefinition) -> list[str]:
+        raw_tools = case.allowed_tools or self.cli_agent_spec.default_tools
+        names: list[str] = []
+        for tool_name in raw_tools:
+            resolved = self._CONTINUE_TOOL_NAME_MAP.get(tool_name, tool_name)
+            if resolved not in names:
+                names.append(resolved)
+        return names
+
+    @staticmethod
+    def _continue_policy(model_spec: ModelSpec) -> dict[str, Any]:
+        cli_agent_options = (model_spec.policy_overrides or {}).get("cli_agent_options")
+        if not isinstance(cli_agent_options, dict):
+            return {}
+        options = cli_agent_options.get("continue-cli")
+        return options if isinstance(options, dict) else {}
+
+    def _resolve_context_length(self, model_spec: ModelSpec) -> int:
+        value = self._continue_policy(model_spec).get("context_length")
+        return value if isinstance(value, int) and value > 0 else 2048
+
+    def _use_minimal_system_prompt(self, model_spec: ModelSpec) -> bool:
+        return self._continue_policy(model_spec).get("minimal_system_prompt") is True
+
     def _resolve_source_config_path(self) -> Path | None:
         explicit = self.cli_agent_spec.config_path or os.environ.get("GRIPPROBE_CONTINUE_CONFIG")
         if explicit:
@@ -26,15 +108,17 @@ class ContinueCliAdapter(CliAgentAdapter):
     def _prepare_continue_home(
         self,
         case: CaseDefinition,
+        model_spec: ModelSpec,
         runtime_env: dict[str, str],
         base_env: dict[str, str],
+        phase: str,
     ) -> tuple[Path, Path]:
         config_path = self._resolve_source_config_path()
         continue_home = Path(runtime_env["HOME"])
         continue_dir = continue_home / ".continue"
         continue_dir.mkdir(parents=True, exist_ok=True)
 
-        api_base = self._resolve_case_ollama_host(case, base_env)
+        api_base = self._resolve_case_ollama_host_for_phase(case, base_env, phase)
         model_entry: dict[str, object] = {
             "name": case.model_label,
             "provider": "ollama",
@@ -62,9 +146,19 @@ class ContinueCliAdapter(CliAgentAdapter):
                 "name": "gripprobe-continue",
                 "version": "0.0.1",
                 "schema": "v1",
-                "defaultCompletionOptions": {"contextLength": 2048},
+                "defaultCompletionOptions": {"contextLength": self._resolve_context_length(model_spec)},
                 "models": [model_entry],
             }
+        if self._use_minimal_system_prompt(model_spec):
+            chat_options = model_entry.get("chatOptions")
+            if not isinstance(chat_options, dict):
+                chat_options = {}
+            chat_options["baseSystemMessage"] = ""
+            chat_options["baseAgentSystemMessage"] = ""
+            chat_options["basePlanSystemMessage"] = ""
+            model_entry["chatOptions"] = chat_options
+            payload["models"] = [model_entry]
+            payload["rules"] = []
 
         isolated_config = continue_dir / "config.yaml"
         isolated_config.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
@@ -74,6 +168,57 @@ class ContinueCliAdapter(CliAgentAdapter):
             encoding="utf-8",
         )
         return continue_home, isolated_config
+
+    def _escape_js_template(self, text: str) -> str:
+        return text.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
+
+    def _prepare_patched_continue_cli(
+        self,
+        case: CaseDefinition,
+        model_spec: ModelSpec,
+        runtime_env: dict[str, str],
+    ) -> tuple[list[str], bool]:
+        policy = self._continue_policy(model_spec)
+        if policy.get("runtime_patches") is not True:
+            return [self.cli_agent_spec.executable], False
+        executable = shutil.which(self.cli_agent_spec.executable)
+        if not executable:
+            return [self.cli_agent_spec.executable], False
+        resolved = Path(executable).resolve()
+        package_root: Path | None = None
+        for candidate in [resolved.parent, *resolved.parents]:
+            if (candidate / "dist" / "cn.js").exists():
+                package_root = candidate
+                break
+        if package_root is None:
+            return [self.cli_agent_spec.executable], False
+
+        patch_root = Path(runtime_env["HOME"]) / ".continue-cli-patched"
+        if patch_root.exists():
+            shutil.rmtree(patch_root)
+        shutil.copytree(package_root, patch_root)
+        dist_cli = patch_root / "dist" / "cn.js"
+        replacement = policy.get("patch_system_text")
+        if not isinstance(replacement, str):
+            replacement = ""
+        replacement = replacement.strip()
+        if not replacement:
+            replacement = "Use available tools to answer the user's request concisely."
+        escaped = self._escape_js_template(replacement)
+        allowed_tool_names = self._resolve_allowed_continue_tool_names(case)
+        allowed_tools_js = ",".join(f'"{self._escape_js_template(name)}"' for name in allowed_tool_names)
+        patch_applied = self._apply_runtime_patches(
+            patch_root,
+            replacements={
+                "continue_system_prompt": escaped,
+                "continue_allowed_tool_names": allowed_tools_js,
+            },
+        )
+        if not patch_applied:
+            return [self.cli_agent_spec.executable], False
+        if dist_cli.exists():
+            return ["node", str(dist_cli)], True
+        return [self.cli_agent_spec.executable], False
 
     def _classify(self, test_spec: TestSpec, workspace: Path, stdout: str, stderr: str) -> tuple[CaseStatus, ToolInvocation, int, str, str]:
         if "does not support tools" in stdout or "does not support tools" in stderr:
@@ -100,14 +245,36 @@ class ContinueCliAdapter(CliAgentAdapter):
         self._apply_case_backend_env_overrides(case, env)
         warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
         measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")
-        _warmup_home, warmup_config = self._prepare_continue_home(case, warmup_runtime_env, env)
-        _measured_home, measured_config = self._prepare_continue_home(case, measured_runtime_env, env)
+        warmup_exec, warmup_patch_applied = self._prepare_patched_continue_cli(
+            case,
+            model_spec,
+            warmup_runtime_env,
+        )
+        measured_exec, measured_patch_applied = self._prepare_patched_continue_cli(
+            case,
+            model_spec,
+            measured_runtime_env,
+        )
+        _warmup_home, warmup_config = self._prepare_continue_home(
+            case,
+            model_spec,
+            warmup_runtime_env,
+            env,
+            "warmup",
+        )
+        _measured_home, measured_config = self._prepare_continue_home(
+            case,
+            model_spec,
+            measured_runtime_env,
+            env,
+            "measured",
+        )
         warmup_env = {**env, **warmup_runtime_env, "GRIPPROBE_WORKSPACE": str(case.warmup_workspace_dir)}
         measured_env = {**env, **measured_runtime_env, "GRIPPROBE_WORKSPACE": str(case.workspace_dir)}
         allowed_tools = case.allowed_tools or self.cli_agent_spec.default_tools
 
         warmup_args = [
-            self.cli_agent_spec.executable,
+            *warmup_exec,
             "--config",
             str(warmup_config),
             "-p",
@@ -116,7 +283,7 @@ class ContinueCliAdapter(CliAgentAdapter):
             case.prompt,
         ]
         measured_args = [
-            self.cli_agent_spec.executable,
+            *measured_exec,
             "--config",
             str(measured_config),
             "-p",
@@ -124,9 +291,13 @@ class ContinueCliAdapter(CliAgentAdapter):
             "--silent",
             case.prompt,
         ]
+        warmup_tool_insert_at = len(warmup_exec)
+        measured_tool_insert_at = len(measured_exec)
         for tool_name in allowed_tools:
-            warmup_args[1:1] = ["--allow", tool_name]
-            measured_args[1:1] = ["--allow", tool_name]
+            warmup_args[warmup_tool_insert_at:warmup_tool_insert_at] = ["--allow", tool_name]
+            warmup_tool_insert_at += 2
+            measured_args[measured_tool_insert_at:measured_tool_insert_at] = ["--allow", tool_name]
+            measured_tool_insert_at += 2
         warmup_command = self._command_text(case, warmup_args, warmup_env, workspace_dir=case.warmup_workspace_dir)
         measured_command = self._command_text(case, measured_args, measured_env, workspace_dir=case.workspace_dir)
 
@@ -192,6 +363,8 @@ class ContinueCliAdapter(CliAgentAdapter):
                 "model_hash": case.model_hash,
                 "artifact_reached_before_timeout": artifact_reached_before_timeout,
                 "continue_config_path": str(measured_config),
+                "continue_builtin_prompt_patch_applied_warmup": warmup_patch_applied,
+                "continue_builtin_prompt_patch_applied_measured": measured_patch_applied,
                 "failure_reason": failure_reason,
             },
         )

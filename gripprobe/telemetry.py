@@ -39,6 +39,7 @@ _TOOL_CALL_ID_PATTERN = re.compile(r"@([A-Za-z_][A-Za-z0-9_-]*)\((call_[^) \t]+)
 _RECIPIENT_PATTERN = re.compile(r'recipient_name"\s*:\s*"([^"]+)"')
 _CONTINUE_TOOL_CALL_PATTERN = re.compile(r"\b(Read|Write|Edit|Bash|Shell|Exec|Run)\(")
 _EXIT_CODE_PATTERN = re.compile(r"\bexit_code=(\-?\d+)\b")
+_RAN_COMMAND_PATTERN = re.compile(r"\bRan command:\s*`?([^`]+)`?", flags=re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -138,6 +139,11 @@ def extract_and_persist_case_telemetry(
                     telemetry_proxy_status = "error"
                     telemetry_proxy_skip_reason = "capture_missing"
                     break
+
+    warmup_events = _deduplicate_events(_drop_result_fallbacks_when_structured_result_present(warmup_events))
+    measured_events = _deduplicate_events(_drop_result_fallbacks_when_structured_result_present(measured_events))
+    _renumber_events(warmup_events)
+    _renumber_events(measured_events)
 
     _write_jsonl(artifacts_dir / "events.warmup.jsonl", warmup_events)
     _write_jsonl(artifacts_dir / "events.measured.jsonl", measured_events)
@@ -361,6 +367,7 @@ def _extract_proxy_events(
             for value in tool_names_raw:
                 if isinstance(value, str) and value.strip():
                     tool_names.append(value.strip())
+        tool_call_ids = _strings_from_list(payload.get("x_gripprobe_tool_call_ids"))
         call_count = _to_int(payload.get("x_gripprobe_tool_call_count"))
         result_count = _to_int(payload.get("x_gripprobe_tool_result_count"))
         call_count = call_count or 0
@@ -368,7 +375,7 @@ def _extract_proxy_events(
         latency_ms = _to_int(payload.get("x_gripprobe_duration_ms"))
         if call_count > len(tool_names):
             tool_names.extend(["unknown"] * (call_count - len(tool_names)))
-        for tool_name in tool_names:
+        for offset, tool_name in enumerate(tool_names):
             events.append(_build_proxy_event(
                 event_type="tool_call_start",
                 run_id=run_id,
@@ -380,7 +387,7 @@ def _extract_proxy_events(
                 timestamp=timestamp,
                 raw_artifact_ref=f"{proxy_path.name}:{index}",
                 tool_name=tool_name,
-                tool_call_id=None,
+                tool_call_id=_known_or_none(tool_call_ids[offset]) if offset < len(tool_call_ids) else None,
                 method=method,
                 path=path,
                 response_status=response_status,
@@ -388,7 +395,12 @@ def _extract_proxy_events(
                 evidence_mode=None,
             ))
             sequence += 1
-        for _ in range(max(result_count, 0)):
+        result_names = _strings_from_list(payload.get("x_gripprobe_tool_result_names"))
+        result_ids = _strings_from_list(payload.get("x_gripprobe_tool_result_ids"))
+        if result_count > len(result_names):
+            fallback_name = tool_names[0] if tool_names else "unknown"
+            result_names.extend([fallback_name] * (result_count - len(result_names)))
+        for offset, result_name in enumerate(result_names[: max(result_count, 0)]):
             events.append(_build_proxy_event(
                 event_type="tool_call_result",
                 run_id=run_id,
@@ -399,8 +411,8 @@ def _extract_proxy_events(
                 status="success",
                 timestamp=timestamp,
                 raw_artifact_ref=f"{proxy_path.name}:{index}",
-                tool_name=tool_names[0] if tool_names else "unknown",
-                tool_call_id=None,
+                tool_name=result_name,
+                tool_call_id=_known_or_none(result_ids[offset]) if offset < len(result_ids) else None,
                 method=method,
                 path=path,
                 response_status=response_status,
@@ -440,6 +452,13 @@ def _strings_from_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+
+
+def _known_or_none(value: str) -> str | None:
+    stripped = value.strip()
+    if not stripped or stripped.lower() == "unknown":
+        return None
+    return stripped
 
 
 def _build_proxy_event(
@@ -504,6 +523,7 @@ def _extract_events_from_path(
     sequence = sequence_start
     structured_inputs_seen = False
     unstructured_markers_seen = False
+    previous_nonempty_line = ""
     for index, raw_line in enumerate(text.splitlines(), start=1):
         line = raw_line.strip()
         if not line:
@@ -527,6 +547,7 @@ def _extract_events_from_path(
         if event is None:
             text_event = _event_from_text_line(
                 line=line,
+                previous_line=previous_nonempty_line,
                 run_id=run_id,
                 case_id=case_id,
                 phase=phase,
@@ -539,6 +560,7 @@ def _extract_events_from_path(
         if event is not None:
             events.append(event)
             sequence += 1
+        previous_nonempty_line = line
     return events, sequence, structured_inputs_seen, unstructured_markers_seen
 
 
@@ -624,12 +646,29 @@ def _event_from_json_payload(
 def _event_from_text_line(
     *,
     line: str,
+    previous_line: str,
     run_id: str,
     case_id: str,
     phase: Literal["warmup", "measured"],
     sequence: int,
     raw_artifact_ref: str,
 ) -> dict[str, Any] | None:
+    ran_command_match = _RAN_COMMAND_PATTERN.search(line)
+    if ran_command_match and (line.lower().startswith("system:") or previous_line.lower() == "system:"):
+        return _build_text_event(
+            run_id=run_id,
+            case_id=case_id,
+            phase=phase,
+            sequence=sequence,
+            event_type="tool_call_result",
+            status="success",
+            tool_name="shell",
+            raw_artifact_ref=raw_artifact_ref,
+            line=line,
+            source_tier="C",
+            evidence_mode="system_ran_command",
+        )
+
     recipient_match = _RECIPIENT_PATTERN.search(line)
     if recipient_match:
         recipient_name = recipient_match.group(1)
@@ -646,6 +685,9 @@ def _event_from_text_line(
             line=line,
             source_tier="C",
         )
+
+    if _is_known_echo_noise(line):
+        return None
 
     call_match = _TOOL_CALL_ID_PATTERN.search(line)
     if call_match:
@@ -721,6 +763,7 @@ def _build_text_event(
     source_tier: Literal["C"],
     tool_name: str | None = None,
     tool_call_id: str | None = None,
+    evidence_mode: str | None = None,
 ) -> dict[str, Any]:
     exit_code_match = _EXIT_CODE_PATTERN.search(line)
     exit_code = int(exit_code_match.group(1)) if exit_code_match else None
@@ -743,10 +786,11 @@ def _build_text_event(
         "response_id": None,
         "source_tier": source_tier,
         "payload": _sanitize_obj(
-            {
+            {key: value for key, value in {
                 "tool_name": tool_name,
                 "line_excerpt": _excerpt(line),
-            }
+                "evidence_mode": evidence_mode,
+            }.items() if value is not None}
         ),
         "timestamp": _utc_now_iso(),
         "sequence": sequence,
@@ -758,6 +802,95 @@ def _build_text_event(
         "raw_artifact_ref": raw_artifact_ref,
         "redaction_status": "redacted",
     }
+
+
+def _drop_result_fallbacks_when_structured_result_present(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    has_structured_result = any(
+        event.get("event_type") == "tool_call_result" and event.get("source_tier") in {"A", "B"}
+        for event in events
+    )
+    if not has_structured_result:
+        return events
+    return [
+        event
+        for event in events
+        if not (
+            event.get("event_type") == "tool_call_result"
+            and isinstance(event.get("payload"), dict)
+            and event["payload"].get("evidence_mode") == "system_ran_command"
+        )
+    ]
+
+
+def _deduplicate_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    index_by_key: dict[tuple[str, str, str, str], int] = {}
+    for event in events:
+        key = _event_dedup_key(event)
+        if key not in index_by_key:
+            index_by_key[key] = len(deduped)
+            deduped.append(event)
+            continue
+        existing_index = index_by_key[key]
+        if _event_precedence(event) > _event_precedence(deduped[existing_index]):
+            deduped[existing_index] = event
+    return deduped
+
+
+def _event_dedup_key(event: dict[str, Any]) -> tuple[str, str, str, str]:
+    phase = _as_string(event.get("phase")) or "unknown"
+    event_type = _as_string(event.get("event_type")) or "unknown"
+    tool_name = _event_tool_name(event)
+    call_id = _as_string(event.get("tool_call_id")).strip()
+    if call_id:
+        return (phase, tool_name, call_id, event_type)
+    return (phase, tool_name, _event_fallback_dedup_token(event), event_type)
+
+
+def _event_tool_name(event: dict[str, Any]) -> str:
+    payload = event.get("payload")
+    if isinstance(payload, dict):
+        value = payload.get("tool_name")
+        if isinstance(value, str) and value.strip():
+            return value.strip().lower()
+        recipient = payload.get("recipient_name")
+        if isinstance(recipient, str) and recipient.strip():
+            return recipient.rsplit(".", 1)[-1].strip().lower()
+    return "unknown"
+
+
+def _event_fallback_dedup_token(event: dict[str, Any]) -> str:
+    payload = event.get("payload")
+    if isinstance(payload, dict):
+        for key in ("line_excerpt", "content_excerpt", "message_excerpt", "recipient_name", "evidence_mode"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return f"fallback:{key}:{value.strip().lower()}"
+    return f"fallback:tool:{_event_tool_name(event)}"
+
+
+def _event_precedence(event: dict[str, Any]) -> tuple[int, int]:
+    tier_rank = {"A": 4, "B": 3, "C": 2, "D": 1}
+    source_rank = {"proxy": 3, "agent_output": 2, "wrapper": 1}
+    return (
+        tier_rank.get(_as_string(event.get("source_tier")), 0),
+        source_rank.get(_as_string(event.get("source")), 0),
+    )
+
+
+def _renumber_events(events: list[dict[str, Any]]) -> None:
+    phase = _as_string(events[0].get("phase")) if events else ""
+    for sequence, event in enumerate(events, start=1):
+        event["sequence"] = sequence
+        event_phase = _as_string(event.get("phase")) or phase or "unknown"
+        event["event_id"] = f"{event_phase}-{sequence:04d}"
+
+
+def _is_known_echo_noise(line: str) -> bool:
+    lowered = line.lower()
+    if "auto-title" in lowered or "auto_title" in lowered:
+        return True
+    return ("\"title\"" in lowered or "'title'" in lowered) and _TOOL_CALL_ID_PATTERN.search(line) is not None
 
 
 def _capture_status(state: _ExtractionState) -> TelemetryCaptureStatus:

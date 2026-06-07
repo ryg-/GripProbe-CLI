@@ -1,0 +1,17 @@
+patches:
+  # Replace Continue CLI's built-in headless system prompt with the model-policy replacement.
+  - file: dist/index.js
+    pattern: "Fff=`[^`]*`"
+    replacement: "Fff=`{{continue_system_prompt}}`"
+  # Filter tool definitions for the OpenAI-compatible serializer used by Ollama apiBase /v1.
+  - file: dist/index.js
+    pattern: "function R0d\\(\\{tools:e,toolChoice:t\\}\\)\\{[\\s\\S]*?\\}function a3o"
+    replacement: "function R0d({tools:e,toolChoice:t}){e=e?.length?e:void 0;let r=[];if(e==null)return{tools:void 0,toolChoice:void 0,toolWarnings:r};let n=new Set([{{continue_allowed_tool_names}}]),o=[];for(let i of e)switch(i.type){case\"function\":if(n.size>0&&!n.has(i.name))continue;o.push({type:\"function\",function:{name:i.name,description:i.description,parameters:i.inputSchema,...i.strict!=null?{strict:i.strict}:{}}});break;default:r.push({type:\"unsupported\",feature:`tool type: ${i.type}`});break}if(t==null)return{tools:o,toolChoice:void 0,toolWarnings:r};let s=t.type;switch(s){case\"auto\":case\"none\":case\"required\":return{tools:o,toolChoice:s,toolWarnings:r};case\"tool\":return{tools:o,toolChoice:{type:\"function\",function:{name:t.toolName}},toolWarnings:r};default:{let i=s;throw new xu({functionality:`tool choice type: ${i}`})}}}function a3o"
+  # Filter the primary OpenAI-compatible chat/completions streaming path used by Continue CLI.
+  - file: dist/index.js
+    pattern: "let\\{args:t,warnings:r\\}=await this\\.getArgs\\(\\{\\.\\.\\.e\\}\\),n=\\{\\.\\.\\.t,stream:!0,stream_options:\\{include_usage:!0\\}\\},\\{responseHeaders:o,value:i\\}=await ja\\("
+    replacement: "let{args:t,warnings:r}=await this.getArgs({...e}),n={...t,stream:!0,stream_options:{include_usage:!0}},q0=new Set([{{continue_allowed_tool_names}}]);Array.isArray(n.tools)&&(n.tools=n.tools.filter(o=>o.type!==\"function\"||q0.size===0||q0.has(o.function?.name)));let{responseHeaders:o,value:i}=await ja("
+  # Filter final streaming request body for the OpenAI-compatible chat/completions path.
+  - file: dist/index.js
+    pattern: "let\\{args:t,warnings:r\\}=await this\\.getArgs\\(e\\),n=\\{\\.\\.\\.t,stream:!0,stream_options:\\{include_usage:!0\\}\\},\\{responseHeaders:o,value:i\\}=await ja\\("
+    replacement: "let{args:t,warnings:r}=await this.getArgs(e),n={...t,stream:!0,stream_options:{include_usage:!0}},q1=new Set([{{continue_allowed_tool_names}}]);Array.isArray(n.tools)&&(n.tools=n.tools.filter(o=>o.type!==\"function\"||q1.size===0||q1.has(o.function?.name)));let{responseHeaders:o,value:i}=await ja("

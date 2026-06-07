@@ -1,0 +1,36 @@
+id: local_qwen3_1_7b_t0_rpi
+label: local/qwen3:1.7b-t0 (RPi)
+family: qwen
+size_class: small
+parameters_b: 1.7
+quantization: null
+backends:
+  - id: ollama
+    model_id: qwen3:1.7b-t0
+    cli_agent_model_id: local/qwen3:1.7b-t0
+tags:
+  - local
+  - rpi
+  - small
+  - tool-capable
+supported_formats:
+  - markdown
+  - tool
+policy_overrides:
+  cli_agent_options:
+    continue-cli:
+      context_length: 4096
+      minimal_system_prompt: true
+      runtime_patches: true
+      patch_system_text: >-
+        Use available tools to answer the user's request concisely.
+  telemetry_proxy_filter_tools: true
+  telemetry_proxy_strip_git_context: true
+  telemetry_proxy_strip_commit_signature_context: true
+  telemetry_proxy_reasoning_effort: none
+  telemetry_proxy_temperature_override: 0.0
+  telemetry_proxy_capture_ollama_usage: true
+  telemetry_proxy_capture_stream_timing: true
+  cli_agent_timeout_seconds:
+    gptme: 600
+    continue-cli: 900

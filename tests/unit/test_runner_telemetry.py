@@ -115,6 +115,10 @@ def test_run_force_proxy_mode_collects_proxy_for_ollama_backend(monkeypatch, spe
     assert metadata["failure_reason"] == "no_tool_call_observed"
     assert metadata["telemetry_proxy_ollama_host"].startswith("http://127.0.0.1:")
     assert metadata["telemetry_proxy_openai_base_url"].endswith("/v1")
+    assert metadata["telemetry_proxy_warmup_ollama_host"].startswith("http://127.0.0.1:")
+    assert metadata["telemetry_proxy_warmup_openai_base_url"].endswith("/v1")
+    assert metadata["telemetry_proxy_measured_ollama_host"].startswith("http://127.0.0.1:")
+    assert metadata["telemetry_proxy_measured_openai_base_url"].endswith("/v1")
     assert metadata["telemetry_proxy_warmup_artifact_path"] == "artifacts/proxy.warmup.http.jsonl"
     assert metadata["telemetry_proxy_measured_artifact_path"] == "artifacts/proxy.measured.http.jsonl"
     assert metadata["telemetry_proxy_warmup_http_path"] == "artifacts/proxy.warmup.http.jsonl"

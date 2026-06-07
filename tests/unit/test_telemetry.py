@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from gripprobe.telemetry import extract_and_persist_case_telemetry
-from gripprobe.telemetry_proxy import _extract_tool_evidence
+from gripprobe.telemetry_proxy import _extract_tool_evidence, _extract_tool_evidence_details
 
 
 def _read_jsonl(path: Path) -> list[dict[str, object]]:
@@ -351,3 +351,155 @@ def test_proxy_capture_emits_separate_nonstructured_tool_fields() -> None:
     assert tool_results == 1
     assert nonstructured_names == ["read"]
     assert nonstructured_ids == ["call_123"]
+
+
+def test_proxy_sse_parser_reconstructs_fragmented_data_frames() -> None:
+    body = (
+        b"event: response.output_item.added\n"
+        b'data: {"type":"response.output_item.added","item":{"type":"function_call",\n'
+        b'data: "name":"apply_patch","call_id":"call_sse_1"}}\n'
+        b"\n"
+        b"event: response.completed\n"
+        b"data: [DONE]\n"
+        b"\n"
+    )
+
+    tool_calls, tool_results, nonstructured_names, nonstructured_ids = _extract_tool_evidence(
+        request_payload={"type": "function_call_output", "call_id": "call_sse_1"},
+        response_payload=None,
+        response_body=body,
+        response_headers={"Content-Type": "text/event-stream; charset=utf-8"},
+    )
+
+    assert tool_calls == ["apply_patch"]
+    assert tool_results == 1
+    assert nonstructured_names == []
+    assert nonstructured_ids == []
+
+
+def test_proxy_sse_parser_reconstructs_fragmented_tool_arguments() -> None:
+    body = (
+        b'data: {"id":"x","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_frag","type":"function","function":{"name":"Bash","arguments":"{\\"command\\":\\"sed "}}]}}]}\n\n'
+        b'data: {"id":"x","choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"s/STATUS=old/STATUS=new/ patch-target.txt"}}]}}]}\n\n'
+        b'data: {"id":"x","choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\"}"}}]}}]}\n\n'
+        b"data: [DONE]\n\n"
+    )
+
+    evidence = _extract_tool_evidence_details(
+        request_payload=None,
+        response_payload=None,
+        response_body=body,
+        response_headers={"Content-Type": "text/event-stream; charset=utf-8"},
+    )
+
+    assert evidence.tool_calls == [("Bash", "call_frag")]
+    assert evidence.tool_call_details == [
+        {
+            "tool_name": "Bash",
+            "tool_call_id": "call_frag",
+            "tool_arguments_json": '{"command":"sed s/STATUS=old/STATUS=new/ patch-target.txt"}',
+            "bash_command": "sed s/STATUS=old/STATUS=new/ patch-target.txt",
+        }
+    ]
+
+
+def test_extract_and_persist_case_telemetry_dedups_without_phase_bleed(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case"
+    case_dir.mkdir(parents=True)
+    (case_dir / "warmup.stdout").write_text(
+        '@patch(call_same): {"path":"warmup.txt"}\n@patch(call_same): {"path":"warmup.txt"}\n',
+        encoding="utf-8",
+    )
+    (case_dir / "warmup.stderr").write_text("", encoding="utf-8")
+    (case_dir / "measured.stdout").write_text('@patch(call_same): {"path":"measured.txt"}\n', encoding="utf-8")
+    (case_dir / "measured.stderr").write_text("", encoding="utf-8")
+    artifacts_dir = case_dir / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    (artifacts_dir / "proxy.warmup.http.jsonl").write_text("", encoding="utf-8")
+    (artifacts_dir / "proxy.measured.http.jsonl").write_text(
+        json.dumps(
+            {
+                "x_gripprobe_timestamp": "2026-05-14T17:00:00+00:00",
+                "x_gripprobe_method": "POST",
+                "x_gripprobe_path": "/v1/responses",
+                "x_gripprobe_response_status": 200,
+                "x_gripprobe_tool_call_count": 1,
+                "x_gripprobe_tool_names": ["patch"],
+                "x_gripprobe_tool_call_ids": ["call_same"],
+                "x_gripprobe_tool_result_count": 0,
+                "x_gripprobe_duration_ms": 17,
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    metadata = extract_and_persist_case_telemetry(
+        case_dir=case_dir,
+        run_id="run-dedup",
+        case_id="case-dedup",
+        cli_agent_id="codex",
+        telemetry_proxy_mode="force",
+        proxy_capture_status="collected",
+        proxy_capture_skip_reason=None,
+        proxy_artifact_relpaths={
+            "warmup": "artifacts/proxy.warmup.http.jsonl",
+            "measured": "artifacts/proxy.measured.http.jsonl",
+        },
+    )
+
+    measured_events = _read_jsonl(case_dir / "artifacts" / "events.measured.jsonl")
+    measured_tool_calls = [event for event in measured_events if event.get("event_type") == "tool_call_start"]
+    assert metadata["telemetry_warmup_tool_call_count"] == 1
+    assert metadata["telemetry_measured_tool_call_count"] == 1
+    assert metadata["telemetry_tool_call_count"] == 2
+    assert len(measured_tool_calls) == 1
+    assert measured_tool_calls[0]["source_tier"] == "A"
+
+
+def test_extract_and_persist_case_telemetry_ignores_auto_title_tool_echo(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case"
+    case_dir.mkdir(parents=True)
+    (case_dir / "warmup.stdout").write_text("", encoding="utf-8")
+    (case_dir / "warmup.stderr").write_text("", encoding="utf-8")
+    (case_dir / "measured.stdout").write_text('{"title":"@Read(call_echo)"}\nDONE\n', encoding="utf-8")
+    (case_dir / "measured.stderr").write_text("", encoding="utf-8")
+
+    metadata = extract_and_persist_case_telemetry(
+        case_dir=case_dir,
+        run_id="run-echo",
+        case_id="case-echo",
+        cli_agent_id="codex",
+        telemetry_proxy_mode="off",
+    )
+
+    assert metadata["telemetry_measured_tool_call_count"] == 0
+    assert metadata["tool_event_verdict"] == "no_tool_event_observed"
+
+
+def test_extract_and_persist_case_telemetry_maps_system_ran_command_to_result(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case"
+    case_dir.mkdir(parents=True)
+    (case_dir / "warmup.stdout").write_text("", encoding="utf-8")
+    (case_dir / "warmup.stderr").write_text("", encoding="utf-8")
+    (case_dir / "measured.stdout").write_text("System:\nRan command: `pwd > pwd-output.txt` exit_code=0\n", encoding="utf-8")
+    (case_dir / "measured.stderr").write_text("", encoding="utf-8")
+
+    metadata = extract_and_persist_case_telemetry(
+        case_dir=case_dir,
+        run_id="run-system",
+        case_id="case-system",
+        cli_agent_id="codex",
+        telemetry_proxy_mode="off",
+    )
+
+    measured_events = _read_jsonl(case_dir / "artifacts" / "events.measured.jsonl")
+    result_events = [event for event in measured_events if event.get("event_type") == "tool_call_result"]
+    assert metadata["telemetry_measured_tool_call_count"] == 0
+    assert metadata["telemetry_measured_tool_result_count"] == 1
+    assert metadata["tool_event_verdict"] == "confirmed_tool_use"
+    assert len(result_events) == 1
+    assert result_events[0]["status"] == "success"
+    assert result_events[0]["exit_code"] == 0
+    assert result_events[0]["payload"]["evidence_mode"] == "system_ran_command"

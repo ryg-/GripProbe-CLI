@@ -1,7 +1,15 @@
 import pytest
 
-from gripprobe.models import BackendSpec, ModelSpec, ShellSpec
-from gripprobe.runner import _apply_model_policy_overrides, _resolve_model_hash, _select_backend
+from pathlib import Path
+
+from gripprobe.models import BackendSpec, CaseDefinition, ModelSpec, ShellSpec
+from gripprobe.runner import (
+    _apply_model_policy_overrides,
+    _apply_prompt_policy_overrides,
+    _resolve_model_hash,
+    _resolve_proxy_allowed_tool_names,
+    _select_backend,
+)
 
 
 @pytest.fixture()
@@ -140,3 +148,125 @@ def test_resolve_model_hash_returns_unknown_when_no_sources_exist(monkeypatch) -
     resolved = _resolve_model_hash(backend)
 
     assert resolved == "unknown"
+
+
+def test_apply_prompt_policy_overrides_appends_no_think_once() -> None:
+    model_spec = ModelSpec.model_validate(
+        {
+            "id": "local_qwen3_1_7b",
+            "label": "local/qwen3:1.7b",
+            "family": "qwen",
+            "size_class": "small",
+            "backends": [
+                {
+                    "id": "ollama",
+                    "model_id": "qwen3:1.7b",
+                    "shell_model_id": "local/qwen3:1.7b",
+                }
+            ],
+            "policy_overrides": {"prompt_append_no_think": True},
+        }
+    )
+    base_prompt = "Use the shell tool.\nRun exactly this command: pwd > pwd-output.txt."
+    overridden = _apply_prompt_policy_overrides(base_prompt, model_spec)
+    overridden_twice = _apply_prompt_policy_overrides(overridden, model_spec)
+
+    assert overridden.endswith("/no_think\n")
+    assert overridden.count("/no_think") == 1
+    assert overridden_twice.count("/no_think") == 1
+
+
+def test_resolve_proxy_allowed_tool_names_excludes_exit_when_overridden() -> None:
+    case = CaseDefinition.model_validate(
+        {
+            "case_id": "case",
+            "run_id": "run",
+            "cli_agent_id": "continue-cli",
+            "cli_agent_label": "continue-cli",
+            "model_id": "local_qwen3_1_7b",
+            "model_label": "local/qwen3:1.7b",
+            "backend_id": "ollama",
+            "backend_model_id": "qwen3:1.7b",
+            "cli_agent_model_id": "local/qwen3:1.7b",
+            "model_hash": "hash",
+            "tool_format": "tool",
+            "test_id": "shell_pwd",
+            "test_title": "shell_pwd",
+            "prompt": "run pwd",
+            "warmup_workspace_dir": Path("/tmp/warmup"),
+            "workspace_dir": Path("/tmp/workspace"),
+            "case_dir": Path("/tmp/case"),
+            "allowed_tools": ["shell"],
+        }
+    )
+    cli_agent_spec = ShellSpec.model_validate(
+        {
+            "id": "continue-cli",
+            "label": "continue-cli",
+            "executable": "cn",
+            "supported_formats": ["tool"],
+            "timeout_seconds": 120,
+        }
+    )
+    model_spec = ModelSpec.model_validate(
+        {
+            "id": "local_qwen3_1_7b",
+            "label": "local/qwen3:1.7b",
+            "family": "qwen",
+            "size_class": "small",
+            "backends": [{"id": "ollama", "model_id": "qwen3:1.7b", "shell_model_id": "local/qwen3:1.7b"}],
+            "policy_overrides": {"proxy_include_exit_tool": False},
+        }
+    )
+
+    names = _resolve_proxy_allowed_tool_names(case, cli_agent_spec, model_spec)
+
+    assert names == ["Bash"]
+
+
+def test_resolve_proxy_allowed_tool_names_includes_model_overrides() -> None:
+    case = CaseDefinition.model_validate(
+        {
+            "case_id": "case",
+            "run_id": "run",
+            "cli_agent_id": "continue-cli",
+            "cli_agent_label": "continue-cli",
+            "model_id": "local_qwen3_1_7b",
+            "model_label": "local/qwen3:1.7b",
+            "backend_id": "ollama",
+            "backend_model_id": "qwen3:1.7b",
+            "cli_agent_model_id": "local/qwen3:1.7b",
+            "model_hash": "hash",
+            "tool_format": "tool",
+            "test_id": "shell_pwd",
+            "test_title": "shell_pwd",
+            "prompt": "run pwd",
+            "warmup_workspace_dir": Path("/tmp/warmup"),
+            "workspace_dir": Path("/tmp/workspace"),
+            "case_dir": Path("/tmp/case"),
+            "allowed_tools": ["shell"],
+        }
+    )
+    cli_agent_spec = ShellSpec.model_validate(
+        {
+            "id": "continue-cli",
+            "label": "continue-cli",
+            "executable": "cn",
+            "supported_formats": ["tool"],
+            "timeout_seconds": 120,
+        }
+    )
+    model_spec = ModelSpec.model_validate(
+        {
+            "id": "local_qwen3_1_7b",
+            "label": "local/qwen3:1.7b",
+            "family": "qwen",
+            "size_class": "small",
+            "backends": [{"id": "ollama", "model_id": "qwen3:1.7b", "shell_model_id": "local/qwen3:1.7b"}],
+            "policy_overrides": {"proxy_include_tool_names": ["read", "patch"]},
+        }
+    )
+
+    names = _resolve_proxy_allowed_tool_names(case, cli_agent_spec, model_spec)
+
+    assert names == ["Bash", "Read", "MultiEdit", "Exit"]
