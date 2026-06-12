@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from gripprobe.models import CliAgentSpec, ModelSpec, SuiteSpec, TestSpec
-from gripprobe.results import utc_run_id
+from gripprobe.results import default_runs_root, utc_run_id
 from gripprobe.runner import run
 from gripprobe.spec_loader import load_cli_agent_specs, load_model_specs, load_suite_specs, load_test_specs
 
@@ -171,8 +171,7 @@ def _expand_manifest_run_key_to_case_keys(run_key: SuiteRunKey) -> set[SuiteCase
     return keys
 
 
-def _load_completed_case_keys(root: Path, aliases: dict[str, str]) -> set[SuiteCaseKey]:
-    runs_root = root / "results" / "runs"
+def _load_completed_case_keys(runs_root: Path, aliases: dict[str, str]) -> set[SuiteCaseKey]:
     if not runs_root.exists():
         return set()
     completed: set[SuiteCaseKey] = set()
@@ -260,6 +259,7 @@ def run_suite(
     metadata: dict[str, str] | None = None,
     resume_suite: bool = False,
     telemetry_proxy_mode: str = "auto",
+    runs_root: Path | None = None,
 ) -> list[Path]:
     if cli_agents is None and shells is not None:
         cli_agents = list(shells)
@@ -269,7 +269,8 @@ def run_suite(
     model_aliases = _model_alias_map(root)
     model_by_id = {model.id: model for model in load_model_specs(root)}
     cli_agent_by_id = {cli_agent.id: cli_agent for cli_agent in load_cli_agent_specs(root)}
-    completed_case_keys = _load_completed_case_keys(root, model_aliases) if resume_suite else set()
+    effective_runs_root = (runs_root or default_runs_root(root)).resolve()
+    completed_case_keys = _load_completed_case_keys(effective_runs_root, model_aliases) if resume_suite else set()
 
     run_dirs: list[Path] = []
     used_run_ids: set[str] = set()
@@ -344,6 +345,7 @@ def run_suite(
                         model_hash=model_hash,
                         run_metadata=merged_metadata,
                         telemetry_proxy_mode=telemetry_proxy_mode,
+                        runs_root=effective_runs_root,
                         progress=lambda line: print(line, flush=True),
                     )
                     run_dirs.append(run_dir)
@@ -365,6 +367,7 @@ def run_suite(
                 model_hash=model_hash,
                 run_metadata=merged_metadata,
                 telemetry_proxy_mode=telemetry_proxy_mode,
+                runs_root=effective_runs_root,
                 progress=lambda line: print(line, flush=True),
             )
             run_dirs.append(run_dir)
@@ -433,6 +436,7 @@ def run_suite(
                         model_hash=model_hash,
                         run_metadata=merged_metadata,
                         telemetry_proxy_mode=telemetry_proxy_mode,
+                        runs_root=effective_runs_root,
                         progress=lambda line: print(line, flush=True),
                     )
                     run_dirs.append(run_dir)
@@ -454,6 +458,7 @@ def run_suite(
                 model_hash=model_hash,
                 run_metadata=merged_metadata,
                 telemetry_proxy_mode=telemetry_proxy_mode,
+                runs_root=effective_runs_root,
                 progress=lambda line: print(line, flush=True),
             )
             run_dirs.append(run_dir)

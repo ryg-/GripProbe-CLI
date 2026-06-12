@@ -22,6 +22,7 @@ from gripprobe.adapters.codex import CodexAdapter
 from gripprobe.adapters.continue_cli import ContinueCliAdapter
 from gripprobe.adapters.gptme import GptmeAdapter
 from gripprobe.adapters.opencode import OpencodeAdapter
+from gripprobe.adapters.pi import PiAdapter
 from gripprobe.case_result import build_case_result
 from gripprobe.cli_agent_version import parse_cli_agent_version, with_cli_agent_version
 from gripprobe.event_evaluator import apply_event_evaluation
@@ -191,6 +192,8 @@ def _create_ollama_telemetry_proxy(
     filter_tools: bool = False,
     allowed_tool_names: list[str] | None = None,
     strip_git_context: bool = False,
+    strip_permissions_instructions: bool = False,
+    strip_skills_instructions: bool = False,
     strip_commit_signature_context: bool = False,
     reasoning_effort: str | None = None,
     temperature_override: float | None = None,
@@ -204,6 +207,8 @@ def _create_ollama_telemetry_proxy(
         filter_tools=filter_tools,
         allowed_tool_names=allowed_tool_names,
         strip_git_context=strip_git_context,
+        strip_permissions_instructions=strip_permissions_instructions,
+        strip_skills_instructions=strip_skills_instructions,
         strip_commit_signature_context=strip_commit_signature_context,
         reasoning_effort=reasoning_effort,
         temperature_override=temperature_override,
@@ -813,6 +818,8 @@ def _adapter_for(cli_agent_spec: CliAgentSpec):
         return ContinueCliAdapter(cli_agent_spec)
     if cli_agent_spec.id == "opencode":
         return OpencodeAdapter(cli_agent_spec)
+    if cli_agent_spec.id == "pi":
+        return PiAdapter(cli_agent_spec)
     raise ValueError(f"Unsupported CLI agent adapter: {cli_agent_spec.id}")
 
 
@@ -853,6 +860,63 @@ _PROXY_TOOL_NAME_MAP = {
     "list": "List",
 }
 
+_PROXY_TOOL_ROLE_MAP = {
+    "shell": "command",
+    "read": "read",
+    "save": "write",
+    "write": "write",
+    "patch": "patch",
+    "fetch": "fetch",
+    "list": "list",
+}
+
+
+def _append_unique_name(target: list[str], name: str) -> None:
+    if name and name not in target:
+        target.append(name)
+
+
+def _resolve_proxy_allowed_tool_names_from_dialect(
+    requested_tools: list[str],
+    cli_agent_spec: CliAgentSpec,
+    *,
+    include_exit: bool,
+) -> list[str]:
+    names: list[str] = []
+    selected_roles: set[str] = set()
+    dialect_entries = cli_agent_spec.tool_dialect
+
+    def add_entry(entry: Any) -> None:
+        _append_unique_name(names, entry.raw_name)
+        if entry.role:
+            selected_roles.add(entry.role)
+
+    for requested in requested_tools:
+        matched = False
+        requested_role = _PROXY_TOOL_ROLE_MAP.get(requested)
+        requested_canonical = _PROXY_TOOL_NAME_MAP.get(requested, requested)
+        for entry in dialect_entries:
+            if requested in {entry.id, entry.raw_name, entry.canonical_name}:
+                add_entry(entry)
+                matched = True
+                continue
+            if requested_role and entry.role == requested_role:
+                add_entry(entry)
+                matched = True
+                continue
+            if requested_canonical and entry.canonical_name == requested_canonical:
+                add_entry(entry)
+                matched = True
+        if not matched and requested:
+            _append_unique_name(names, requested)
+
+    if include_exit and "command" in selected_roles:
+        for entry in dialect_entries:
+            if entry.role == "terminate":
+                add_entry(entry)
+
+    return names
+
 
 def _resolve_proxy_allowed_tool_names(
     case: CaseDefinition,
@@ -860,16 +924,22 @@ def _resolve_proxy_allowed_tool_names(
     model_spec: ModelSpec | None = None,
 ) -> list[str]:
     raw_tools = case.allowed_tools or cli_agent_spec.default_tools
-    names: list[str] = []
+    requested_tools: list[str] = []
     for tool_name in raw_tools:
-        resolved = _PROXY_TOOL_NAME_MAP.get(tool_name, tool_name)
-        if resolved not in names:
-            names.append(resolved)
+        if isinstance(tool_name, str) and tool_name not in requested_tools:
+            requested_tools.append(tool_name)
+
     include_exit = True
     extra_tool_names: list[str] = []
     if model_spec is not None:
+        include_exit = _cli_agent_policy_bool_option(
+            model_spec,
+            cli_agent_spec.id,
+            "proxy_include_exit_tool",
+            fallback_key="proxy_include_exit_tool",
+            default=True,
+        )
         overrides = model_spec.policy_overrides or {}
-        include_exit = bool(overrides.get("proxy_include_exit_tool", True))
         raw_extra_tool_names = overrides.get("proxy_include_tool_names")
         if isinstance(raw_extra_tool_names, list):
             for tool_name in raw_extra_tool_names:
@@ -878,12 +948,55 @@ def _resolve_proxy_allowed_tool_names(
                 resolved = _PROXY_TOOL_NAME_MAP.get(tool_name, tool_name)
                 if resolved not in extra_tool_names:
                     extra_tool_names.append(resolved)
-    for tool_name in extra_tool_names:
-        if tool_name not in names:
-            names.append(tool_name)
+
+    combined_requested_tools = requested_tools + [tool_name for tool_name in extra_tool_names if tool_name not in requested_tools]
+
+    if cli_agent_spec.tool_dialect:
+        return _resolve_proxy_allowed_tool_names_from_dialect(
+            combined_requested_tools,
+            cli_agent_spec,
+            include_exit=include_exit,
+        )
+
+    names: list[str] = []
+    for tool_name in combined_requested_tools:
+        resolved = _PROXY_TOOL_NAME_MAP.get(tool_name, tool_name)
+        if resolved not in names:
+            names.append(resolved)
     if include_exit and "Bash" in names and "Exit" not in names:
         names.append("Exit")
     return names
+
+
+def _cli_agent_policy(model_spec: ModelSpec, cli_agent_id: str) -> dict[str, Any]:
+    cli_agent_options = (model_spec.policy_overrides or {}).get("cli_agent_options")
+    if not isinstance(cli_agent_options, dict):
+        return {}
+    options = cli_agent_options.get(cli_agent_id)
+    return options if isinstance(options, dict) else {}
+
+
+def _cli_agent_policy_bool_option(
+    model_spec: ModelSpec,
+    cli_agent_id: str,
+    option_key: str,
+    *,
+    fallback_key: str | None = None,
+    default: bool = False,
+) -> bool:
+    policy = _cli_agent_policy(model_spec, cli_agent_id)
+    value = policy.get(option_key)
+    if isinstance(value, bool):
+        return value
+    if fallback_key:
+        fallback_value = (model_spec.policy_overrides or {}).get(fallback_key)
+        if isinstance(fallback_value, bool):
+            return fallback_value
+    return default
+
+
+def _should_disable_proxy_for_cli_agent(cli_agent_spec: CliAgentSpec, model_spec: ModelSpec) -> bool:
+    return _cli_agent_policy(model_spec, cli_agent_spec.id).get("disable_proxy") is True
 
 
 def _filter_tests(tests: list[TestSpec], selected: Iterable[str] | None) -> list[TestSpec]:
@@ -963,7 +1076,15 @@ def _run_case_with_phase_proxy(
     test_spec: TestSpec,
     upstream_base_url: str,
 ) -> tuple[CaseResult, dict[str, str], dict[str, str], str | None]:
-    original_run_command = adapter.run_command
+    original_run_command = getattr(adapter, "run_command", None)
+    if original_run_command is None:
+        result = adapter.run_case(case, model_spec, test_spec)
+        proxy_runtime_metadata = {
+            "telemetry_proxy_upstream_base_url": upstream_base_url,
+            "telemetry_proxy_warmup_artifact_path": _proxy_relpath_for_phase("warmup"),
+            "telemetry_proxy_measured_artifact_path": _proxy_relpath_for_phase("measured"),
+        }
+        return result, proxy_runtime_metadata, {}, "adapter_missing_run_command"
     phase_statuses: dict[_TelemetryPhase, str] = {}
     phase_skip_reasons: dict[_TelemetryPhase, str] = {}
     phase_artifacts: dict[_TelemetryPhase, str] = {}
@@ -974,11 +1095,39 @@ def _run_case_with_phase_proxy(
     }
     proxies: dict[_TelemetryPhase, OllamaTelemetryProxy] = {}
     stopped_phases: set[_TelemetryPhase] = set()
-    filter_tools = bool((model_spec.policy_overrides or {}).get("telemetry_proxy_filter_tools"))
+    filter_tools = _cli_agent_policy_bool_option(
+        model_spec,
+        cli_agent_spec.id,
+        "telemetry_proxy_filter_tools",
+        fallback_key="telemetry_proxy_filter_tools",
+        default=False,
+    ) or _cli_agent_policy(model_spec, cli_agent_spec.id).get("filter_tools") is True
     allowed_tool_names = _resolve_proxy_allowed_tool_names(case, cli_agent_spec, model_spec) if filter_tools else []
-    strip_git_context = bool((model_spec.policy_overrides or {}).get("telemetry_proxy_strip_git_context"))
-    strip_commit_signature_context = bool(
-        (model_spec.policy_overrides or {}).get("telemetry_proxy_strip_commit_signature_context")
+    strip_git_context = _cli_agent_policy_bool_option(
+        model_spec,
+        cli_agent_spec.id,
+        "telemetry_proxy_strip_git_context",
+        fallback_key="telemetry_proxy_strip_git_context",
+        default=False,
+    )
+    strip_permissions_instructions = _cli_agent_policy_bool_option(
+        model_spec,
+        cli_agent_spec.id,
+        "telemetry_proxy_strip_permissions_instructions",
+        default=False,
+    )
+    strip_commit_signature_context = _cli_agent_policy_bool_option(
+        model_spec,
+        cli_agent_spec.id,
+        "telemetry_proxy_strip_commit_signature_context",
+        fallback_key="telemetry_proxy_strip_commit_signature_context",
+        default=False,
+    )
+    strip_skills_instructions = _cli_agent_policy_bool_option(
+        model_spec,
+        cli_agent_spec.id,
+        "telemetry_proxy_strip_skills_instructions",
+        default=False,
     )
     raw_reasoning_effort = (model_spec.policy_overrides or {}).get("telemetry_proxy_reasoning_effort")
     reasoning_effort = str(raw_reasoning_effort).strip() if isinstance(raw_reasoning_effort, str) else None
@@ -986,8 +1135,20 @@ def _run_case_with_phase_proxy(
     temperature_override: float | None = None
     if isinstance(raw_temperature_override, (int, float)):
         temperature_override = float(raw_temperature_override)
-    capture_ollama_usage = bool((model_spec.policy_overrides or {}).get("telemetry_proxy_capture_ollama_usage"))
-    capture_stream_timing = bool((model_spec.policy_overrides or {}).get("telemetry_proxy_capture_stream_timing"))
+    capture_ollama_usage = _cli_agent_policy_bool_option(
+        model_spec,
+        cli_agent_spec.id,
+        "telemetry_proxy_capture_ollama_usage",
+        fallback_key="telemetry_proxy_capture_ollama_usage",
+        default=False,
+    )
+    capture_stream_timing = _cli_agent_policy_bool_option(
+        model_spec,
+        cli_agent_spec.id,
+        "telemetry_proxy_capture_stream_timing",
+        fallback_key="telemetry_proxy_capture_stream_timing",
+        default=False,
+    )
 
     for phase in _TELEMETRY_PHASES:
         artifact_relpath = expected_phase_artifacts[phase]
@@ -1000,8 +1161,12 @@ def _run_case_with_phase_proxy(
                 }
             if strip_git_context:
                 proxy_kwargs["strip_git_context"] = True
+            if strip_permissions_instructions:
+                proxy_kwargs["strip_permissions_instructions"] = True
             if strip_commit_signature_context:
                 proxy_kwargs["strip_commit_signature_context"] = True
+            if strip_skills_instructions:
+                proxy_kwargs["strip_skills_instructions"] = True
             if reasoning_effort:
                 proxy_kwargs["reasoning_effort"] = reasoning_effort
             if temperature_override is not None:
@@ -1152,6 +1317,7 @@ def run(
     progress: Callable[[str], None] | None = None,
     shell_name: str | None = None,
     telemetry_proxy_mode: str = "auto",
+    runs_root: Path | None = None,
 ) -> tuple[Path, list[CaseResult]]:
     proxy_mode = normalize_telemetry_proxy_mode(telemetry_proxy_mode)
     tests = load_test_specs(root)
@@ -1172,7 +1338,7 @@ def run(
     resolved_model_hash = _resolve_model_hash(backend, model_hash)
     ollama_modelfile = _fetch_ollama_model_modelfile(backend.model_id) if backend.id == "ollama" else None
     adapter = _adapter_for(cli_agent_spec)
-    run_paths = create_run_paths(root, run_id=run_id)
+    run_paths = create_run_paths(root, run_id=run_id, runs_root=runs_root)
     runtime_metadata = _collect_shell_runtime_metadata(cli_agent_spec.executable)
     runtime_snapshots = {
         "run_started": _collect_runtime_snapshot(include_ollama=backend.id == "ollama"),
@@ -1267,6 +1433,8 @@ def run(
             upstream_base_url: str | None = None
             if proxy_mode == "off":
                 proxy_capture_skip_reason = "disabled"
+            elif _should_disable_proxy_for_cli_agent(cli_agent_spec, model_spec):
+                proxy_capture_skip_reason = "disabled_by_cli_agent_policy"
             elif backend.id != "ollama":
                 if proxy_mode == "force":
                     proxy_capture_status = "error"
@@ -1309,7 +1477,12 @@ def run(
             )
             case_runtime_before = _collect_runtime_snapshot(include_ollama=backend.id == "ollama")
             try:
-                if proxy_mode != "off" and backend.id == "ollama" and upstream_base_url is not None:
+                if (
+                    proxy_mode != "off"
+                    and backend.id == "ollama"
+                    and upstream_base_url is not None
+                    and not _should_disable_proxy_for_cli_agent(cli_agent_spec, model_spec)
+                ):
                     result, phase_proxy_metadata, proxy_capture_artifact_relpaths, proxy_capture_error = _run_case_with_phase_proxy(
                         adapter=adapter,
                         case=case,
@@ -1328,7 +1501,11 @@ def run(
                     web_challenge.stop()
                 if web_search_challenge is not None:
                     web_search_challenge.stop()
-            if proxy_mode != "off" and backend.id == "ollama":
+            if (
+                proxy_mode != "off"
+                and backend.id == "ollama"
+                and not _should_disable_proxy_for_cli_agent(cli_agent_spec, model_spec)
+            ):
                 expected_proxy_artifacts = {
                     "warmup": _proxy_relpath_for_phase("warmup"),
                     "measured": _proxy_relpath_for_phase("measured"),
@@ -1414,7 +1591,8 @@ def run(
                 },
                 **telemetry_metadata,
             }
-            apply_event_evaluation(result)
+            if proxy_capture_error != "adapter_missing_run_command":
+                apply_event_evaluation(result)
             write_json(case_dir / "case.json", result.model_dump())
             results.append(result)
             _emit(

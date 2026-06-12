@@ -42,7 +42,12 @@ _STREAM_UPSTREAM_TIMEOUT_SECONDS = 3600
 _UPSTREAM_POLL_TIMEOUT_SECONDS = 1.0
 _DEFAULT_BODY_EXCERPT_LIMIT = 2 * 1024 * 1024
 _GIT_CONTEXT_BLOCK_PATTERN = re.compile(r"<context name=\"gitStatus\">[\s\S]*?</context>\n*", re.IGNORECASE)
+_PERMISSIONS_INSTRUCTIONS_BLOCK_PATTERN = re.compile(
+    r"<permissions instructions>[\s\S]*?</permissions instructions>\n*",
+    re.IGNORECASE,
+)
 _COMMIT_SIGNATURE_BLOCK_PATTERN = re.compile(r"<context name=\"commitSignature\">[\s\S]*?</context>\n*", re.IGNORECASE)
+_SKILLS_INSTRUCTIONS_BLOCK_PATTERN = re.compile(r"<skills_instructions>[\s\S]*?</skills_instructions>\n*", re.IGNORECASE)
 _OPENAI_MUTATION_PATHS = {"/v1/chat/completions", "/v1/responses"}
 _OLLAMA_CHAT_MUTATION_PATHS = {"/api/chat"}
 _OLLAMA_GENERATE_MUTATION_PATHS = {"/api/generate"}
@@ -112,7 +117,9 @@ class OllamaTelemetryProxy:
         filter_tools: bool = False,
         allowed_tool_names: list[str] | None = None,
         strip_git_context: bool = False,
+        strip_permissions_instructions: bool = False,
         strip_commit_signature_context: bool = False,
+        strip_skills_instructions: bool = False,
         reasoning_effort: str | None = None,
         temperature_override: float | None = None,
         capture_ollama_usage: bool = False,
@@ -125,7 +132,9 @@ class OllamaTelemetryProxy:
         self.filter_tools = filter_tools
         self.allowed_tool_names = list(dict.fromkeys(allowed_tool_names or []))
         self.strip_git_context = strip_git_context
+        self.strip_permissions_instructions = strip_permissions_instructions
         self.strip_commit_signature_context = strip_commit_signature_context
+        self.strip_skills_instructions = strip_skills_instructions
         self.reasoning_effort = reasoning_effort.strip() if isinstance(reasoning_effort, str) and reasoning_effort.strip() else None
         self.temperature_override = temperature_override
         self.capture_ollama_usage = capture_ollama_usage
@@ -263,10 +272,76 @@ class OllamaTelemetryProxy:
         return stripped
 
     @staticmethod
+    def _strip_permissions_instructions_from_text(content: str) -> str:
+        stripped = _PERMISSIONS_INSTRUCTIONS_BLOCK_PATTERN.sub("", content)
+        stripped = re.sub(r"\n{3,}", "\n\n", stripped)
+        return stripped
+
+    @staticmethod
     def _strip_commit_signature_context_from_text(content: str) -> str:
         stripped = _COMMIT_SIGNATURE_BLOCK_PATTERN.sub("", content)
         stripped = re.sub(r"\n{3,}", "\n\n", stripped)
         return stripped
+
+    @staticmethod
+    def _strip_skills_instructions_from_text(content: str) -> str:
+        stripped = _SKILLS_INSTRUCTIONS_BLOCK_PATTERN.sub("", content)
+        stripped = re.sub(r"\n{3,}", "\n\n", stripped)
+        return stripped
+
+    @staticmethod
+    def _mutate_text_blocks(
+        payload: dict[str, Any],
+        updater: Any,
+        *,
+        roles: set[str],
+    ) -> int:
+        updated_count = 0
+
+        messages = payload.get("messages")
+        if isinstance(messages, list):
+            for message in messages:
+                if not isinstance(message, dict):
+                    continue
+                if str(message.get("role") or "") not in roles:
+                    continue
+                content = message.get("content")
+                if not isinstance(content, str):
+                    continue
+                updated = updater(content)
+                if updated != content:
+                    message["content"] = updated
+                    updated_count += 1
+
+        input_items = payload.get("input")
+        if isinstance(input_items, list):
+            for item in input_items:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") != "message":
+                    continue
+                if str(item.get("role") or "") not in roles:
+                    continue
+                content_items = item.get("content")
+                if not isinstance(content_items, list):
+                    continue
+                changed_item = False
+                for content_item in content_items:
+                    if not isinstance(content_item, dict):
+                        continue
+                    if content_item.get("type") != "input_text":
+                        continue
+                    text = content_item.get("text")
+                    if not isinstance(text, str):
+                        continue
+                    updated = updater(text)
+                    if updated != text:
+                        content_item["text"] = updated
+                        changed_item = True
+                if changed_item:
+                    updated_count += 1
+
+        return updated_count
 
     def _mutate_request_body(self, request_path: str, request_body: bytes) -> tuple[bytes, dict[str, Any]]:
         metadata: dict[str, Any] = {
@@ -274,7 +349,9 @@ class OllamaTelemetryProxy:
             "x_gripprobe_tools_filter_enabled": self.filter_tools,
             "x_gripprobe_tools_filter_allowed_names": self.allowed_tool_names,
             "x_gripprobe_git_context_strip_enabled": self.strip_git_context,
+            "x_gripprobe_permissions_instructions_strip_enabled": self.strip_permissions_instructions,
             "x_gripprobe_commit_signature_context_strip_enabled": self.strip_commit_signature_context,
+            "x_gripprobe_skills_instructions_strip_enabled": self.strip_skills_instructions,
             "x_gripprobe_reasoning_effort_override": self.reasoning_effort,
             "x_gripprobe_temperature_override": self.temperature_override,
         }
@@ -285,8 +362,12 @@ class OllamaTelemetryProxy:
                     "x_gripprobe_tools_filter_reason": "unsupported_endpoint",
                     "x_gripprobe_git_context_strip_applied": False,
                     "x_gripprobe_git_context_strip_reason": "unsupported_endpoint",
+                    "x_gripprobe_permissions_instructions_strip_applied": False,
+                    "x_gripprobe_permissions_instructions_strip_reason": "unsupported_endpoint",
                     "x_gripprobe_commit_signature_context_strip_applied": False,
                     "x_gripprobe_commit_signature_context_strip_reason": "unsupported_endpoint",
+                    "x_gripprobe_skills_instructions_strip_applied": False,
+                    "x_gripprobe_skills_instructions_strip_reason": "unsupported_endpoint",
                     "x_gripprobe_reasoning_effort_applied": False,
                     "x_gripprobe_temperature_applied": False,
                 }
@@ -296,15 +377,19 @@ class OllamaTelemetryProxy:
         if not isinstance(payload, dict):
             metadata["x_gripprobe_tools_filter_applied"] = False
             metadata["x_gripprobe_git_context_strip_applied"] = False
+            metadata["x_gripprobe_permissions_instructions_strip_applied"] = False
             metadata["x_gripprobe_commit_signature_context_strip_applied"] = False
+            metadata["x_gripprobe_skills_instructions_strip_applied"] = False
             metadata["x_gripprobe_tools_filter_reason"] = "non_json_object"
             metadata["x_gripprobe_git_context_strip_reason"] = "non_json_object"
+            metadata["x_gripprobe_permissions_instructions_strip_reason"] = "non_json_object"
             metadata["x_gripprobe_commit_signature_context_strip_reason"] = "non_json_object"
+            metadata["x_gripprobe_skills_instructions_strip_reason"] = "non_json_object"
             return request_body, metadata
         changed = False
 
         supports_tools = request_path in (_OPENAI_MUTATION_PATHS | _OLLAMA_CHAT_MUTATION_PATHS)
-        supports_messages = request_path in ({"/v1/chat/completions"} | _OLLAMA_CHAT_MUTATION_PATHS)
+        supports_messages = request_path in (_OPENAI_MUTATION_PATHS | _OLLAMA_CHAT_MUTATION_PATHS)
 
         tools = payload.get("tools")
         if self.filter_tools and supports_tools and isinstance(tools, list):
@@ -335,22 +420,9 @@ class OllamaTelemetryProxy:
             metadata["x_gripprobe_tools_filter_applied"] = False
 
         if self.strip_git_context and supports_messages:
-            messages = payload.get("messages")
-            removed_count = 0
-            if isinstance(messages, list):
-                for message in messages:
-                    if not isinstance(message, dict):
-                        continue
-                    if str(message.get("role") or "") != "system":
-                        continue
-                    content = message.get("content")
-                    if not isinstance(content, str):
-                        continue
-                    updated = self._strip_git_context_from_text(content)
-                    if updated != content:
-                        message["content"] = updated
-                        removed_count += 1
-                        changed = True
+            removed_count = self._mutate_text_blocks(payload, self._strip_git_context_from_text, roles={"system"})
+            if removed_count:
+                changed = True
             metadata["x_gripprobe_git_context_strip_applied"] = removed_count > 0
             metadata["x_gripprobe_git_context_strip_message_count"] = removed_count
             if removed_count == 0:
@@ -358,29 +430,46 @@ class OllamaTelemetryProxy:
         else:
             metadata["x_gripprobe_git_context_strip_applied"] = False
 
+        if self.strip_permissions_instructions and supports_messages:
+            removed_count = self._mutate_text_blocks(
+                payload,
+                self._strip_permissions_instructions_from_text,
+                roles={"system", "developer"},
+            )
+            if removed_count:
+                changed = True
+            metadata["x_gripprobe_permissions_instructions_strip_applied"] = removed_count > 0
+            metadata["x_gripprobe_permissions_instructions_strip_message_count"] = removed_count
+            if removed_count == 0:
+                metadata["x_gripprobe_permissions_instructions_strip_reason"] = "no_permissions_instructions_found"
+        else:
+            metadata["x_gripprobe_permissions_instructions_strip_applied"] = False
+
         if self.strip_commit_signature_context and supports_messages:
-            messages = payload.get("messages")
-            removed_count = 0
-            if isinstance(messages, list):
-                for message in messages:
-                    if not isinstance(message, dict):
-                        continue
-                    if str(message.get("role") or "") != "system":
-                        continue
-                    content = message.get("content")
-                    if not isinstance(content, str):
-                        continue
-                    updated = self._strip_commit_signature_context_from_text(content)
-                    if updated != content:
-                        message["content"] = updated
-                        removed_count += 1
-                        changed = True
+            removed_count = self._mutate_text_blocks(payload, self._strip_commit_signature_context_from_text, roles={"system"})
+            if removed_count:
+                changed = True
             metadata["x_gripprobe_commit_signature_context_strip_applied"] = removed_count > 0
             metadata["x_gripprobe_commit_signature_context_strip_message_count"] = removed_count
             if removed_count == 0:
                 metadata["x_gripprobe_commit_signature_context_strip_reason"] = "no_commit_signature_context_found"
         else:
             metadata["x_gripprobe_commit_signature_context_strip_applied"] = False
+
+        if self.strip_skills_instructions and supports_messages:
+            removed_count = self._mutate_text_blocks(
+                payload,
+                self._strip_skills_instructions_from_text,
+                roles={"system", "developer"},
+            )
+            if removed_count:
+                changed = True
+            metadata["x_gripprobe_skills_instructions_strip_applied"] = removed_count > 0
+            metadata["x_gripprobe_skills_instructions_strip_message_count"] = removed_count
+            if removed_count == 0:
+                metadata["x_gripprobe_skills_instructions_strip_reason"] = "no_skills_instructions_found"
+        else:
+            metadata["x_gripprobe_skills_instructions_strip_applied"] = False
 
         if self.reasoning_effort and request_path in _OPENAI_MUTATION_PATHS:
             if payload.get("reasoning_effort") != self.reasoning_effort:
@@ -459,6 +548,15 @@ class OllamaTelemetryProxy:
 
         class Handler(BaseHTTPRequestHandler):
             protocol_version = "HTTP/1.1"
+
+            def handle(self) -> None:
+                try:
+                    super().handle()
+                except (BrokenPipeError, ConnectionResetError) as exc:
+                    print(
+                        f"[gripprobe] telemetry proxy client disconnected: {exc.__class__.__name__}: {exc}",
+                        flush=True,
+                    )
 
             def do_GET(self) -> None:
                 proxy._handle(self)

@@ -152,3 +152,90 @@ def test_run_force_proxy_mode_collects_proxy_for_ollama_backend(monkeypatch, spe
     assert "Open Interactive Viewer" in detail_html
     assert "gripprobeOpenTelemetryViewer" in detail_html
     assert "window.open('about:blank', '_blank')" in detail_html
+
+
+def test_run_writes_artifacts_under_custom_runs_root(monkeypatch, specs_root: Path, tmp_path: Path) -> None:
+    class _NoopProxy:
+        def __init__(self, artifact_relpath: str) -> None:
+            self.base_url = "http://127.0.0.1:19080"
+            self.artifact_relpath = artifact_relpath
+
+        def start(self) -> None:
+            return
+
+        def stop(self) -> None:
+            return
+
+    class _PhaseCommandAdapter:
+        def __init__(self, shell_spec) -> None:
+            self.shell_spec = shell_spec
+
+        def run_command(self, case, args, env, stdout_path, stderr_path, workspace_dir=None):
+            stdout_path.write_text(f"{stdout_path.name} ok\n", encoding="utf-8")
+            stderr_path.write_text("", encoding="utf-8")
+            return 0, 0.01, "start", "finish"
+
+        def run_case(self, case, model_spec, test_spec):
+            case.case_dir.mkdir(parents=True, exist_ok=True)
+            (case.case_dir / "prompt.txt").write_text(case.prompt, encoding="utf-8")
+            self.run_command(
+                case,
+                ["warmup"],
+                {},
+                case.case_dir / "warmup.stdout",
+                case.case_dir / "warmup.stderr",
+                workspace_dir=case.warmup_workspace_dir,
+            )
+            self.run_command(
+                case,
+                ["measured"],
+                {},
+                case.case_dir / "measured.stdout",
+                case.case_dir / "measured.stderr",
+                workspace_dir=case.workspace_dir,
+            )
+            (case.case_dir / "expected.txt").write_text(str(case.workspace_dir) + "\n", encoding="utf-8")
+            (case.case_dir / "observed.txt").write_text(str(case.workspace_dir) + "\n", encoding="utf-8")
+            (case.workspace_dir / "pwd-output.txt").write_text(str(case.workspace_dir) + "\n", encoding="utf-8")
+            return build_case_result(
+                case=case,
+                model_spec=model_spec,
+                test_spec=test_spec,
+                status="PASS",
+                trajectory="clean",
+                invoked="yes",
+                match_percent=100,
+                warmup_seconds=0.01,
+                measured_seconds=0.02,
+                metadata={"tool_format": case.tool_format},
+            )
+
+    monkeypatch.setattr("gripprobe.runner._adapter_for", lambda shell_spec: _PhaseCommandAdapter(shell_spec))
+    monkeypatch.setattr("gripprobe.runner._fetch_ollama_model_digest", lambda model_id: "845dbda0ea48")
+    monkeypatch.setattr("gripprobe.runner._collect_shell_runtime_metadata", lambda executable: {})
+    monkeypatch.setattr("gripprobe.runner._collect_runtime_snapshot", lambda include_ollama=False: {"captured_at": "now", "probes": {}})
+    monkeypatch.setattr(
+        "gripprobe.runner._create_ollama_telemetry_proxy",
+        lambda case_dir, upstream_base_url, artifact_relpath="artifacts/proxy.measured.http.jsonl": _NoopProxy(
+            artifact_relpath
+        ),
+    )
+
+    runs_root = tmp_path / "custom-runs"
+    run_dir, results = run(
+        specs_root,
+        shell_name="gptme",
+        model_name="local/qwen2.5:7b",
+        backend_name="ollama",
+        tests_filter=["shell_pwd"],
+        formats_filter=["markdown"],
+        run_id="run-custom-root",
+        telemetry_proxy_mode="force",
+        runs_root=runs_root,
+    )
+
+    assert len(results) == 1
+    assert run_dir == runs_root.resolve() / "run-custom-root"
+    assert (run_dir / "manifest.json").exists()
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["run_id"] == "run-custom-root"

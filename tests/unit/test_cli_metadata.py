@@ -54,6 +54,25 @@ def test_run_parser_accepts_telemetry_proxy_mode() -> None:
     assert ns.telemetry_proxy == "force"
 
 
+def test_run_parser_accepts_runs_root() -> None:
+    parser = build_parser()
+
+    ns = parser.parse_args(
+        [
+            "run",
+            "--shell",
+            "continue-cli",
+            "--model",
+            "local/qwen3:8b",
+            "--runs-root",
+            "/tmp/gripprobe-runs",
+        ]
+    )
+
+    assert ns.cmd == "run"
+    assert ns.runs_root == "/tmp/gripprobe-runs"
+
+
 def test_run_parser_exposes_model_hash_as_optional_fallback_help() -> None:
     parser = build_parser()
     subparsers = next(action for action in parser._actions if getattr(action, "choices", None))
@@ -82,6 +101,15 @@ def test_run_suite_parser_accepts_resume_suite_flag() -> None:
 
     assert ns.cmd == "run-suite"
     assert ns.resume_suite is True
+
+
+def test_run_suite_parser_accepts_runs_root() -> None:
+    parser = build_parser()
+
+    ns = parser.parse_args(["run-suite", "--runs-root", "/tmp/gripprobe-suite-runs"])
+
+    assert ns.cmd == "run-suite"
+    assert ns.runs_root == "/tmp/gripprobe-suite-runs"
 
 
 def test_run_suite_parser_defaults_telemetry_proxy_to_auto() -> None:

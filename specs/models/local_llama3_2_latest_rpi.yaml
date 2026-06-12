@@ -1,13 +1,13 @@
-id: local_qwen3_1_7b_rpi
-label: local/qwen3:1.7b_rpi
-family: qwen
+id: local_llama3_2_latest_rpi
+label: local/llama3.2:latest_rpi
+family: llama
 size_class: small
-parameters_b: 1.7
+parameters_b: 3
 quantization: null
 backends:
   - id: ollama
-    model_id: qwen3:1.7b
-    cli_agent_model_id: local/qwen3:1.7b
+    model_id: llama3.2:latest
+    cli_agent_model_id: local/llama3.2:latest
 tags:
   - local
   - rpi
@@ -47,9 +47,6 @@ policy_overrides:
 #  telemetry_proxy_temperature_override: 0.0
 #  prompt_append_no_think: true
   proxy_include_exit_tool: false
-  #proxy_include_tool_names:
-  #  - read
-  #  - patch
   cli_agent_timeout_seconds:
     gptme: 600
     continue-cli: 900

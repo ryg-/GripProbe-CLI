@@ -1,13 +1,13 @@
-id: local_qwen3_1_7b_rpi
-label: local/qwen3:1.7b_rpi
-family: qwen
+id: local_granite3_3_2b_rpi
+label: local/granite3.3:2b_rpi
+family: granite
 size_class: small
-parameters_b: 1.7
+parameters_b: 2
 quantization: null
 backends:
   - id: ollama
-    model_id: qwen3:1.7b
-    cli_agent_model_id: local/qwen3:1.7b
+    model_id: granite3.3:2b
+    cli_agent_model_id: local/granite3.3:2b
 tags:
   - local
   - rpi

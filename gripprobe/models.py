@@ -145,12 +145,22 @@ class CliAgentSpec(BaseModel):
     supported_formats: list[str] = Field(default_factory=list)
     env: dict[str, str] = Field(default_factory=dict)
     default_tools: list[str] = Field(default_factory=list)
+    tool_dialect: list["CliAgentToolDialectSpec"] = Field(default_factory=list)
     config_path: str | None = None
     container_image: str | None = None
     timeout_seconds: int = 120
 
 
 ShellSpec = CliAgentSpec
+
+
+class CliAgentToolDialectSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    raw_name: str
+    canonical_name: str
+    role: str
 
 
 class HardwareProfileSpec(BaseModel):

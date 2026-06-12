@@ -9,6 +9,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class RunPaths:
     root: Path
+    runs_root: Path
     run_id: str
     run_dir: Path
     cases_dir: Path
@@ -19,14 +20,26 @@ def utc_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
-def create_run_paths(root: Path, run_id: str | None = None) -> RunPaths:
+def default_runs_root(root: Path) -> Path:
+    return root / "results" / "runs"
+
+
+def create_run_paths(root: Path, run_id: str | None = None, runs_root: Path | None = None) -> RunPaths:
     rid = run_id or utc_run_id()
-    run_dir = root / "results" / "runs" / rid
+    resolved_runs_root = (runs_root or default_runs_root(root)).resolve()
+    run_dir = resolved_runs_root / rid
     cases_dir = run_dir / "cases"
     reports_dir = run_dir / "reports"
     cases_dir.mkdir(parents=True, exist_ok=True)
     reports_dir.mkdir(parents=True, exist_ok=True)
-    return RunPaths(root=root, run_id=rid, run_dir=run_dir, cases_dir=cases_dir, reports_dir=reports_dir)
+    return RunPaths(
+        root=root,
+        runs_root=resolved_runs_root,
+        run_id=rid,
+        run_dir=run_dir,
+        cases_dir=cases_dir,
+        reports_dir=reports_dir,
+    )
 
 
 def write_json(path: Path, payload: dict) -> None:

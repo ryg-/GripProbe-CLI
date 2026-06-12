@@ -83,6 +83,116 @@ def _model_spec() -> ModelSpec:
     )
 
 
+def test_gptme_uses_short_system_prompt_by_default() -> None:
+    adapter = _adapter()
+
+    assert adapter._resolve_system_mode(_model_spec()) == "short"
+
+
+def test_gptme_reads_custom_system_prompt_from_model_policy() -> None:
+    adapter = _adapter()
+    model_spec = ModelSpec.model_validate(
+        {
+            "id": "local_qwen3_1_7b_rpi",
+            "label": "local/qwen3:1.7b_rpi",
+            "family": "qwen",
+            "size_class": "small",
+            "backends": [
+                {
+                    "id": "ollama",
+                    "model_id": "qwen3:1.7b",
+                    "shell_model_id": "local/qwen3:1.7b",
+                }
+            ],
+            "policy_overrides": {
+                "cli_agent_options": {
+                    "gptme": {
+                        "system_prompt": "custom",
+                        "custom_system_prompt": "Use only tools. Keep replies minimal.",
+                    }
+                }
+            },
+        }
+    )
+
+    assert adapter._resolve_system_mode(model_spec) == "custom"
+    assert adapter._resolve_custom_system_prompt(model_spec) == "Use only tools. Keep replies minimal."
+
+
+def test_gptme_run_case_injects_custom_system_prompt_from_model_policy(tmp_path: Path) -> None:
+    adapter = _adapter()
+    model_spec = ModelSpec.model_validate(
+        {
+            "id": "local_qwen3_1_7b_rpi",
+            "label": "local/qwen3:1.7b_rpi",
+            "family": "qwen",
+            "size_class": "small",
+            "backends": [
+                {
+                    "id": "ollama",
+                    "model_id": "qwen3:1.7b",
+                    "shell_model_id": "local/qwen3:1.7b",
+                }
+            ],
+            "policy_overrides": {
+                "cli_agent_options": {
+                    "gptme": {
+                        "system_prompt": "custom",
+                        "custom_system_prompt": "Use only tools. Keep replies minimal.",
+                        "context_include": ["files"],
+                    }
+                }
+            },
+        }
+    )
+    test_spec = _patch_test_spec()
+    case = CaseDefinition.model_validate(
+        {
+            "case_id": "gptme__local_qwen3_1_7b_rpi__ollama__tool__patch_file",
+            "run_id": "run-gptme-system-prompt",
+            "shell_id": "gptme",
+            "shell_label": "gptme",
+            "model_id": "local_qwen3_1_7b_rpi",
+            "model_label": "local/qwen3:1.7b_rpi",
+            "backend_id": "ollama",
+            "backend_model_id": "qwen3:1.7b",
+            "shell_model_id": "local/qwen3:1.7b",
+            "model_hash": "hash",
+            "tool_format": "tool",
+            "test_id": "patch_file",
+            "test_title": "Patch File",
+            "prompt": test_spec.prompt,
+            "warmup_workspace_dir": tmp_path / "workspace-warmup",
+            "workspace_dir": tmp_path / "workspace",
+            "case_dir": tmp_path / "case",
+            "allowed_tools": ["read", "patch"],
+        }
+    )
+    case.warmup_workspace_dir.mkdir(parents=True)
+    case.workspace_dir.mkdir(parents=True)
+    (case.warmup_workspace_dir / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
+    (case.workspace_dir / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
+    captured_args: list[list[str]] = []
+
+    def _fake_run_command(self, case_arg, args, env, stdout_path, stderr_path, workspace_dir=None):
+        captured_args.append(list(args))
+        active_workspace = workspace_dir or case_arg.workspace_dir
+        (active_workspace / "patch-target.txt").write_text("STATUS=new\n", encoding="utf-8")
+        stdout_path.write_text('@patch(call_1): {}\nSystem:\nApplied patch\n', encoding="utf-8")
+        stderr_path.write_text("", encoding="utf-8")
+        return 0, 0.1, "2026-04-23T12:00:00+00:00", "2026-04-23T12:00:01+00:00"
+
+    adapter.run_command = MethodType(_fake_run_command, adapter)
+
+    result = adapter.run_case(case, model_spec, test_spec)
+
+    assert result.status == "PASS"
+    assert len(captured_args) == 2
+    for args in captured_args:
+        assert "--system" in args
+        assert "Use only tools. Keep replies minimal." in args
+
+
 def test_classify_reports_fail_when_tool_call_happened_but_patch_failed(tmp_path: Path) -> None:
     adapter = _adapter()
     spec = _patch_test_spec()

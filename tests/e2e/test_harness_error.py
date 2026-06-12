@@ -32,6 +32,7 @@ def test_run_persists_harness_error(monkeypatch, specs_root: Path) -> None:
 
     assert case["status"] == "HARNESS_ERROR"
     assert case["invoked"] == "no"
-    assert case["model"]["model_hash"] == "845dbda0ea48"
+    assert case["model"]["model_hash"].startswith("845dbda0ea48")
     assert case["metadata"]["error"] == "simulated adapter failure"
-    assert "| gptme | local/qwen2.5:7b | ollama | 845dbda0ea48 | markdown | Shell PWD | HARNESS_ERROR |" in summary_md
+    assert "| gptme | local/qwen2.5:7b | ollama | 845dbda0ea48" in summary_md
+    assert "| markdown | Shell PWD | HARNESS_ERROR |" in summary_md

@@ -21,16 +21,34 @@ policy_overrides:
     continue-cli:
       context_length: 4096
       minimal_system_prompt: true
-      runtime_patches: true
-      patch_system_text: >-
-        Use available tools to answer the user's request concisely.
-  telemetry_proxy_filter_tools: true
-  telemetry_proxy_strip_git_context: true
-  telemetry_proxy_strip_commit_signature_context: true
+    codex:
+      telemetry_proxy_filter_tools: true
+      proxy_include_exit_tool: false
+      telemetry_proxy_strip_git_context: false
+      telemetry_proxy_strip_permissions_instructions: true
+      telemetry_proxy_strip_commit_signature_context: false
+      telemetry_proxy_strip_skills_instructions: true
+      telemetry_proxy_capture_ollama_usage: false
+      telemetry_proxy_capture_stream_timing: false
+      ignore_user_config: true
+      ignore_rules: true
+    gptme:
+      filter_tools: true
+      disable_proxy: true
+      system_prompt: custom
+      custom_system_prompt: Use tools first. Keep reasoning extremely short. Reply only with tool calls and final DONE/FAIL.
+    pi:
+      system_prompt: Use tools first. Keep reasoning extremely short. If a bash command succeeds, reply only with DONE. If it fails, reply only with FAIL.
+      offline: true
+      skip_version_check: true
+      telemetry_enabled: false
+  telemetry_proxy_filter_tools: false
+  telemetry_proxy_strip_git_context: false
+  telemetry_proxy_strip_commit_signature_context: false
   telemetry_proxy_reasoning_effort: none
   telemetry_proxy_temperature_override: 0.0
-  telemetry_proxy_capture_ollama_usage: true
-  telemetry_proxy_capture_stream_timing: true
+  telemetry_proxy_capture_ollama_usage: false
+  telemetry_proxy_capture_stream_timing: false
   cli_agent_timeout_seconds:
     gptme: 600
     continue-cli: 900

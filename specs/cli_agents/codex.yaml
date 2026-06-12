@@ -10,3 +10,28 @@ default_tools:
   - patch
   - read
   - save
+tool_dialect:
+  - id: shell
+    raw_name: exec_command
+    canonical_name: Bash
+    role: command
+  - id: shell_session
+    raw_name: write_stdin
+    canonical_name: Bash
+    role: command
+  - id: read
+    raw_name: exec_command
+    canonical_name: Read
+    role: read
+  - id: read_session
+    raw_name: write_stdin
+    canonical_name: Read
+    role: read
+  - id: patch
+    raw_name: apply_patch
+    canonical_name: apply_patch
+    role: patch
+  - id: save
+    raw_name: exec_command
+    canonical_name: Write
+    role: write

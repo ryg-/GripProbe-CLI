@@ -63,6 +63,7 @@ def cmd_run(
     model_hash: str | None,
     metadata: dict[str, str],
     telemetry_proxy: str,
+    runs_root: Path | None,
 ) -> int:
     run_dir, results = run(
         root,
@@ -77,6 +78,7 @@ def cmd_run(
         model_hash=model_hash,
         run_metadata=metadata,
         telemetry_proxy_mode=telemetry_proxy,
+        runs_root=runs_root,
         progress=lambda line: print(line, flush=True),
     )
     print(run_dir)
@@ -138,6 +140,7 @@ def cmd_run_suite(
     metadata: dict[str, str],
     resume_suite: bool,
     telemetry_proxy: str,
+    runs_root: Path | None,
 ) -> int:
     run_dirs = run_suite(
         root,
@@ -153,6 +156,7 @@ def cmd_run_suite(
         metadata=metadata,
         resume_suite=resume_suite,
         telemetry_proxy_mode=telemetry_proxy,
+        runs_root=runs_root,
     )
     for run_dir in run_dirs:
         print(run_dir)
@@ -175,6 +179,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--sanity", action="store_true", help="Run only tests tagged with sanity")
     run_p.add_argument("--formats", nargs="*")
     run_p.add_argument("--container-image")
+    run_p.add_argument("--runs-root")
     run_p.add_argument("--keep-system-messages", action="store_true")
     run_p.add_argument(
         "--model-hash",
@@ -196,6 +201,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_suite_p.add_argument("--test-tags", nargs="*")
     run_suite_p.add_argument("--formats", nargs="*")
     run_suite_p.add_argument("--container-image")
+    run_suite_p.add_argument("--runs-root")
     run_suite_p.add_argument("--keep-system-messages", action="store_true")
     run_suite_p.add_argument(
         "--resume-suite",
@@ -265,6 +271,7 @@ def main() -> int:
             model_hash=ns.model_hash,
             metadata=metadata,
             telemetry_proxy=ns.telemetry_proxy,
+            runs_root=Path(ns.runs_root).resolve() if ns.runs_root else None,
         )
     if ns.cmd == "run-suite":
         cli_agents = ns.cli_agents if ns.cli_agents is not None else ns.shells
@@ -288,6 +295,7 @@ def main() -> int:
             metadata=metadata,
             resume_suite=ns.resume_suite,
             telemetry_proxy=ns.telemetry_proxy,
+            runs_root=Path(ns.runs_root).resolve() if ns.runs_root else None,
         )
     if ns.cmd == "rebuild-reports":
         return cmd_rebuild_reports(

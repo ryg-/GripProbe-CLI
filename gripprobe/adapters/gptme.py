@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 from gripprobe.adapters.base import CliAgentAdapter
 from gripprobe.case_result import CaseStatus, ToolInvocation, build_case_result
@@ -21,8 +22,16 @@ from gripprobe.validator_runner import evaluate_validators
 
 
 class GptmeAdapter(CliAgentAdapter):
-    def _resolve_system_mode(self) -> str:
-        mode = os.environ.get("GRIPPROBE_GPTME_SYSTEM_MODE", "short").strip().lower()
+    @staticmethod
+    def _gptme_policy(model_spec: ModelSpec) -> dict[str, Any]:
+        cli_agent_options = (model_spec.policy_overrides or {}).get("cli_agent_options")
+        if not isinstance(cli_agent_options, dict):
+            return {}
+        options = cli_agent_options.get("gptme")
+        return options if isinstance(options, dict) else {}
+
+    def _resolve_system_mode(self, model_spec: ModelSpec) -> str:
+        mode = str(self._gptme_policy(model_spec).get("system_prompt", "short")).strip().lower()
         if mode in {"off", "none", "disable", "disabled"}:
             return "off"
         if mode in {"custom"}:
@@ -31,11 +40,21 @@ class GptmeAdapter(CliAgentAdapter):
             return "full"
         return "short"
 
-    def _resolve_custom_system_prompt(self) -> str:
-        custom_prompt = os.environ.get("GRIPPROBE_GPTME_SYSTEM_CUSTOM", "").strip()
+    def _resolve_custom_system_prompt(self, model_spec: ModelSpec) -> str:
+        custom_prompt = str(self._gptme_policy(model_spec).get("custom_system_prompt", "")).strip()
         if custom_prompt:
             return custom_prompt
         return "Use tools first. Keep reasoning extremely short. Reply only with tool calls and final DONE/FAIL."
+
+    def _resolve_context_include(self, model_spec: ModelSpec) -> str | None:
+        value = self._gptme_policy(model_spec).get("context_include")
+        if isinstance(value, str):
+            normalized = value.strip()
+            return normalized or None
+        if isinstance(value, list):
+            items = [str(item).strip() for item in value if str(item).strip()]
+            return ",".join(items) if items else None
+        return None
 
     def _ensure_ollama_openai_env(self, case: CaseDefinition, env: dict[str, str]) -> None:
         if case.backend_id != "ollama":
@@ -86,12 +105,15 @@ class GptmeAdapter(CliAgentAdapter):
             case.cli_agent_model_id,
             case.prompt,
         ]
-        system_mode = self._resolve_system_mode()
+        system_mode = self._resolve_system_mode(model_spec)
         if system_mode == "custom":
-            custom_prompt = self._resolve_custom_system_prompt()
+            custom_prompt = self._resolve_custom_system_prompt(model_spec)
             base_args[base_args.index("--workspace"):base_args.index("--workspace")] = ["--system", custom_prompt]
         elif system_mode != "off":
             base_args[base_args.index("--workspace"):base_args.index("--workspace")] = ["--system", system_mode]
+        context_include = self._resolve_context_include(model_spec)
+        if context_include:
+            base_args[base_args.index("--workspace"):base_args.index("--workspace")] = ["--context", context_include]
 
         env = os.environ.copy()
         env.update(self.cli_agent_spec.env)

@@ -1,9 +1,8 @@
-id: continue-cli
-label: continue-cli
-executable: cn
+id: pi
+label: pi
+executable: pi
 default_args: []
 supported_formats:
-  - markdown
   - tool
 env: {}
 default_tools:
@@ -13,22 +12,18 @@ default_tools:
   - save
 tool_dialect:
   - id: shell
-    raw_name: Bash
+    raw_name: bash
     canonical_name: Bash
     role: command
   - id: read
-    raw_name: Read
+    raw_name: read
     canonical_name: Read
     role: read
   - id: patch
-    raw_name: MultiEdit
-    canonical_name: MultiEdit
+    raw_name: edit
+    canonical_name: apply_patch
     role: patch
   - id: save
-    raw_name: Write
+    raw_name: write
     canonical_name: Write
     role: write
-  - id: exit
-    raw_name: Exit
-    canonical_name: Exit
-    role: terminate

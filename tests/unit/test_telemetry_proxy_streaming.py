@@ -549,6 +549,50 @@ def test_proxy_filters_tools_before_upstream_request(tmp_path: Path) -> None:
             upstream.stop()
 
 
+def test_proxy_filters_noncanonical_agent_tool_names_before_upstream_request(tmp_path: Path) -> None:
+    upstream = _StreamingUpstream()
+    proxy = OllamaTelemetryProxy(
+        case_dir=tmp_path,
+        upstream_base_url=upstream.base_url,
+        filter_tools=True,
+        allowed_tool_names=["shell", "complete"],
+    )
+    upstream.start()
+    proxy.start()
+    try:
+        payload = {
+            "model": "qwen3:1.7b",
+            "messages": [{"role": "user", "content": "Run pwd."}],
+            "tools": [
+                {"type": "function", "function": {"name": "read", "parameters": {"type": "object"}}},
+                {"type": "function", "function": {"name": "shell", "parameters": {"type": "object"}}},
+                {"type": "function", "function": {"name": "complete", "parameters": {"type": "object"}}},
+            ],
+        }
+        request = urllib.request.Request(
+            f"{proxy.base_url}/api/chat",
+            method="POST",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            echoed = json.loads(response.read().decode("utf-8"))
+            assert response.status == 200
+
+        assert [tool["function"]["name"] for tool in echoed["tools"]] == ["shell", "complete"]
+        events = _wait_for_proxy_events(tmp_path / "artifacts" / "proxy.measured.http.jsonl", 1)
+        event = events[0]
+        assert event["x_gripprobe_tools_filter_applied"] is True
+        assert event["x_gripprobe_tools_filter_original_count"] == 3
+        assert event["x_gripprobe_tools_filter_filtered_count"] == 2
+        assert event["x_gripprobe_tools_count"] == 2
+    finally:
+        with suppress(Exception):
+            proxy.stop()
+        with suppress(Exception):
+            upstream.stop()
+
+
 def test_proxy_captures_fragmented_tool_arguments_in_event(tmp_path: Path) -> None:
     upstream = _StreamingUpstream()
     proxy = OllamaTelemetryProxy(case_dir=tmp_path, upstream_base_url=upstream.base_url)

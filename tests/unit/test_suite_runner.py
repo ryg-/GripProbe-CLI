@@ -56,6 +56,7 @@ def test_run_suite_runs_all_shells_by_default(monkeypatch, specs_root: Path) -> 
         model_hash=None,
         run_metadata=None,
         telemetry_proxy_mode="off",
+        runs_root=None,
         progress=None,
     ):
         calls.append(
@@ -66,7 +67,8 @@ def test_run_suite_runs_all_shells_by_default(monkeypatch, specs_root: Path) -> 
                 tuple(formats_filter or ()),
             )
         )
-        return Path(root) / "results" / "runs" / str(run_id), []
+        effective_runs_root = Path(runs_root) if runs_root is not None else Path(root) / "results" / "runs"
+        return effective_runs_root / str(run_id), []
 
     monkeypatch.setattr("gripprobe.suite_runner.run", _fake_run)
 
@@ -100,10 +102,12 @@ def test_run_suite_respects_explicit_shell_filter(monkeypatch, specs_root: Path)
         model_hash=None,
         run_metadata=None,
         telemetry_proxy_mode="off",
+        runs_root=None,
         progress=None,
     ):
         calls.append((shell_name, model_name))
-        return Path(root) / "results" / "runs" / str(run_id), []
+        effective_runs_root = Path(runs_root) if runs_root is not None else Path(root) / "results" / "runs"
+        return effective_runs_root / str(run_id), []
 
     monkeypatch.setattr("gripprobe.suite_runner.run", _fake_run)
 
@@ -137,10 +141,12 @@ def test_run_suite_matrix_runs_only_explicit_combinations(monkeypatch, specs_roo
         model_hash=None,
         run_metadata=None,
         telemetry_proxy_mode="off",
+        runs_root=None,
         progress=None,
     ):
         calls.append((shell_name, model_name, tuple(formats_filter or ())))
-        return Path(root) / "results" / "runs" / str(run_id), []
+        effective_runs_root = Path(runs_root) if runs_root is not None else Path(root) / "results" / "runs"
+        return effective_runs_root / str(run_id), []
 
     monkeypatch.setattr("gripprobe.suite_runner.run", _fake_run)
 
@@ -224,10 +230,12 @@ def test_run_suite_resume_skips_completed_matrix_entries(monkeypatch, specs_root
         model_hash=None,
         run_metadata=None,
         telemetry_proxy_mode="off",
+        runs_root=None,
         progress=None,
     ):
         calls.append((shell_name, model_name, tuple(formats_filter or ()), tuple(tests_filter or ())))
-        return Path(root) / "results" / "runs" / str(run_id), []
+        effective_runs_root = Path(runs_root) if runs_root is not None else Path(root) / "results" / "runs"
+        return effective_runs_root / str(run_id), []
 
     monkeypatch.setattr("gripprobe.suite_runner.run", _fake_run)
 
@@ -298,10 +306,12 @@ def test_run_suite_resume_does_not_skip_when_completed_tests_differ(monkeypatch,
         model_hash=None,
         run_metadata=None,
         telemetry_proxy_mode="off",
+        runs_root=None,
         progress=None,
     ):
         calls.append((shell_name, model_name, tuple(formats_filter or ()), tuple(tests_filter or ())))
-        return Path(root) / "results" / "runs" / str(run_id), []
+        effective_runs_root = Path(runs_root) if runs_root is not None else Path(root) / "results" / "runs"
+        return effective_runs_root / str(run_id), []
 
     monkeypatch.setattr("gripprobe.suite_runner.run", _fake_run)
 
@@ -377,10 +387,12 @@ def test_run_suite_resume_reads_cli_agent_id_from_case_json(monkeypatch, specs_r
         model_hash=None,
         run_metadata=None,
         telemetry_proxy_mode="off",
+        runs_root=None,
         progress=None,
     ):
         calls.append((shell_name, model_name, tuple(formats_filter or ()), tuple(tests_filter or ())))
-        return Path(root) / "results" / "runs" / str(run_id), []
+        effective_runs_root = Path(runs_root) if runs_root is not None else Path(root) / "results" / "runs"
+        return effective_runs_root / str(run_id), []
 
     monkeypatch.setattr("gripprobe.suite_runner.run", _fake_run)
 
@@ -390,6 +402,82 @@ def test_run_suite_resume_reads_cli_agent_id_from_case_json(monkeypatch, specs_r
         resume_suite=True,
     )
 
+    qwen25_call = next(
+        (
+            call
+            for call in calls
+            if call[0] == "continue-cli" and call[1] == "local/qwen2.5:7b" and call[2] == ("markdown",)
+        ),
+        None,
+    )
+    assert qwen25_call is not None
+    assert "patch_file_prepared" not in qwen25_call[3]
+
+
+def test_run_suite_uses_custom_runs_root_for_resume_and_new_runs(monkeypatch, specs_root: Path, tmp_path: Path) -> None:
+    runs_root = tmp_path / "custom-runs"
+    completed_run_dir = runs_root / "20260512T000001Z"
+    completed_manifest = completed_run_dir / "manifest.json"
+    completed_manifest.parent.mkdir(parents=True, exist_ok=True)
+    completed_manifest.write_text(
+        json.dumps(
+            {
+                "shell": "continue-cli",
+                "model": "local_qwen2_5_7b",
+                "backend": "ollama",
+                "formats": ["markdown"],
+                "tests": ["patch_file_prepared"],
+                "run_metadata": {"suite": "aggregate_full_passed_matrix"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    _write_case_json(
+        completed_run_dir,
+        shell="continue-cli",
+        model_id="local_qwen2_5_7b",
+        backend="ollama",
+        tool_format="markdown",
+        test_id="patch_file_prepared",
+    )
+
+    calls: list[tuple[str, str, tuple[str, ...], tuple[str, ...], Path]] = []
+
+    def _fake_run(
+        root,
+        shell_name,
+        model_name,
+        backend_name,
+        run_id=None,
+        tests_filter=None,
+        test_tags_filter=None,
+        formats_filter=None,
+        container_image=None,
+        keep_system_messages=False,
+        model_hash=None,
+        run_metadata=None,
+        telemetry_proxy_mode="off",
+        runs_root=None,
+        progress=None,
+    ):
+        effective_runs_root = Path(runs_root) if runs_root is not None else None
+        if effective_runs_root is None:
+            raise AssertionError("expected custom runs_root to be passed through")
+        calls.append((shell_name, model_name, tuple(formats_filter or ()), tuple(tests_filter or ()), effective_runs_root))
+        return effective_runs_root / str(run_id), []
+
+    monkeypatch.setattr("gripprobe.suite_runner.run", _fake_run)
+
+    run_dirs = run_suite(
+        specs_root,
+        suite_name="aggregate_full_passed_matrix",
+        resume_suite=True,
+        runs_root=runs_root,
+    )
+
+    assert len(run_dirs) == len(calls)
+    assert len(calls) > 0
+    assert all(call[4] == runs_root.resolve() for call in calls)
     qwen25_call = next(
         (
             call

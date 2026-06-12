@@ -27,7 +27,7 @@ ToolEventVerdictReason = Literal[
     "source_parse_inconclusive",
 ]
 
-_PARSER_CAPABLE_CLI_AGENTS = {"codex", "gptme", "opencode"}
+_PARSER_CAPABLE_CLI_AGENTS = {"codex", "gptme", "opencode", "pi"}
 _SENSITIVE_QUERY_PARAM_RE = re.compile(r"([?&](?:token|api[_-]?key|key|auth|authorization)=)[^&\s]+", flags=re.IGNORECASE)
 _SENSITIVE_ASSIGNMENT_RE = re.compile(
     r"(?i)\b(authorization|api[_-]?key|token|secret|password|nonce)\b(\s*[:=]\s*)([^\s,;\"']+)"

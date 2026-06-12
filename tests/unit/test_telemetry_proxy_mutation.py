@@ -97,3 +97,84 @@ def test_ollama_temperature_override_uses_options(tmp_path: Path) -> None:
     assert "reasoning_effort" not in payload
     assert metrics["x_gripprobe_temperature_applied"] is True
     assert metrics["x_gripprobe_reasoning_effort_applied"] is False
+
+
+def test_mutate_request_body_strips_skills_instructions_from_responses_input(tmp_path: Path) -> None:
+    proxy = OllamaTelemetryProxy(
+        case_dir=tmp_path,
+        upstream_base_url="http://127.0.0.1:11434",
+        strip_skills_instructions=True,
+    )
+    payload = {
+        "model": "llama3.2:latest",
+        "input": [
+            {
+                "type": "message",
+                "role": "developer",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            "<permissions instructions>\nKeep this.\n</permissions instructions>\n\n"
+                            "<skills_instructions>\nRemove this whole block.\n</skills_instructions>\n\n"
+                            "Tail"
+                        ),
+                    }
+                ],
+            }
+        ],
+        "tools": [],
+    }
+    raw = json.dumps(payload).encode("utf-8")
+
+    mutated, metrics = proxy._mutate_request_body("/v1/responses", raw)  # noqa: SLF001
+    decoded = json.loads(mutated.decode("utf-8"))
+    text = decoded["input"][0]["content"][0]["text"]
+
+    assert "<skills_instructions>" not in text
+    assert "Remove this whole block." not in text
+    assert "<permissions instructions>" in text
+    assert "Tail" in text
+    assert metrics["x_gripprobe_skills_instructions_strip_enabled"] is True
+    assert metrics["x_gripprobe_skills_instructions_strip_applied"] is True
+
+
+def test_mutate_request_body_strips_permissions_instructions_from_responses_input(tmp_path: Path) -> None:
+    proxy = OllamaTelemetryProxy(
+        case_dir=tmp_path,
+        upstream_base_url="http://127.0.0.1:11434",
+        strip_permissions_instructions=True,
+    )
+    payload = {
+        "model": "llama3.2:latest",
+        "input": [
+            {
+                "type": "message",
+                "role": "developer",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            "<permissions instructions>\nRemove this whole block.\n</permissions instructions>\n\n"
+                            "<skills_instructions>\nKeep this.\n</skills_instructions>\n\n"
+                            "Tail"
+                        ),
+                    }
+                ],
+            }
+        ],
+        "tools": [],
+    }
+    raw = json.dumps(payload).encode("utf-8")
+
+    mutated, metrics = proxy._mutate_request_body("/v1/responses", raw)  # noqa: SLF001
+    decoded = json.loads(mutated.decode("utf-8"))
+    text = decoded["input"][0]["content"][0]["text"]
+
+    assert "<permissions instructions>" not in text
+    assert "Remove this whole block." not in text
+    assert "<skills_instructions>" in text
+    assert "Keep this." in text
+    assert "Tail" in text
+    assert metrics["x_gripprobe_permissions_instructions_strip_enabled"] is True
+    assert metrics["x_gripprobe_permissions_instructions_strip_applied"] is True

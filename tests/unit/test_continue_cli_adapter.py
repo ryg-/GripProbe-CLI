@@ -243,43 +243,6 @@ def test_continue_cli_uses_phase_specific_proxy_hosts(tmp_path: Path) -> None:
     measured_text = measured_config.read_text(encoding="utf-8")
     assert "apiBase: http://127.0.0.1:19081" in warmup_text
     assert "apiBase: http://127.0.0.1:19082" in measured_text
-
-
-def test_continue_cli_runtime_patch_specs_apply_to_index_js(tmp_path: Path) -> None:
-    adapter = _adapter()
-    patch_root = tmp_path / "patched"
-    dist_dir = patch_root / "dist"
-    dist_dir.mkdir(parents=True)
-    target = dist_dir / "index.js"
-    target.write_text(
-        "\n".join(
-            [
-                "const z=1;",
-                "Fff=`ORIGINAL PROMPT`;",
-                "function R0d({tools:e,toolChoice:t}){return{tools:e,toolChoice:t,toolWarnings:[]}}function a3o(){}",
-                "async function Primary(){let{args:t,warnings:r}=await this.getArgs({...e}),n={...t,stream:!0,stream_options:{include_usage:!0}},{responseHeaders:o,value:i}=await ja(1);return i}",
-                "async function X(){let{args:t,warnings:r}=await this.getArgs(e),n={...t,stream:!0,stream_options:{include_usage:!0}},{responseHeaders:o,value:i}=await ja(1);return i}",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    applied = adapter._apply_runtime_patches(
-        patch_root,
-        replacements={
-            "continue_system_prompt": "SHORT",
-            "continue_allowed_tool_names": '"Bash"',
-        },
-    )
-    patched = target.read_text(encoding="utf-8")
-
-    assert applied is True
-    assert "Fff=`SHORT`" in patched
-    assert 'new Set(["Bash"])' in patched
-    assert 'q0=new Set(["Bash"])' in patched
-    assert "Array.isArray(n.tools)" in patched
-
-
 def test_continue_cli_reads_runtime_options_from_model_policy() -> None:
     adapter = _adapter()
     model_spec = _model_spec().model_copy(
@@ -289,8 +252,6 @@ def test_continue_cli_reads_runtime_options_from_model_policy() -> None:
                     "continue-cli": {
                         "context_length": 8192,
                         "minimal_system_prompt": True,
-                        "runtime_patches": True,
-                        "patch_system_text": "Use tools.",
                     }
                 }
             }
@@ -299,5 +260,3 @@ def test_continue_cli_reads_runtime_options_from_model_policy() -> None:
 
     assert adapter._resolve_context_length(model_spec) == 8192
     assert adapter._use_minimal_system_prompt(model_spec) is True
-    assert adapter._continue_policy(model_spec)["runtime_patches"] is True
-    assert adapter._continue_policy(model_spec)["patch_system_text"] == "Use tools."

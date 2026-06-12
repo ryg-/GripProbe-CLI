@@ -63,9 +63,14 @@ class CodexAdapter(CliAgentAdapter):
             raw = f"http://{raw}"
         return raw.rstrip("/")
 
-    def _apply_oss_base_env(self, case: CaseDefinition, env: dict[str, str]) -> None:
+    def _apply_oss_base_env_for_phase(
+        self,
+        case: CaseDefinition,
+        env: dict[str, str],
+        phase: str,
+    ) -> None:
         # Codex OSS provider uses its own env knobs and does not read OLLAMA_HOST directly.
-        base = self._resolve_case_ollama_host(case, env)
+        base = self._resolve_case_ollama_host_for_phase(case, env, phase)
         env["CODEX_OSS_BASE_URL"] = base if base.endswith("/v1") else f"{base}/v1"
         parsed = urlparse(base)
         if parsed.port:
@@ -158,7 +163,25 @@ class CodexAdapter(CliAgentAdapter):
         (case.case_dir / artifact_rel).write_text(source_text_s, encoding="utf-8")
         return {"codex_config_source_path": artifact_rel}
 
+    @staticmethod
+    def _codex_policy(model_spec: ModelSpec) -> dict[str, Any]:
+        cli_agent_options = (model_spec.policy_overrides or {}).get("cli_agent_options")
+        if not isinstance(cli_agent_options, dict):
+            return {}
+        policy = cli_agent_options.get("codex")
+        return policy if isinstance(policy, dict) else {}
+
     def _build_args(self, case: CaseDefinition, workspace_dir: Path, model_catalog_path: Path) -> list[str]:
+        raise RuntimeError("_build_args requires model_spec")
+
+    def _build_args_for_model(
+        self,
+        case: CaseDefinition,
+        model_spec: ModelSpec,
+        workspace_dir: Path,
+        model_catalog_path: Path,
+    ) -> list[str]:
+        policy = self._codex_policy(model_spec)
         args = [
             self.cli_agent_spec.executable,
             "-a",
@@ -178,8 +201,12 @@ class CodexAdapter(CliAgentAdapter):
             f"model_catalog_json={model_catalog_path}",
             "--cd",
             str(workspace_dir),
-            case.prompt,
         ]
+        if policy.get("ignore_user_config") is True:
+            args.append("--ignore-user-config")
+        if policy.get("ignore_rules") is True:
+            args.append("--ignore-rules")
+        args.append(case.prompt)
         return args
 
     def _run_aux_command(
@@ -273,7 +300,6 @@ class CodexAdapter(CliAgentAdapter):
         env = os.environ.copy()
         env.update(self.cli_agent_spec.env)
         self._apply_case_backend_env_overrides(case, env)
-        self._apply_oss_base_env(case, env)
 
         warmup_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "warmup")
         measured_runtime_env = self._prepare_runtime_dirs(case, self.cli_agent_spec.id, "measured")
@@ -292,11 +318,13 @@ class CodexAdapter(CliAgentAdapter):
             "CODEX_HOME": str(measured_codex_home),
             "GRIPPROBE_WORKSPACE": str(case.workspace_dir),
         }
+        self._apply_oss_base_env_for_phase(case, warmup_env, "warmup")
+        self._apply_oss_base_env_for_phase(case, measured_env, "measured")
         warmup_feature_metadata = self._collect_codex_runtime_artifacts(case, "warmup", warmup_env, case.warmup_workspace_dir)
         measured_feature_metadata = self._collect_codex_runtime_artifacts(case, "measured", measured_env, case.workspace_dir)
 
-        warmup_args = self._build_args(case, case.warmup_workspace_dir, model_catalog_path)
-        measured_args = self._build_args(case, case.workspace_dir, model_catalog_path)
+        warmup_args = self._build_args_for_model(case, model_spec, case.warmup_workspace_dir, model_catalog_path)
+        measured_args = self._build_args_for_model(case, model_spec, case.workspace_dir, model_catalog_path)
         warmup_command = self._command_text(case, warmup_args, warmup_env, workspace_dir=case.warmup_workspace_dir)
         measured_command = self._command_text(case, measured_args, measured_env, workspace_dir=case.workspace_dir)
 

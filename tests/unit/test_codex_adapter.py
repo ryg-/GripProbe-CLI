@@ -82,13 +82,67 @@ def _case(tmp_path: Path, spec: GripTestSpec) -> CaseDefinition:
             "workspace_dir": tmp_path / "workspace",
             "case_dir": tmp_path / "case",
             "allowed_tools": spec.allowed_tools,
+            "run_metadata": {
+                "telemetry_proxy_warmup_ollama_host": "http://127.0.0.1:38143",
+                "telemetry_proxy_measured_ollama_host": "http://127.0.0.1:41951",
+                "telemetry_proxy_warmup_openai_base_url": "http://127.0.0.1:38143/v1",
+                "telemetry_proxy_measured_openai_base_url": "http://127.0.0.1:41951/v1",
+            },
         }
     )
 
 
+def test_case_definition_preserves_phase_specific_proxy_metadata() -> None:
+    case = CaseDefinition.model_validate(
+        {
+            "case_id": "codex__local_qwen2_5_7b__ollama__tool__shell_pwd",
+            "run_id": "run-codex",
+            "shell_id": "codex",
+            "shell_label": "codex",
+            "model_id": "local_qwen2_5_7b",
+            "model_label": "local/qwen2.5:7b",
+            "backend_id": "ollama",
+            "backend_model_id": "qwen2.5:7b",
+            "shell_model_id": "local/qwen2.5:7b",
+            "model_hash": "unknown",
+            "tool_format": "tool",
+            "test_id": "shell_pwd",
+            "test_title": "Shell PWD",
+            "prompt": "Use shell",
+            "warmup_workspace_dir": Path("/tmp/workspace-warmup"),
+            "workspace_dir": Path("/tmp/workspace"),
+            "case_dir": Path("/tmp/case"),
+            "allowed_tools": ["shell", "read"],
+            "run_metadata": {
+                "telemetry_proxy_warmup_ollama_host": "http://127.0.0.1:38143",
+                "telemetry_proxy_measured_ollama_host": "http://127.0.0.1:41951",
+                "telemetry_proxy_warmup_openai_base_url": "http://127.0.0.1:38143/v1",
+                "telemetry_proxy_measured_openai_base_url": "http://127.0.0.1:41951/v1",
+            },
+        }
+    )
+
+    assert case.run_metadata["telemetry_proxy_warmup_ollama_host"] == "http://127.0.0.1:38143"
+    assert case.run_metadata["telemetry_proxy_measured_ollama_host"] == "http://127.0.0.1:41951"
+    assert case.run_metadata["telemetry_proxy_warmup_openai_base_url"] == "http://127.0.0.1:38143/v1"
+    assert case.run_metadata["telemetry_proxy_measured_openai_base_url"] == "http://127.0.0.1:41951/v1"
+
+
 def test_codex_uses_isolated_runtime_and_ollama_exec(tmp_path: Path) -> None:
     adapter = _adapter()
-    model_spec = _model_spec()
+    model_spec = ModelSpec.model_validate(
+        {
+            **_model_spec().model_dump(),
+            "policy_overrides": {
+                "cli_agent_options": {
+                    "codex": {
+                        "ignore_user_config": True,
+                        "ignore_rules": True,
+                    }
+                }
+            },
+        }
+    )
     test_spec = _test_spec()
     case = _case(tmp_path, test_spec)
     case.warmup_workspace_dir.mkdir(parents=True)
@@ -169,6 +223,8 @@ def test_codex_uses_isolated_runtime_and_ollama_exec(tmp_path: Path) -> None:
         assert "--local-provider" in args
         assert "ollama" in args
         assert "--json" in args
+        assert "--ignore-user-config" in args
+        assert "--ignore-rules" in args
         assert "--model" not in args
         assert "-m" in args
         assert "qwen2.5:7b" in args
@@ -209,11 +265,13 @@ def test_codex_uses_isolated_runtime_and_ollama_exec(tmp_path: Path) -> None:
     assert "$HOME" in measured_artifact.read_text(encoding="utf-8")
 
     assert captured_envs[0]["HOME"] != captured_envs[1]["HOME"]
+    assert captured_envs[0]["CODEX_OSS_BASE_URL"] == "http://127.0.0.1:38143/v1"
+    assert captured_envs[0]["CODEX_OSS_PORT"] == "38143"
+    assert captured_envs[1]["CODEX_OSS_BASE_URL"] == "http://127.0.0.1:41951/v1"
+    assert captured_envs[1]["CODEX_OSS_PORT"] == "41951"
     for env in captured_envs:
         assert env["CODEX_HOME"].endswith(".codex")
         assert env["XDG_STATE_HOME"]
-        assert env["CODEX_OSS_BASE_URL"] == "http://c:11434/v1"
-        assert env["CODEX_OSS_PORT"] == "11434"
 
 
 def test_codex_classifies_text_only_completion_as_no_invocation(tmp_path: Path) -> None:

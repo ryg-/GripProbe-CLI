@@ -1,13 +1,13 @@
-id: local_qwen3_1_7b_rpi
-label: local/qwen3:1.7b_rpi
-family: qwen
+id: local_lukaspetrik_gemma3_tools_4b_rpi
+label: local/lukaspetrik/gemma3-tools:4b_rpi
+family: gemma
 size_class: small
-parameters_b: 1.7
+parameters_b: 4
 quantization: null
 backends:
   - id: ollama
-    model_id: qwen3:1.7b
-    cli_agent_model_id: local/qwen3:1.7b
+    model_id: lukaspetrik/gemma3-tools:4b
+    cli_agent_model_id: local/lukaspetrik/gemma3-tools:4b
 tags:
   - local
   - rpi

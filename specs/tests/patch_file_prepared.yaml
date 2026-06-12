@@ -26,6 +26,7 @@ supported_cli_agents:
   - gptme
   - continue-cli
   - opencode
+  - pi
 supported_formats:
   - markdown
   - tool

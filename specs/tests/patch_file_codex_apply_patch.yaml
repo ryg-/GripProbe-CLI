@@ -30,6 +30,7 @@ validators:
     expected_line: STATUS=new
 supported_cli_agents:
   - codex
+  - pi
 supported_formats:
   - tool
 tags:

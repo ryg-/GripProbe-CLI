@@ -15,8 +15,9 @@ def apply_event_evaluation(result: CaseResult) -> None:
     overall_score = 1.0 if final_status == "PASS" else 0.8 if final_status == "PASS_WITH_POLICY_VIOLATION" else 0.0
 
     result.status = final_status
-    result.invoked = _invoked_from_tool_verdict(metadata)
-    result.trajectory = _trajectory_from_events(result, metadata)
+    if final_status != "HARNESS_ERROR":
+        result.invoked = _invoked_from_tool_verdict(metadata)
+        result.trajectory = _trajectory_from_events(result, metadata)
     result.metadata = {
         **metadata,
         "verdict_source": "event_evaluator",

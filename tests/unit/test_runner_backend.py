@@ -6,9 +6,11 @@ from gripprobe.models import BackendSpec, CaseDefinition, ModelSpec, ShellSpec
 from gripprobe.runner import (
     _apply_model_policy_overrides,
     _apply_prompt_policy_overrides,
+    _cli_agent_policy,
     _resolve_model_hash,
     _resolve_proxy_allowed_tool_names,
     _select_backend,
+    _should_disable_proxy_for_cli_agent,
 )
 
 
@@ -270,3 +272,214 @@ def test_resolve_proxy_allowed_tool_names_includes_model_overrides() -> None:
     names = _resolve_proxy_allowed_tool_names(case, cli_agent_spec, model_spec)
 
     assert names == ["Bash", "Read", "MultiEdit", "Exit"]
+
+
+def test_resolve_proxy_allowed_tool_names_uses_cli_agent_yaml_dialect_for_gptme() -> None:
+    case = CaseDefinition.model_validate(
+        {
+            "case_id": "case",
+            "run_id": "run",
+            "cli_agent_id": "gptme",
+            "cli_agent_label": "gptme",
+            "model_id": "local_qwen3_1_7b_rpi",
+            "model_label": "local/qwen3:1.7b_rpi",
+            "backend_id": "ollama",
+            "backend_model_id": "qwen3:1.7b",
+            "cli_agent_model_id": "local/qwen3:1.7b",
+            "model_hash": "hash",
+            "tool_format": "tool",
+            "test_id": "patch_file_shell",
+            "test_title": "Patch File Via Shell",
+            "prompt": "run shell patch",
+            "warmup_workspace_dir": Path("/tmp/warmup"),
+            "workspace_dir": Path("/tmp/workspace"),
+            "case_dir": Path("/tmp/case"),
+            "allowed_tools": ["shell"],
+        }
+    )
+    cli_agent_spec = ShellSpec.model_validate(
+        {
+            "id": "gptme",
+            "label": "gptme",
+            "executable": "gptme",
+            "supported_formats": ["tool"],
+            "timeout_seconds": 120,
+            "tool_dialect": [
+                {"id": "shell", "raw_name": "shell", "canonical_name": "Bash", "role": "command"},
+                {"id": "complete", "raw_name": "complete", "canonical_name": "Exit", "role": "terminate"},
+            ],
+        }
+    )
+    model_spec = ModelSpec.model_validate(
+        {
+            "id": "local_qwen3_1_7b_rpi",
+            "label": "local/qwen3:1.7b_rpi",
+            "family": "qwen",
+            "size_class": "small",
+            "backends": [{"id": "ollama", "model_id": "qwen3:1.7b", "shell_model_id": "local/qwen3:1.7b"}],
+            "policy_overrides": {"telemetry_proxy_filter_tools": True, "proxy_include_exit_tool": True},
+        }
+    )
+
+    names = _resolve_proxy_allowed_tool_names(case, cli_agent_spec, model_spec)
+
+    assert names == ["shell", "complete"]
+
+
+def test_gptme_cli_agent_policy_can_disable_proxy() -> None:
+    cli_agent_spec = ShellSpec.model_validate(
+        {
+            "id": "gptme",
+            "label": "gptme",
+            "executable": "gptme",
+            "supported_formats": ["tool"],
+        }
+    )
+    model_spec = ModelSpec.model_validate(
+        {
+            "id": "local_qwen3_1_7b_rpi",
+            "label": "local/qwen3:1.7b_rpi",
+            "family": "qwen",
+            "size_class": "small",
+            "backends": [{"id": "ollama", "model_id": "qwen3:1.7b", "shell_model_id": "local/qwen3:1.7b"}],
+            "policy_overrides": {
+                "cli_agent_options": {
+                    "gptme": {
+                        "filter_tools": True,
+                        "disable_proxy": True,
+                    }
+                }
+            },
+        }
+    )
+
+    policy = _cli_agent_policy(model_spec, "gptme")
+
+    assert policy["filter_tools"] is True
+    assert _should_disable_proxy_for_cli_agent(cli_agent_spec, model_spec) is True
+
+
+def test_resolve_proxy_allowed_tool_names_uses_cli_agent_yaml_dialect_for_codex() -> None:
+    case = CaseDefinition.model_validate(
+        {
+            "case_id": "case",
+            "run_id": "run",
+            "cli_agent_id": "codex",
+            "cli_agent_label": "codex",
+            "model_id": "local_llama3_2_latest_rpi",
+            "model_label": "local/llama3.2:latest_rpi",
+            "backend_id": "ollama",
+            "backend_model_id": "llama3.2:latest",
+            "cli_agent_model_id": "local/llama3.2:latest",
+            "model_hash": "hash",
+            "tool_format": "tool",
+            "test_id": "patch_file",
+            "test_title": "Patch File",
+            "prompt": "read then patch",
+            "warmup_workspace_dir": Path("/tmp/warmup"),
+            "workspace_dir": Path("/tmp/workspace"),
+            "case_dir": Path("/tmp/case"),
+            "allowed_tools": ["read", "patch"],
+        }
+    )
+    cli_agent_spec = ShellSpec.model_validate(
+        {
+            "id": "codex",
+            "label": "codex",
+            "executable": "codex",
+            "supported_formats": ["tool"],
+            "timeout_seconds": 120,
+            "tool_dialect": [
+                {"id": "shell", "raw_name": "exec_command", "canonical_name": "Bash", "role": "command"},
+                {"id": "shell_session", "raw_name": "write_stdin", "canonical_name": "Bash", "role": "command"},
+                {"id": "read", "raw_name": "exec_command", "canonical_name": "Read", "role": "read"},
+                {"id": "read_session", "raw_name": "write_stdin", "canonical_name": "Read", "role": "read"},
+                {"id": "patch", "raw_name": "apply_patch", "canonical_name": "apply_patch", "role": "patch"},
+            ],
+        }
+    )
+    model_spec = ModelSpec.model_validate(
+        {
+            "id": "local_llama3_2_latest_rpi",
+            "label": "local/llama3.2:latest_rpi",
+            "family": "llama",
+            "size_class": "small",
+            "backends": [{"id": "ollama", "model_id": "llama3.2:latest", "shell_model_id": "local/llama3.2:latest"}],
+            "policy_overrides": {
+                "cli_agent_options": {
+                    "codex": {
+                        "telemetry_proxy_filter_tools": True,
+                        "proxy_include_exit_tool": False,
+                    }
+                }
+            },
+        }
+    )
+
+    names = _resolve_proxy_allowed_tool_names(case, cli_agent_spec, model_spec)
+
+    assert names == ["exec_command", "write_stdin", "apply_patch"]
+
+
+def test_cli_agent_proxy_options_override_global_model_proxy_keys() -> None:
+    case = CaseDefinition.model_validate(
+        {
+            "case_id": "case",
+            "run_id": "run",
+            "cli_agent_id": "codex",
+            "cli_agent_label": "codex",
+            "model_id": "local_llama3_2_latest_rpi",
+            "model_label": "local/llama3.2:latest_rpi",
+            "backend_id": "ollama",
+            "backend_model_id": "llama3.2:latest",
+            "cli_agent_model_id": "local/llama3.2:latest",
+            "model_hash": "hash",
+            "tool_format": "tool",
+            "test_id": "shell_pwd",
+            "test_title": "Shell PWD",
+            "prompt": "run shell",
+            "warmup_workspace_dir": Path("/tmp/warmup"),
+            "workspace_dir": Path("/tmp/workspace"),
+            "case_dir": Path("/tmp/case"),
+            "allowed_tools": ["shell"],
+        }
+    )
+    cli_agent_spec = ShellSpec.model_validate(
+        {
+            "id": "codex",
+            "label": "codex",
+            "executable": "codex",
+            "supported_formats": ["tool"],
+            "timeout_seconds": 120,
+            "tool_dialect": [
+                {"id": "shell", "raw_name": "exec_command", "canonical_name": "Bash", "role": "command"},
+                {"id": "shell_session", "raw_name": "write_stdin", "canonical_name": "Bash", "role": "command"},
+            ],
+        }
+    )
+    model_spec = ModelSpec.model_validate(
+        {
+            "id": "local_llama3_2_latest_rpi",
+            "label": "local/llama3.2:latest_rpi",
+            "family": "llama",
+            "size_class": "small",
+            "backends": [{"id": "ollama", "model_id": "llama3.2:latest", "shell_model_id": "local/llama3.2:latest"}],
+            "policy_overrides": {
+                "telemetry_proxy_filter_tools": False,
+                "proxy_include_exit_tool": True,
+                "cli_agent_options": {
+                    "codex": {
+                        "telemetry_proxy_filter_tools": True,
+                        "proxy_include_exit_tool": False,
+                    }
+                },
+            },
+        }
+    )
+
+    policy = _cli_agent_policy(model_spec, "codex")
+    names = _resolve_proxy_allowed_tool_names(case, cli_agent_spec, model_spec)
+
+    assert policy["telemetry_proxy_filter_tools"] is True
+    assert policy["proxy_include_exit_tool"] is False
+    assert names == ["exec_command", "write_stdin"]
