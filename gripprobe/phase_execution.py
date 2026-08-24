@@ -113,7 +113,8 @@ def run_case_with_phase_proxy(
     phase_hosts = {
         key: value
         for key, value in phase_proxy_metadata.items()
-        if key.startswith("telemetry_proxy_") and key.endswith(("_ollama_host", "_openai_base_url"))
+        if key.startswith(("telemetry_proxy_warmup_", "telemetry_proxy_measured_"))
+        and key.endswith(("_ollama_host", "_openai_base_url"))
     }
     if phase_hosts:
         case.run_metadata = {**case.run_metadata, **phase_hosts}

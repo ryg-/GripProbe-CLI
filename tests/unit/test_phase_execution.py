@@ -28,6 +28,7 @@ class _FakeProxy:
 class _FakeAdapter:
     def __init__(self, *, fail: bool = False) -> None:
         self.calls: list[dict[str, object]] = []
+        self.case_metadata: dict[str, object] = {}
         self.fail = fail
 
     def run_command(self, case, args, env, stdout_path, stderr_path, workspace_dir=None):
@@ -46,6 +47,7 @@ class _FakeAdapter:
         if self.fail:
             raise RuntimeError("adapter failed")
         assert command_runner is not None
+        self.case_metadata = dict(case.run_metadata)
         command_runner.run(
             case=case,
             args=["warmup"],
@@ -154,6 +156,7 @@ def test_phase_execution_routes_each_phase_without_replacing_adapter_method(tmp_
         "measured": "artifacts/proxy.measured.http.jsonl",
     }
     assert metadata["telemetry_proxy_warmup_ollama_host"] == "http://127.0.0.1:19080"
+    assert "telemetry_proxy_ollama_host" not in adapter.case_metadata
 
 
 def test_phase_execution_falls_back_when_one_proxy_cannot_start(tmp_path: Path) -> None:
@@ -180,6 +183,8 @@ def test_phase_execution_falls_back_when_one_proxy_cannot_start(tmp_path: Path) 
     )
 
     assert error == "warmup unavailable"
+    assert "telemetry_proxy_ollama_host" not in adapter.case_metadata
+    assert adapter.case_metadata["telemetry_proxy_measured_ollama_host"] == "http://127.0.0.1:19081"
     assert "OLLAMA_HOST" not in adapter.calls[0]["env"]
     assert adapter.calls[1]["env"]["OLLAMA_HOST"] == "http://127.0.0.1:19081"
     assert artifacts == {"measured": "artifacts/proxy.measured.http.jsonl"}
