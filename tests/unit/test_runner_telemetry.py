@@ -35,25 +35,43 @@ def test_run_force_proxy_mode_collects_proxy_for_ollama_backend(monkeypatch, spe
             stderr_path.write_text("", encoding="utf-8")
             return 0, 0.01, "start", "finish"
 
-        def run_case(self, case, model_spec, test_spec):
+        def run_case(self, case, model_spec, test_spec, command_runner=None):
             case.case_dir.mkdir(parents=True, exist_ok=True)
             (case.case_dir / "prompt.txt").write_text(case.prompt, encoding="utf-8")
-            self.run_command(
-                case,
-                ["warmup"],
-                {},
-                case.case_dir / "warmup.stdout",
-                case.case_dir / "warmup.stderr",
-                workspace_dir=case.warmup_workspace_dir,
-            )
-            self.run_command(
-                case,
-                ["measured"],
-                {},
-                case.case_dir / "measured.stdout",
-                case.case_dir / "measured.stderr",
-                workspace_dir=case.workspace_dir,
-            )
+            if command_runner is None:
+                self.run_command(
+                    case,
+                    ["warmup"],
+                    {},
+                    case.case_dir / "warmup.stdout",
+                    case.case_dir / "warmup.stderr",
+                    workspace_dir=case.warmup_workspace_dir,
+                )
+                self.run_command(
+                    case,
+                    ["measured"],
+                    {},
+                    case.case_dir / "measured.stdout",
+                    case.case_dir / "measured.stderr",
+                    workspace_dir=case.workspace_dir,
+                )
+            else:
+                command_runner.run(
+                    case=case,
+                    args=["warmup"],
+                    env={},
+                    stdout_path=case.case_dir / "warmup.stdout",
+                    stderr_path=case.case_dir / "warmup.stderr",
+                    workspace_dir=case.warmup_workspace_dir,
+                )
+                command_runner.run(
+                    case=case,
+                    args=["measured"],
+                    env={},
+                    stdout_path=case.case_dir / "measured.stdout",
+                    stderr_path=case.case_dir / "measured.stderr",
+                    workspace_dir=case.workspace_dir,
+                )
             (case.case_dir / "expected.txt").write_text(str(case.workspace_dir) + "\n", encoding="utf-8")
             (case.case_dir / "observed.txt").write_text(str(case.workspace_dir) + "\n", encoding="utf-8")
             (case.workspace_dir / "pwd-output.txt").write_text(str(case.workspace_dir) + "\n", encoding="utf-8")
@@ -75,7 +93,7 @@ def test_run_force_proxy_mode_collects_proxy_for_ollama_backend(monkeypatch, spe
     monkeypatch.setattr("gripprobe.runner._collect_shell_runtime_metadata", lambda executable: {})
     monkeypatch.setattr("gripprobe.runner._collect_runtime_snapshot", lambda include_ollama=False: {"captured_at": "now", "probes": {}})
     monkeypatch.setattr(
-        "gripprobe.runner._create_ollama_telemetry_proxy",
+        "gripprobe.runner.create_ollama_telemetry_proxy",
         lambda case_dir, upstream_base_url, artifact_relpath="artifacts/proxy.measured.http.jsonl": _FakeProxy(
             case_dir=case_dir,
             upstream_base_url=upstream_base_url,
@@ -175,25 +193,43 @@ def test_run_writes_artifacts_under_custom_runs_root(monkeypatch, specs_root: Pa
             stderr_path.write_text("", encoding="utf-8")
             return 0, 0.01, "start", "finish"
 
-        def run_case(self, case, model_spec, test_spec):
+        def run_case(self, case, model_spec, test_spec, command_runner=None):
             case.case_dir.mkdir(parents=True, exist_ok=True)
             (case.case_dir / "prompt.txt").write_text(case.prompt, encoding="utf-8")
-            self.run_command(
-                case,
-                ["warmup"],
-                {},
-                case.case_dir / "warmup.stdout",
-                case.case_dir / "warmup.stderr",
-                workspace_dir=case.warmup_workspace_dir,
-            )
-            self.run_command(
-                case,
-                ["measured"],
-                {},
-                case.case_dir / "measured.stdout",
-                case.case_dir / "measured.stderr",
-                workspace_dir=case.workspace_dir,
-            )
+            if command_runner is None:
+                self.run_command(
+                    case,
+                    ["warmup"],
+                    {},
+                    case.case_dir / "warmup.stdout",
+                    case.case_dir / "warmup.stderr",
+                    workspace_dir=case.warmup_workspace_dir,
+                )
+                self.run_command(
+                    case,
+                    ["measured"],
+                    {},
+                    case.case_dir / "measured.stdout",
+                    case.case_dir / "measured.stderr",
+                    workspace_dir=case.workspace_dir,
+                )
+            else:
+                command_runner.run(
+                    case=case,
+                    args=["warmup"],
+                    env={},
+                    stdout_path=case.case_dir / "warmup.stdout",
+                    stderr_path=case.case_dir / "warmup.stderr",
+                    workspace_dir=case.warmup_workspace_dir,
+                )
+                command_runner.run(
+                    case=case,
+                    args=["measured"],
+                    env={},
+                    stdout_path=case.case_dir / "measured.stdout",
+                    stderr_path=case.case_dir / "measured.stderr",
+                    workspace_dir=case.workspace_dir,
+                )
             (case.case_dir / "expected.txt").write_text(str(case.workspace_dir) + "\n", encoding="utf-8")
             (case.case_dir / "observed.txt").write_text(str(case.workspace_dir) + "\n", encoding="utf-8")
             (case.workspace_dir / "pwd-output.txt").write_text(str(case.workspace_dir) + "\n", encoding="utf-8")
@@ -215,7 +251,7 @@ def test_run_writes_artifacts_under_custom_runs_root(monkeypatch, specs_root: Pa
     monkeypatch.setattr("gripprobe.runner._collect_shell_runtime_metadata", lambda executable: {})
     monkeypatch.setattr("gripprobe.runner._collect_runtime_snapshot", lambda include_ollama=False: {"captured_at": "now", "probes": {}})
     monkeypatch.setattr(
-        "gripprobe.runner._create_ollama_telemetry_proxy",
+        "gripprobe.runner.create_ollama_telemetry_proxy",
         lambda case_dir, upstream_base_url, artifact_relpath="artifacts/proxy.measured.http.jsonl": _NoopProxy(
             artifact_relpath
         ),

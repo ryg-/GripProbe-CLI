@@ -3,15 +3,21 @@ import pytest
 from pathlib import Path
 
 from gripprobe.models import BackendSpec, CaseDefinition, ModelSpec, ShellSpec
+from gripprobe.proxy_capture import (
+    _cli_agent_policy,
+    resolve_proxy_allowed_tool_names,
+    should_disable_proxy_for_cli_agent,
+)
 from gripprobe.runner import (
     _apply_model_policy_overrides,
     _apply_prompt_policy_overrides,
-    _cli_agent_policy,
     _resolve_model_hash,
-    _resolve_proxy_allowed_tool_names,
     _select_backend,
-    _should_disable_proxy_for_cli_agent,
 )
+
+
+_resolve_proxy_allowed_tool_names = resolve_proxy_allowed_tool_names
+_should_disable_proxy_for_cli_agent = should_disable_proxy_for_cli_agent
 
 
 @pytest.fixture()
