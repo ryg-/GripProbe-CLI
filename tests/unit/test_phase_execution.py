@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from gripprobe.models import CaseDefinition, CliAgentSpec, ModelSpec, TestSpec as GripTestSpec
+from gripprobe.models import CaseDefinition, ModelSpec, TestSpec as GripTestSpec
 from gripprobe.phase_execution import run_case_with_phase_proxy
 from gripprobe.proxy_capture import ProxyCaptureOptions
 
@@ -91,8 +91,7 @@ def _case(tmp_path: Path) -> CaseDefinition:
     )
 
 
-def _specs() -> tuple[CliAgentSpec, ModelSpec, GripTestSpec]:
-    cli_agent = CliAgentSpec(id="gptme", label="gptme", executable="gptme")
+def _specs() -> tuple[ModelSpec, GripTestSpec]:
     model = ModelSpec.model_validate(
         {
             "id": "model",
@@ -111,12 +110,12 @@ def _specs() -> tuple[CliAgentSpec, ModelSpec, GripTestSpec]:
             "validators": [],
         }
     )
-    return cli_agent, model, test
+    return model, test
 
 
 def test_phase_execution_routes_each_phase_without_replacing_adapter_method(tmp_path: Path) -> None:
     case = _case(tmp_path)
-    cli_agent, model, test = _specs()
+    model, test = _specs()
     adapter = _FakeAdapter()
     original_run_command = adapter.run_command
     proxies: list[_FakeProxy] = []
@@ -133,7 +132,6 @@ def test_phase_execution_routes_each_phase_without_replacing_adapter_method(tmp_
     result, metadata, artifacts, error = run_case_with_phase_proxy(
         adapter=adapter,
         case=case,
-        cli_agent_spec=cli_agent,
         model_spec=model,
         test_spec=test,
         upstream_base_url="http://127.0.0.1:11434",
@@ -160,7 +158,7 @@ def test_phase_execution_routes_each_phase_without_replacing_adapter_method(tmp_
 
 def test_phase_execution_falls_back_when_one_proxy_cannot_start(tmp_path: Path) -> None:
     case = _case(tmp_path)
-    cli_agent, model, test = _specs()
+    model, test = _specs()
     adapter = _FakeAdapter()
     proxies: list[_FakeProxy] = []
 
@@ -174,7 +172,6 @@ def test_phase_execution_falls_back_when_one_proxy_cannot_start(tmp_path: Path) 
     _result, _metadata, artifacts, error = run_case_with_phase_proxy(
         adapter=adapter,
         case=case,
-        cli_agent_spec=cli_agent,
         model_spec=model,
         test_spec=test,
         upstream_base_url="http://127.0.0.1:11434",
@@ -191,7 +188,7 @@ def test_phase_execution_falls_back_when_one_proxy_cannot_start(tmp_path: Path) 
 
 def test_phase_execution_stops_proxies_when_adapter_raises(tmp_path: Path) -> None:
     case = _case(tmp_path)
-    cli_agent, model, test = _specs()
+    model, test = _specs()
     adapter = _FakeAdapter(fail=True)
     proxies: list[_FakeProxy] = []
 
@@ -204,7 +201,6 @@ def test_phase_execution_stops_proxies_when_adapter_raises(tmp_path: Path) -> No
         run_case_with_phase_proxy(
             adapter=adapter,
             case=case,
-            cli_agent_spec=cli_agent,
             model_spec=model,
             test_spec=test,
             upstream_base_url="http://127.0.0.1:11434",

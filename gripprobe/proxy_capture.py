@@ -17,38 +17,6 @@ def proxy_artifact_path(phase: TelemetryPhase) -> str:
     return f"artifacts/proxy.{phase}.http.jsonl"
 
 
-def create_ollama_telemetry_proxy(
-    case_dir: Path,
-    upstream_base_url: str,
-    artifact_relpath: str = "artifacts/proxy.measured.http.jsonl",
-    filter_tools: bool = False,
-    allowed_tool_names: list[str] | None = None,
-    strip_git_context: bool = False,
-    strip_permissions_instructions: bool = False,
-    strip_skills_instructions: bool = False,
-    strip_commit_signature_context: bool = False,
-    reasoning_effort: str | None = None,
-    temperature_override: float | None = None,
-    capture_ollama_usage: bool = False,
-    capture_stream_timing: bool = False,
-) -> OllamaTelemetryProxy:
-    return OllamaTelemetryProxy(
-        case_dir=case_dir,
-        upstream_base_url=upstream_base_url,
-        artifact_relpath=artifact_relpath,
-        filter_tools=filter_tools,
-        allowed_tool_names=allowed_tool_names,
-        strip_git_context=strip_git_context,
-        strip_permissions_instructions=strip_permissions_instructions,
-        strip_commit_signature_context=strip_commit_signature_context,
-        strip_skills_instructions=strip_skills_instructions,
-        reasoning_effort=reasoning_effort,
-        temperature_override=temperature_override,
-        capture_ollama_usage=capture_ollama_usage,
-        capture_stream_timing=capture_stream_timing,
-    )
-
-
 @dataclass(frozen=True)
 class ProxyCaptureOptions:
     filter_tools: bool = False
@@ -94,7 +62,6 @@ class ProxyCaptureOptions:
 class _PhaseState:
     artifact_relpath: str
     status: str = "pending"
-    skip_reason: str = ""
 
 
 class PhaseProxyCapture:
@@ -106,7 +73,7 @@ class PhaseProxyCapture:
         case_dir: Path,
         upstream_base_url: str,
         options: ProxyCaptureOptions,
-        proxy_factory: ProxyFactory = create_ollama_telemetry_proxy,
+        proxy_factory: ProxyFactory = OllamaTelemetryProxy,
     ) -> None:
         self.case_dir = case_dir
         self.upstream_base_url = upstream_base_url
@@ -135,12 +102,10 @@ class PhaseProxyCapture:
                     raise RuntimeError("telemetry proxy failed to publish base URL")
             except Exception as exc:  # noqa: BLE001
                 state.status = "error"
-                state.skip_reason = "proxy_start_failed"
                 self._remember_error(exc)
                 continue
             self._proxies[phase] = proxy
             state.status = "collected"
-            state.skip_reason = ""
 
     def proxy_for(self, phase: TelemetryPhase) -> OllamaTelemetryProxy | None:
         return self._proxies.get(phase)
@@ -148,7 +113,6 @@ class PhaseProxyCapture:
     def mark_unavailable(self, phase: TelemetryPhase) -> None:
         state = self._states[phase]
         state.status = "error"
-        state.skip_reason = "proxy_unavailable"
 
     def finish_phase(self, phase: TelemetryPhase) -> None:
         proxy = self._proxies.get(phase)
@@ -159,7 +123,6 @@ class PhaseProxyCapture:
         except Exception as exc:  # noqa: BLE001
             state = self._states[phase]
             state.status = "error"
-            state.skip_reason = "proxy_stop_failed"
             self._remember_error(exc)
         finally:
             self._stopped.add(phase)
@@ -167,7 +130,6 @@ class PhaseProxyCapture:
         state = self._states[phase]
         if state.status == "collected" and not (self.case_dir / state.artifact_relpath).exists():
             state.status = "error"
-            state.skip_reason = "capture_missing"
 
     def stop_all(self) -> None:
         for phase in TELEMETRY_PHASES:

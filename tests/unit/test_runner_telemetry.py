@@ -93,7 +93,7 @@ def test_run_force_proxy_mode_collects_proxy_for_ollama_backend(monkeypatch, spe
     monkeypatch.setattr("gripprobe.runner._collect_shell_runtime_metadata", lambda executable: {})
     monkeypatch.setattr("gripprobe.runner._collect_runtime_snapshot", lambda include_ollama=False: {"captured_at": "now", "probes": {}})
     monkeypatch.setattr(
-        "gripprobe.runner.create_ollama_telemetry_proxy",
+        "gripprobe.runner.OllamaTelemetryProxy",
         lambda case_dir, upstream_base_url, artifact_relpath="artifacts/proxy.measured.http.jsonl": _FakeProxy(
             case_dir=case_dir,
             upstream_base_url=upstream_base_url,
@@ -251,7 +251,7 @@ def test_run_writes_artifacts_under_custom_runs_root(monkeypatch, specs_root: Pa
     monkeypatch.setattr("gripprobe.runner._collect_shell_runtime_metadata", lambda executable: {})
     monkeypatch.setattr("gripprobe.runner._collect_runtime_snapshot", lambda include_ollama=False: {"captured_at": "now", "probes": {}})
     monkeypatch.setattr(
-        "gripprobe.runner.create_ollama_telemetry_proxy",
+        "gripprobe.runner.OllamaTelemetryProxy",
         lambda case_dir, upstream_base_url, artifact_relpath="artifacts/proxy.measured.http.jsonl": _NoopProxy(
             artifact_relpath
         ),

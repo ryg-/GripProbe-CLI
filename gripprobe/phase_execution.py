@@ -4,15 +4,15 @@ from pathlib import Path
 from typing import Any
 
 from gripprobe.command_runner import CallableCommandRunner, CommandResult, CommandRunner
-from gripprobe.models import CaseDefinition, CaseResult, CliAgentSpec, ModelSpec, TestSpec
+from gripprobe.models import CaseDefinition, CaseResult, ModelSpec, TestSpec
 from gripprobe.proxy_capture import (
     PhaseProxyCapture,
     ProxyCaptureOptions,
     ProxyFactory,
     TelemetryPhase,
-    create_ollama_telemetry_proxy,
     proxy_artifact_path,
 )
+from gripprobe.telemetry_proxy import OllamaTelemetryProxy
 
 
 def phase_from_command_paths(
@@ -29,8 +29,7 @@ def phase_from_command_paths(
 class PhaseProxyCommandRunner:
     """Route each adapter command through its phase's proxy when available."""
 
-    def __init__(self, *, case: CaseDefinition, capture: PhaseProxyCapture, base_runner: CommandRunner) -> None:
-        self.case = case
+    def __init__(self, *, capture: PhaseProxyCapture, base_runner: CommandRunner) -> None:
         self.capture = capture
         self.base_runner = base_runner
 
@@ -45,7 +44,7 @@ class PhaseProxyCommandRunner:
         workspace_dir: Path | None = None,
     ) -> CommandResult:
         phase = phase_from_command_paths(
-            case=self.case,
+            case=case,
             stdout_path=stdout_path,
             workspace_dir=workspace_dir,
         )
@@ -83,12 +82,11 @@ def run_case_with_phase_proxy(
     *,
     adapter: Any,
     case: CaseDefinition,
-    cli_agent_spec: CliAgentSpec,
     model_spec: ModelSpec,
     test_spec: TestSpec,
     upstream_base_url: str,
     proxy_options: ProxyCaptureOptions,
-    proxy_factory: ProxyFactory = create_ollama_telemetry_proxy,
+    proxy_factory: ProxyFactory = OllamaTelemetryProxy,
 ) -> tuple[CaseResult, dict[str, str], dict[str, str], str | None]:
     original_run_command = getattr(adapter, "run_command", None)
     if original_run_command is None:
@@ -121,7 +119,6 @@ def run_case_with_phase_proxy(
         case.run_metadata = {**case.run_metadata, **phase_hosts}
 
     phase_runner = PhaseProxyCommandRunner(
-        case=case,
         capture=capture,
         base_runner=CallableCommandRunner(original_run_command),
     )

@@ -35,7 +35,6 @@ from gripprobe.phase_execution import run_case_with_phase_proxy
 from gripprobe.models import BackendSpec, CaseDefinition, CaseResult, CliAgentSpec, ModelSpec, TestSpec
 from gripprobe.proxy_capture import (
     build_proxy_capture_options,
-    create_ollama_telemetry_proxy,
     proxy_artifact_path,
     should_disable_proxy_for_cli_agent,
 )
@@ -48,6 +47,7 @@ from gripprobe.telemetry import (
     extract_and_persist_case_telemetry,
     normalize_telemetry_proxy_mode,
 )
+from gripprobe.telemetry_proxy import OllamaTelemetryProxy
 
 
 DEFAULT_BACKEND = "ollama"
@@ -577,9 +577,10 @@ def run(
             proxy_capture_error: str | None = None
             proxy_runtime_metadata: dict[str, str] = {}
             upstream_base_url: str | None = None
+            proxy_disabled = should_disable_proxy_for_cli_agent(cli_agent_spec, model_spec)
             if proxy_mode == "off":
                 proxy_capture_skip_reason = "disabled"
-            elif should_disable_proxy_for_cli_agent(cli_agent_spec, model_spec):
+            elif proxy_disabled:
                 proxy_capture_skip_reason = "disabled_by_cli_agent_policy"
             elif backend.id != "ollama":
                 if proxy_mode == "force":
@@ -627,17 +628,16 @@ def run(
                     proxy_mode != "off"
                     and backend.id == "ollama"
                     and upstream_base_url is not None
-                    and not should_disable_proxy_for_cli_agent(cli_agent_spec, model_spec)
+                    and not proxy_disabled
                 ):
                     result, phase_proxy_metadata, proxy_capture_artifact_relpaths, proxy_capture_error = run_case_with_phase_proxy(
                         adapter=adapter,
                         case=case,
-                        cli_agent_spec=cli_agent_spec,
                         model_spec=model_spec,
                         test_spec=active_test_spec,
                         upstream_base_url=upstream_base_url,
                         proxy_options=build_proxy_capture_options(case, cli_agent_spec, model_spec),
-                        proxy_factory=create_ollama_telemetry_proxy,
+                        proxy_factory=OllamaTelemetryProxy,
                     )
                     proxy_runtime_metadata = {**proxy_runtime_metadata, **phase_proxy_metadata}
                 else:
@@ -652,7 +652,7 @@ def run(
             if (
                 proxy_mode != "off"
                 and backend.id == "ollama"
-                and not should_disable_proxy_for_cli_agent(cli_agent_spec, model_spec)
+                and not proxy_disabled
             ):
                 expected_proxy_artifacts = {
                     "warmup": proxy_artifact_path("warmup"),
