@@ -10,10 +10,11 @@ from gripprobe.proxy_capture import ProxyCaptureOptions
 
 
 class _FakeProxy:
-    def __init__(self, *, case_dir: Path, artifact_relpath: str, base_url: str) -> None:
+    def __init__(self, *, case_dir: Path, artifact_relpath: str, base_url: str, fail_stop: bool = False) -> None:
         self.case_dir = case_dir
         self.artifact_relpath = artifact_relpath
         self.base_url = base_url
+        self.fail_stop = fail_stop
         self.stop_calls = 0
 
     def start(self) -> None:
@@ -23,6 +24,8 @@ class _FakeProxy:
 
     def stop(self) -> None:
         self.stop_calls += 1
+        if self.fail_stop:
+            raise RuntimeError("stop failed")
 
 
 class _FakeAdapter:
@@ -213,4 +216,35 @@ def test_phase_execution_stops_proxies_when_adapter_raises(tmp_path: Path) -> No
             proxy_factory=factory,
         )
 
+    assert all(proxy.stop_calls == 1 for proxy in proxies)
+
+
+def test_phase_execution_preserves_result_when_proxy_stop_fails(tmp_path: Path) -> None:
+    case = _case(tmp_path)
+    model, test = _specs()
+    adapter = _FakeAdapter()
+    proxies: list[_FakeProxy] = []
+
+    def factory(*, case_dir: Path, artifact_relpath: str, **_kwargs):
+        proxy = _FakeProxy(
+            case_dir=case_dir,
+            artifact_relpath=artifact_relpath,
+            base_url="http://127.0.0.1:19080",
+            fail_stop=True,
+        )
+        proxies.append(proxy)
+        return proxy
+
+    result, _metadata, _artifacts, error = run_case_with_phase_proxy(
+        adapter=adapter,
+        case=case,
+        model_spec=model,
+        test_spec=test,
+        upstream_base_url="http://127.0.0.1:11434",
+        proxy_options=ProxyCaptureOptions(),
+        proxy_factory=factory,
+    )
+
+    assert result == "result"
+    assert error == "stop failed"
     assert all(proxy.stop_calls == 1 for proxy in proxies)

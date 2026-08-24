@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Callable, Protocol, cast
 
 from gripprobe.command_runner import CallableCommandRunner, CommandResult, CommandRunner
 from gripprobe.models import CaseDefinition, CaseResult, ModelSpec, TestSpec
@@ -13,6 +13,19 @@ from gripprobe.proxy_capture import (
     proxy_artifact_path,
 )
 from gripprobe.telemetry_proxy import OllamaTelemetryProxy
+
+
+class CaseAdapter(Protocol):
+    """Adapter contract used by phase execution, including legacy fallback."""
+
+    def run_case(
+        self,
+        case: CaseDefinition,
+        model_spec: ModelSpec,
+        test_spec: TestSpec,
+        command_runner: CommandRunner | None = None,
+    ) -> CaseResult:
+        ...
 
 
 def phase_from_command_paths(
@@ -80,7 +93,7 @@ class PhaseProxyCommandRunner:
 
 def run_case_with_phase_proxy(
     *,
-    adapter: Any,
+    adapter: CaseAdapter,
     case: CaseDefinition,
     model_spec: ModelSpec,
     test_spec: TestSpec,
@@ -89,7 +102,7 @@ def run_case_with_phase_proxy(
     proxy_factory: ProxyFactory = OllamaTelemetryProxy,
 ) -> tuple[CaseResult, dict[str, str], dict[str, str], str | None]:
     original_run_command = getattr(adapter, "run_command", None)
-    if original_run_command is None:
+    if not callable(original_run_command):
         result = adapter.run_case(case, model_spec, test_spec)
         return (
             result,
@@ -121,7 +134,9 @@ def run_case_with_phase_proxy(
 
     phase_runner = PhaseProxyCommandRunner(
         capture=capture,
-        base_runner=CallableCommandRunner(original_run_command),
+        base_runner=CallableCommandRunner(
+            cast(Callable[..., CommandResult], original_run_command)
+        ),
     )
     try:
         result = adapter.run_case(

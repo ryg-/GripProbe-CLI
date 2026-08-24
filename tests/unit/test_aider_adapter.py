@@ -90,6 +90,10 @@ def test_aider_uses_isolated_config_and_ollama_model(tmp_path: Path) -> None:
     model_spec = _model_spec()
     test_spec = _test_spec()
     case = _case(tmp_path, test_spec)
+    case.run_metadata = {
+        "telemetry_proxy_warmup_ollama_host": "http://127.0.0.1:18080",
+        "telemetry_proxy_measured_ollama_host": "http://127.0.0.1:18081",
+    }
     case.warmup_workspace_dir.mkdir(parents=True)
     case.workspace_dir.mkdir(parents=True)
     (case.warmup_workspace_dir / "patch-target.txt").write_text("STATUS=old\n", encoding="utf-8")
@@ -124,6 +128,8 @@ def test_aider_uses_isolated_config_and_ollama_model(tmp_path: Path) -> None:
     assert str(result.metadata["measured_command"]).startswith("aider ")
     assert len(captured_args) == 2
     assert len(captured_envs) == 2
+    assert captured_args[0][captured_args[0].index("--openai-api-base") + 1] == "http://127.0.0.1:18080/v1"
+    assert captured_args[1][captured_args[1].index("--openai-api-base") + 1] == "http://127.0.0.1:18081/v1"
     for args in captured_args:
         assert args[0] == "aider"
         assert "--config" in args
@@ -133,8 +139,9 @@ def test_aider_uses_isolated_config_and_ollama_model(tmp_path: Path) -> None:
         assert "--openai-api-base" in args
         assert "--message" in args
         assert "patch-target.txt" in args
+    assert captured_envs[0]["OLLAMA_API_BASE"] == "http://127.0.0.1:18080"
+    assert captured_envs[1]["OLLAMA_API_BASE"] == "http://127.0.0.1:18081"
     for env in captured_envs:
-        assert env["OLLAMA_API_BASE"] == "http://127.0.0.1:11434"
         assert env["HOME"]
         assert env["XDG_STATE_HOME"]
     assert captured_envs[0]["HOME"] != captured_envs[1]["HOME"]
