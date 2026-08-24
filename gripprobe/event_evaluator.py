@@ -5,9 +5,19 @@ from typing import Any
 from gripprobe.models import CaseResult
 
 
-def apply_event_evaluation(result: CaseResult) -> None:
+def apply_event_evaluation(result: CaseResult, *, proxy_required: bool = False) -> None:
     """Normalize case verdict fields from process, validator, and telemetry evidence."""
     metadata = dict(result.metadata)
+    if proxy_required and str(metadata.get("telemetry_proxy_status")) != "collected":
+        result.status = "HARNESS_ERROR"
+        result.invoked = "no"
+        result.match_percent = 0
+        metadata.update(
+            {
+                "failure_reason": "proxy_required_but_not_available",
+                "error": "telemetry proxy mode=force requires active proxy capture",
+            }
+        )
     final_status, reason_code, reason_text = _evaluate_status(result, metadata)
     artifact_match = _artifact_match(result)
     tool_invocation_match = _tool_invocation_match(metadata)

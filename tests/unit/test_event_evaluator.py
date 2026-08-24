@@ -135,3 +135,24 @@ def test_event_evaluator_nonzero_exit_is_shell_error_even_when_validators_pass()
 
     assert result.status == "SHELL_ERROR"
     assert result.metadata["failure_reason"] == "nonzero_exit"
+
+
+def test_event_evaluator_marks_force_proxy_without_capture_as_harness_error() -> None:
+    result = _case_result(metadata={"telemetry_proxy_status": "error"})
+
+    apply_event_evaluation(result, proxy_required=True)
+
+    assert result.status == "HARNESS_ERROR"
+    assert result.invoked == "no"
+    assert result.match_percent == 0
+    assert result.metadata["failure_reason"] == "proxy_required_but_not_available"
+    assert result.metadata["error"] == "telemetry proxy mode=force requires active proxy capture"
+
+
+def test_event_evaluator_does_not_reject_collected_proxy_in_force_mode() -> None:
+    result = _case_result(metadata={"telemetry_proxy_status": "collected"})
+
+    apply_event_evaluation(result, proxy_required=True)
+
+    assert result.status == "PASS"
+    assert result.metadata["failure_reason"] is None

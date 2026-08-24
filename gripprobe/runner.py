@@ -689,19 +689,6 @@ def run(
                 proxy_capture_skip_reason=proxy_capture_skip_reason,
                 proxy_artifact_relpaths=proxy_capture_artifact_relpaths,
             )
-            proxy_required_failed = (
-                proxy_mode == "force"
-                and str(telemetry_metadata.get("telemetry_proxy_status")) != "collected"
-            )
-            if proxy_required_failed:
-                result.status = "HARNESS_ERROR"
-                result.invoked = "no"
-                result.match_percent = 0
-                result.metadata = {
-                    **result.metadata,
-                    "failure_reason": "proxy_required_but_not_available",
-                    "error": "telemetry proxy mode=force requires active proxy capture",
-                }
             result.metadata = {
                 **merged_run_metadata,
                 **proxy_runtime_metadata,
@@ -740,7 +727,7 @@ def run(
                 **telemetry_metadata,
             }
             if proxy_capture_error != "adapter_missing_run_command":
-                apply_event_evaluation(result)
+                apply_event_evaluation(result, proxy_required=proxy_mode == "force")
             write_json(case_dir / "case.json", result.model_dump())
             results.append(result)
             _emit(
