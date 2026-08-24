@@ -6,7 +6,7 @@ GripProbe is a compatibility benchmark for local CLI AI agents. It checks whethe
 GripProbe measures observable side effects in real CLI agent environments.
 
 ## Published report
-First published report with 23 supported models and 4 CLI agents.
+The checked-in published snapshot covers 23 models and 5 CLI agents. The current source supports 6 CLI agents, including Pi; regenerate the report after new benchmark runs.
 - [View the CLI-agent compatibility report](https://local-agent-bench.org/docs/report/reports-v1/summary.html)
 - [Markdown summary](https://github.com/ryg-/GripProbe-CLI/blob/main/docs/report/reports-v1/summary.md)
 
@@ -57,11 +57,11 @@ Privacy and publication policy:
 
 ## GripProbe produces:
 - internal per-run diagnostic results `results/runs/...`
-- sanitized aggregate reports for sharing `results/aggregate/...`
+- sanitized aggregate reports for sharing in the configured output directory, for example `docs/report/reports/...`
 - HTML summaries for browsing and comparison
 
 ## Publication rule:
-- publish/share from `results/aggregate/...` only
+- publish/share from an aggregate output directory only; the checked-in snapshot is `docs/report/reports-v1/...`
 - treat `results/runs/...` as internal diagnostic data
 
 

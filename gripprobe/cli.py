@@ -190,7 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--telemetry-proxy",
         choices=["off", "auto", "force"],
         default="auto",
-        help="Telemetry proxy mode: auto (default), off, or force. MVP currently extracts wrapper telemetry and records proxy mode as skipped/error metadata when proxy capture is unavailable.",
+        help="Telemetry proxy mode: auto (default), off, or force. Auto keeps proxy capture failure non-fatal and records the skip/error reason.",
     )
     run_suite_p = sub.add_parser("run-suite")
     run_suite_p.add_argument("--suite", default="default_cli_matrix")
@@ -217,7 +217,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--telemetry-proxy",
         choices=["off", "auto", "force"],
         default="auto",
-        help="Telemetry proxy mode: auto (default), off, or force. MVP currently extracts wrapper telemetry and records proxy mode as skipped/error metadata when proxy capture is unavailable.",
+        help="Telemetry proxy mode: auto (default), off, or force. Auto keeps proxy capture failure non-fatal and records the skip/error reason.",
     )
     rebuild_p = sub.add_parser("rebuild-reports")
     rebuild_p.add_argument("--run-dir", required=True)

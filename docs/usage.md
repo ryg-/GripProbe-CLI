@@ -156,6 +156,8 @@ Result files:
 - HTML: `docs/report/reports/summary.html`
 - Markdown: `docs/report/reports/summary.md`
 
+The checked-in public snapshot is kept separately under `docs/report/reports-v1`.
+
 If needed, you can aggregate only specific runs via `--run-dirs` instead of `--runs-root`.
 
 
@@ -211,7 +213,7 @@ python3 -m gripprobe.cli --root . run-suite \
 
 - `--resume-suite` works per case (`cli_agent+model+backend+format+test`) and skips already completed cases from `results/runs/...`.
 - `default_cli_matrix` is sanity-first and currently runs with `formats: tool`.
-- For publication/share, use `results/aggregate/...`; keep `results/runs/...` as internal diagnostic artifacts.
+- For publication/share, use an explicit aggregate output directory such as `docs/report`; keep `results/runs/...` as internal diagnostic artifacts. The checked-in public snapshot is `docs/report/reports-v1`.
 - For report field changes, start from `docs/specs/report-field-change-template.md`.
 
 ## Shell Configuration

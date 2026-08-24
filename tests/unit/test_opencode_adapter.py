@@ -33,7 +33,7 @@ def _model_spec() -> ModelSpec:
                 {
                     "id": "ollama",
                     "model_id": "qwen2.5:7b",
-                    "shell_model_id": "local/qwen2.5:7b",
+                    "cli_agent_model_id": "local/qwen2.5:7b",
                 }
             ],
             "supported_formats": ["markdown", "tool"],
@@ -65,13 +65,13 @@ def _case(tmp_path: Path, spec: GripTestSpec) -> CaseDefinition:
         {
             "case_id": "opencode__local_qwen2_5_7b__ollama__tool__shell_pwd",
             "run_id": "run-opencode",
-            "shell_id": "opencode",
-            "shell_label": "opencode",
+            "cli_agent_id": "opencode",
+            "cli_agent_label": "opencode",
             "model_id": "local_qwen2_5_7b",
             "model_label": "local/qwen2.5:7b",
             "backend_id": "ollama",
             "backend_model_id": "qwen2.5:7b",
-            "shell_model_id": "local/qwen2.5:7b",
+            "cli_agent_model_id": "local/qwen2.5:7b",
             "model_hash": "unknown",
             "tool_format": "tool",
             "test_id": "shell_pwd",
@@ -136,7 +136,7 @@ def test_opencode_uses_isolated_single_model_config(tmp_path: Path) -> None:
     payload = json.loads(isolated_config.read_text(encoding="utf-8"))
     assert payload["model"] == "ollama/qwen2.5:7b"
     assert payload["small_model"] == "ollama/qwen2.5:7b"
-    assert payload["provider"]["ollama"]["models"]["qwen2.5:7b"]["name"] == "Qwen2.5 7B"
+    assert payload["provider"]["ollama"]["models"]["qwen2.5:7b"]["name"] == "local/qwen2.5:7b"
 
 
 def test_opencode_ignores_source_baseurl_and_uses_case_proxy_host(tmp_path: Path, monkeypatch) -> None:

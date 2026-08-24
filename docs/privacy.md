@@ -34,7 +34,7 @@ Default policy:
 Path pattern:
 
 ```text
-results/aggregate/<name>/
+<output-dir>/reports/
 ```
 
 This is the derived presentation layer built from multiple run directories.
@@ -72,7 +72,7 @@ This counter is privacy-friendly and is used only to understand interest in the 
 Use the layers like this:
 
 - `results/runs/...` for investigation
-- `results/aggregate/...` for review, comparison, and sharing
+- the configured aggregate output directory for review, comparison, and sharing
 
 If a report may leave the local machine, prefer generating or publishing from the aggregate layer, not directly from `results/runs/...`.
 

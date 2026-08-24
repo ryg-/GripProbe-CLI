@@ -5,6 +5,7 @@ from pathlib import Path
 
 from gripprobe.spec_loader import load_suite_specs
 from gripprobe.suite_runner import run_suite
+from gripprobe.spec_loader import load_cli_agent_specs
 
 
 def _suite_matrix_size(specs_root: Path, suite_id: str) -> int:
@@ -39,7 +40,7 @@ def _write_case_json(
     )
 
 
-def test_run_suite_runs_all_shells_by_default(monkeypatch, specs_root: Path) -> None:
+def test_run_suite_runs_all_cli_agents_by_default(monkeypatch, specs_root: Path) -> None:
     calls: list[tuple[str, str, str | None, tuple[str, ...] | None]] = []
 
     def _fake_run(
@@ -76,11 +77,12 @@ def test_run_suite_runs_all_shells_by_default(monkeypatch, specs_root: Path) -> 
         specs_root,
         suite_name="default_cli_matrix",
         models=["local/qwen2.5:7b"],
-        shells=None,
+        cli_agents=None,
     )
 
-    assert len(run_dirs) == 5
-    assert {shell for shell, _, _, _ in calls} == {"aider", "codex", "continue-cli", "gptme", "opencode"}
+    expected_agents = {agent.id for agent in load_cli_agent_specs(specs_root)}
+    assert len(run_dirs) == len(expected_agents)
+    assert {cli_agent for cli_agent, _, _, _ in calls} == expected_agents
     assert all(model == "local/qwen2.5:7b" for _, model, _, _ in calls)
     assert all(formats == ("tool",) for _, _, _, formats in calls)
 

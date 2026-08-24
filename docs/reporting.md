@@ -16,15 +16,17 @@
 - with `--recompute-case-json`, it recalculates `case.json` from artifacts first, then rebuilds reports
 
 4. `aggregate-reports` reads multiple run directories from `results/runs/*`, copies required case data into an aggregate directory, and generates:
-- `results/aggregate/<NAME>/reports/summary.html`
-- `results/aggregate/<NAME>/reports/summary.md`
+- `<OUTPUT_DIR>/reports/summary.html`
+- `<OUTPUT_DIR>/reports/summary.md`
+
+The repository usage example uses `--output-dir docs/report`, while `results/aggregate/<NAME>` remains a valid internal output convention.
 
 ## 2) Difference between the two report layers
 
 - Run report (`results/runs/.../reports/...`) is for a single run and stays close to raw diagnostics.
   It is mainly used for debugging and navigation through raw artifacts (failure causes, timeouts, shell/model/tool behavior).
 
-- Aggregate report (`results/aggregate/.../reports/...`) is a cross-run summary layer with grouping and comparison.
+- Aggregate report (`<OUTPUT_DIR>/reports/...`) is a cross-run summary layer with grouping and comparison.
 
 In practice, publishing run reports is usually unnecessary (and awkward on GitHub Pages), because they are diagnostic/raw.
 The aggregate layer is the publication target.

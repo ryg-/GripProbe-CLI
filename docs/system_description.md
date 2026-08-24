@@ -1,20 +1,3 @@
-## Saved Review Notes (2026-05-11)
-
-### Questions to Keep
-
-- Should `trajectory` / `run_consistency` be normalized for all adapters, or explicitly documented as `gptme`/`rebuild`-specific behavior?
-- Are `SHELL_ERROR` and `SKIPPED` planned for active runtime use, or should they be marked as reserved statuses?
-
-### Suggested Corrections for This Document
-
-- Clarify that trace-based `trajectory` and consistency analysis are currently computed in runtime mainly for `gptme` (and in `rebuild --recompute-case-json`), while other adapters usually keep default `trajectory=clean`.
-- Replace “expected/observed files are written per case” with “usually written; may be absent on `HARNESS_ERROR` paths”.
-- Add explicit note: `TIMEOUT` may still have `match_percent=100` when artifact is reached before timeout, but status remains `TIMEOUT`.
-- Mark `SHELL_ERROR` / `SKIPPED` as reserved unless they become actively emitted in runtime branches.
-- Narrow system-message stripping statement: default stripping is explicit in `gptme` and in `rebuild` (unless `--keep-system-messages`).
-- Separate “run-level HTML” vs raw case artifacts: run HTML is sanitized, raw files under `cases/*` remain diagnostic.
-- Add `backfill-model-hashes` and `list-runs` to operational lifecycle section.
-
 # GripProbe-CLI: Technical System Description
 
 ## 1. Purpose and Positioning
@@ -26,7 +9,7 @@ The core comparison axis is:
 
 - **model × cli_agent × backend × format × test**
 
-This is important: the same model can behave very differently depending on the CLI agent (for example `gptme`, `continue-cli`, `codex`, `opencode`, `aider`) and execution mode (`tool` / `markdown` where supported).
+This is important: the same model can behave very differently depending on the CLI agent (for example `gptme`, `continue-cli`, `codex`, `opencode`, `aider`, `pi`) and execution mode (`tool` / `markdown` where supported).
 
 ---
 
@@ -127,6 +110,7 @@ Current adapters:
 - `CodexAdapter`
 - `OpencodeAdapter`
 - `AiderAdapter`
+- `PiAdapter`
 
 Common behavior:
 
@@ -279,5 +263,6 @@ Typical workflow:
 3. inspect run-level summaries for debugging.
 4. optionally `rebuild-reports` for repaired/updated interpretation.
 5. `aggregate-reports` for cross-run comparison/publication.
+6. `backfill-model-hashes` or `list-runs` for maintenance and run discovery.
 
 This separation keeps debugging forensics and publication artifacts decoupled, while preserving reproducibility.
