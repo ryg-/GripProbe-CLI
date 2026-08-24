@@ -8,6 +8,7 @@ import subprocess
 import time
 from datetime import datetime
 
+from gripprobe.command_runner import CommandResult, CommandRunner
 from gripprobe.models import CaseDefinition, CaseResult, CliAgentSpec, ModelSpec, TestSpec
 
 
@@ -21,8 +22,43 @@ class CliAgentAdapter(ABC):
         return self.cli_agent_spec
 
     @abstractmethod
-    def run_case(self, case: CaseDefinition, model_spec: ModelSpec, test_spec: TestSpec) -> CaseResult:
+    def run_case(
+        self,
+        case: CaseDefinition,
+        model_spec: ModelSpec,
+        test_spec: TestSpec,
+        command_runner: CommandRunner | None = None,
+    ) -> CaseResult:
         raise NotImplementedError
+
+    def _run_case_command(
+        self,
+        command_runner: CommandRunner | None,
+        *,
+        case: CaseDefinition,
+        args: list[str],
+        env: dict[str, str],
+        stdout_path: Path,
+        stderr_path: Path,
+        workspace_dir: Path | None = None,
+    ) -> CommandResult:
+        if command_runner is not None:
+            return command_runner.run(
+                case=case,
+                args=args,
+                env=env,
+                stdout_path=stdout_path,
+                stderr_path=stderr_path,
+                workspace_dir=workspace_dir,
+            )
+        return self.run_command(
+            case,
+            args,
+            env,
+            stdout_path,
+            stderr_path,
+            workspace_dir=workspace_dir,
+        )
 
     def run_command(
         self,

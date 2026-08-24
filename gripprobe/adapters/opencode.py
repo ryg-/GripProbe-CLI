@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from gripprobe.adapters.base import CliAgentAdapter
+from gripprobe.command_runner import CommandRunner
 from gripprobe.case_result import CaseStatus, ToolInvocation, build_case_result
 from gripprobe.failure_reason import infer_failure_reason
 from gripprobe.models import CaseDefinition, ModelSpec, TestSpec
@@ -93,7 +94,13 @@ class OpencodeAdapter(CliAgentAdapter):
             return "FAIL", "no", 0, expected, observed
         return "FAIL", "maybe", 0, expected, observed
 
-    def run_case(self, case: CaseDefinition, model_spec: ModelSpec, test_spec: TestSpec):
+    def run_case(
+        self,
+        case: CaseDefinition,
+        model_spec: ModelSpec,
+        test_spec: TestSpec,
+        command_runner: CommandRunner | None = None,
+    ):
         case.case_dir.mkdir(parents=True, exist_ok=True)
         (case.case_dir / "artifacts").mkdir(exist_ok=True)
         (case.case_dir / "prompt.txt").write_text(case.prompt, encoding="utf-8")
@@ -143,20 +150,22 @@ class OpencodeAdapter(CliAgentAdapter):
         warmup_command = self._command_text(case, warmup_args, warmup_env, workspace_dir=case.warmup_workspace_dir)
         measured_command = self._command_text(case, measured_args, measured_env, workspace_dir=case.workspace_dir)
 
-        warmup_rc, warmup_s, warmup_started_at, warmup_finished_at = self.run_command(
-            case,
-            warmup_args,
-            warmup_env,
-            warmup_stdout,
-            warmup_stderr,
+        warmup_rc, warmup_s, warmup_started_at, warmup_finished_at = self._run_case_command(
+            command_runner,
+            case=case,
+            args=warmup_args,
+            env=warmup_env,
+            stdout_path=warmup_stdout,
+            stderr_path=warmup_stderr,
             workspace_dir=case.warmup_workspace_dir,
         )
-        measured_rc, measured_s, measured_started_at, measured_finished_at = self.run_command(
-            case,
-            measured_args,
-            measured_env,
-            measured_stdout,
-            measured_stderr,
+        measured_rc, measured_s, measured_started_at, measured_finished_at = self._run_case_command(
+            command_runner,
+            case=case,
+            args=measured_args,
+            env=measured_env,
+            stdout_path=measured_stdout,
+            stderr_path=measured_stderr,
             workspace_dir=case.workspace_dir,
         )
 
