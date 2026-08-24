@@ -5,6 +5,7 @@ from pathlib import Path
 
 from gripprobe.case_result import build_case_result
 from gripprobe.runner import run
+from tests.conftest import FakeSuccessAdapter
 
 
 def test_run_force_proxy_mode_collects_proxy_for_ollama_backend(monkeypatch, specs_root: Path) -> None:
@@ -170,6 +171,45 @@ def test_run_force_proxy_mode_collects_proxy_for_ollama_backend(monkeypatch, spe
     assert "Open Interactive Viewer" in detail_html
     assert "gripprobeOpenTelemetryViewer" in detail_html
     assert "window.open('about:blank', '_blank')" in detail_html
+
+
+def test_run_force_proxy_mode_rejects_legacy_adapter_without_command_runner(
+    monkeypatch,
+    specs_root: Path,
+) -> None:
+    class _NoopProxy:
+        def __init__(self, *, case_dir: Path, upstream_base_url: str, artifact_relpath: str) -> None:
+            self.base_url = "http://127.0.0.1:19080"
+            self.artifact_relpath = artifact_relpath
+
+        def start(self) -> None:
+            return
+
+        def stop(self) -> None:
+            return
+
+    monkeypatch.setattr("gripprobe.runner._adapter_for", lambda shell_spec: FakeSuccessAdapter(shell_spec))
+    monkeypatch.setattr("gripprobe.runner._fetch_ollama_model_digest", lambda model_id: "845dbda0ea48")
+    monkeypatch.setattr("gripprobe.runner._collect_shell_runtime_metadata", lambda executable: {})
+    monkeypatch.setattr("gripprobe.runner._collect_runtime_snapshot", lambda include_ollama=False: {"captured_at": "now", "probes": {}})
+    monkeypatch.setattr("gripprobe.runner.OllamaTelemetryProxy", _NoopProxy)
+
+    _run_dir, results = run(
+        specs_root,
+        shell_name="gptme",
+        model_name="local/qwen2.5:7b",
+        backend_name="ollama",
+        tests_filter=["shell_pwd"],
+        formats_filter=["markdown"],
+        run_id="run-legacy-force-proxy",
+        telemetry_proxy_mode="force",
+    )
+
+    assert len(results) == 1
+    assert results[0].status == "HARNESS_ERROR"
+    assert results[0].invoked == "no"
+    assert results[0].match_percent == 0
+    assert results[0].metadata["failure_reason"] == "proxy_required_but_not_available"
 
 
 def test_run_writes_artifacts_under_custom_runs_root(monkeypatch, specs_root: Path, tmp_path: Path) -> None:

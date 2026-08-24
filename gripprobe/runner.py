@@ -726,7 +726,7 @@ def run(
                 },
                 **telemetry_metadata,
             }
-            if proxy_capture_error != "adapter_missing_run_command":
+            if proxy_mode == "force" or proxy_capture_error != "adapter_missing_run_command":
                 apply_event_evaluation(result, proxy_required=proxy_mode == "force")
             write_json(case_dir / "case.json", result.model_dump())
             results.append(result)
