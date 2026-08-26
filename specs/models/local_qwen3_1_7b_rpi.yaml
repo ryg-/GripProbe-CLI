@@ -45,7 +45,8 @@ policy_overrides:
   telemetry_proxy_strip_commit_signature_context: false
 #  telemetry_proxy_reasoning_effort: none
 #  telemetry_proxy_temperature_override: 0.0
-#  prompt_append_no_think: true
+  # Textual /no_think is ignored by Codex's Responses API; use adapter-level
+  # request control if Ollama's think=false must be enabled.
   proxy_include_exit_tool: false
   #proxy_include_tool_names:
   #  - read

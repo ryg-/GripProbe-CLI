@@ -3,6 +3,12 @@
 Use this feature request before implementing proxy/wrapper telemetry for real tool-call observation.
 Scope: local workflow only (no PR requirements).
 
+The benchmark policy for native baselines, tool normalization, request tuning,
+timeouts, and protocol translation is defined in
+[`docs/benchmark-methodology.md`](../benchmark-methodology.md). This spec
+defines telemetry capture and reporting mechanics; it does not make proxy
+normalization invisible or turn protocol translation into a native result.
+
 ## 1. Change Summary
 
 - Feature name: `tool_telemetry_proxy_wrapper`

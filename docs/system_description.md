@@ -101,6 +101,11 @@ The adapters store command strings and phase timestamps in metadata (`warmup_com
 
 ## 6. Adapter Layer
 
+Benchmark condition and proxy-normalization rules are defined in
+[Benchmark Methodology](./benchmark-methodology.md). CLI-agent-specific
+protocol and tool differences remain part of the compatibility target, while
+any normalization used to make a comparison measurable must be reported.
+
 All CLI agents implement `CliAgentAdapter` (`gripprobe/adapters/base.py`; legacy alias `ShellAdapter`), with one contract: `run_case(case, model_spec, test_spec) -> CaseResult`.
 
 Current adapters:

@@ -31,7 +31,14 @@ The repository usage example uses `--output-dir docs/report`, while `results/agg
 In practice, publishing run reports is usually unnecessary (and awkward on GitHub Pages), because they are diagnostic/raw.
 The aggregate layer is the publication target.
 
-## 3) What gets sanitized
+## 3) Experimental conditions
+
+Native runs, tool-normalized runs, request-tuned runs, and protocol-translated
+runs are different experimental conditions. The reporting layer must preserve
+that distinction. See [Benchmark Methodology](./benchmark-methodology.md) for
+the required condition labels and proxy mutation details.
+
+## 4) What gets sanitized
 
 Sanitization is applied when building the aggregate layer:
 - home/user paths
